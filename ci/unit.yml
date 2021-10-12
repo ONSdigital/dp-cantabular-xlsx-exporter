@@ -1,0 +1,18 @@
+---
+
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: golang
+    tag: 1.16
+
+inputs:
+  - name: dp-cantabular-xlsx-exporter
+
+caches:
+  - path: go/
+
+run:
+  path: dp-cantabular-xlsx-exporter/ci/scripts/unit.sh
