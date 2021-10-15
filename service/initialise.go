@@ -72,8 +72,8 @@ func (e *Init) DoGetKafkaConsumer(ctx context.Context, cfg *config.Config) (dpka
 	kafkaConsumer, err := dpkafka.NewConsumerGroup(
 		ctx,
 		cfg.KafkaAddr,
-		cfg.HelloCalledTopic,
-		cfg.HelloCalledGroup,
+		cfg.CsvCreatedTopic,
+		cfg.CsvCreatedGroup,
 		cgChannels,
 		&dpkafka.ConsumerGroupConfig{
 			KafkaVersion: &cfg.KafkaVersion,
