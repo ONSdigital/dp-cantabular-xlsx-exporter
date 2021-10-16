@@ -1,4 +1,4 @@
-package service_test
+package service
 
 import (
 	"context"
@@ -12,7 +12,8 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	serviceMock "github.com/ONSdigital/dp-cantabular-xlsx-exporter/service/mock"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
-	dpkafka "github.com/ONSdigital/dp-kafka/v2"
+
+	//	dpkafka "github.com/ONSdigital/dp-kafka/v2"
 	kafka "github.com/ONSdigital/dp-kafka/v2"
 	"github.com/ONSdigital/dp-kafka/v2/kafkatest"
 
@@ -46,7 +47,7 @@ func TestInit(t *testing.T) {
 		}
 
 		producerMock := &kafkatest.IProducerMock{}
-		GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (dpkafka.IProducer, error) {
+		GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (kafka.IProducer, error) {
 			return producerMock, nil
 		}
 

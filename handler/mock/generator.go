@@ -8,29 +8,25 @@ import (
 	"sync"
 )
 
-var (
-	lockGeneratorMockNewPSK sync.RWMutex
-)
-
 // Ensure, that GeneratorMock does implement handler.Generator.
 // If this is not the case, regenerate this file with moq.
 var _ handler.Generator = &GeneratorMock{}
 
 // GeneratorMock is a mock implementation of handler.Generator.
 //
-//     func TestSomethingThatUsesGenerator(t *testing.T) {
+// 	func TestSomethingThatUsesGenerator(t *testing.T) {
 //
-//         // make and configure a mocked handler.Generator
-//         mockedGenerator := &GeneratorMock{
-//             NewPSKFunc: func() ([]byte, error) {
-// 	               panic("mock out the NewPSK method")
-//             },
-//         }
+// 		// make and configure a mocked handler.Generator
+// 		mockedGenerator := &GeneratorMock{
+// 			NewPSKFunc: func() ([]byte, error) {
+// 				panic("mock out the NewPSK method")
+// 			},
+// 		}
 //
-//         // use mockedGenerator in code that requires handler.Generator
-//         // and then make assertions.
+// 		// use mockedGenerator in code that requires handler.Generator
+// 		// and then make assertions.
 //
-//     }
+// 	}
 type GeneratorMock struct {
 	// NewPSKFunc mocks the NewPSK method.
 	NewPSKFunc func() ([]byte, error)
@@ -41,6 +37,7 @@ type GeneratorMock struct {
 		NewPSK []struct {
 		}
 	}
+	lockNewPSK sync.RWMutex
 }
 
 // NewPSK calls NewPSKFunc.
@@ -50,9 +47,9 @@ func (mock *GeneratorMock) NewPSK() ([]byte, error) {
 	}
 	callInfo := struct {
 	}{}
-	lockGeneratorMockNewPSK.Lock()
+	mock.lockNewPSK.Lock()
 	mock.calls.NewPSK = append(mock.calls.NewPSK, callInfo)
-	lockGeneratorMockNewPSK.Unlock()
+	mock.lockNewPSK.Unlock()
 	return mock.NewPSKFunc()
 }
 
@@ -63,8 +60,8 @@ func (mock *GeneratorMock) NewPSKCalls() []struct {
 } {
 	var calls []struct {
 	}
-	lockGeneratorMockNewPSK.RLock()
+	mock.lockNewPSK.RLock()
 	calls = mock.calls.NewPSK
-	lockGeneratorMockNewPSK.RUnlock()
+	mock.lockNewPSK.RUnlock()
 	return calls
 }

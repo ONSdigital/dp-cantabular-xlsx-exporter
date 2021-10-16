@@ -6,82 +6,84 @@ package mock
 import (
 	"context"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
-	"github.com/ONSdigital/dp-kafka/v2"
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/service"
+	kafka "github.com/ONSdigital/dp-kafka/v2"
 	"sync"
 )
 
-var (
-	lockProcessorMockConsume sync.RWMutex
-)
+// Ensure, that ProcessorMock does implement service.Processor.
+// If this is not the case, regenerate this file with moq.
+var _ service.Processor = &ProcessorMock{}
 
 // ProcessorMock is a mock implementation of service.Processor.
 //
-//     func TestSomethingThatUsesProcessor(t *testing.T) {
+// 	func TestSomethingThatUsesProcessor(t *testing.T) {
 //
-//         // make and configure a mocked service.Processor
-//         mockedProcessor := &ProcessorMock{
-//             ConsumeFunc: func(in1 context.Context, in2 kafka.IConsumerGroup, in3 event.Handler)  {
-// 	               panic("mock out the Consume method")
-//             },
-//         }
+// 		// make and configure a mocked service.Processor
+// 		mockedProcessor := &ProcessorMock{
+// 			ConsumeFunc: func(contextMoqParam context.Context, iConsumerGroup kafka.IConsumerGroup, handler event.Handler)  {
+// 				panic("mock out the Consume method")
+// 			},
+// 		}
 //
-//         // use mockedProcessor in code that requires service.Processor
-//         // and then make assertions.
+// 		// use mockedProcessor in code that requires service.Processor
+// 		// and then make assertions.
 //
-//     }
+// 	}
 type ProcessorMock struct {
 	// ConsumeFunc mocks the Consume method.
-	ConsumeFunc func(in1 context.Context, in2 kafka.IConsumerGroup, in3 event.Handler)
+	ConsumeFunc func(contextMoqParam context.Context, iConsumerGroup kafka.IConsumerGroup, handler event.Handler)
 
 	// calls tracks calls to the methods.
 	calls struct {
 		// Consume holds details about calls to the Consume method.
 		Consume []struct {
-			// In1 is the in1 argument value.
-			In1 context.Context
-			// In2 is the in2 argument value.
-			In2 kafka.IConsumerGroup
-			// In3 is the in3 argument value.
-			In3 event.Handler
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// IConsumerGroup is the iConsumerGroup argument value.
+			IConsumerGroup kafka.IConsumerGroup
+			// Handler is the handler argument value.
+			Handler event.Handler
 		}
 	}
+	lockConsume sync.RWMutex
 }
 
 // Consume calls ConsumeFunc.
-func (mock *ProcessorMock) Consume(in1 context.Context, in2 kafka.IConsumerGroup, in3 event.Handler) {
+func (mock *ProcessorMock) Consume(contextMoqParam context.Context, iConsumerGroup kafka.IConsumerGroup, handler event.Handler) {
 	if mock.ConsumeFunc == nil {
 		panic("ProcessorMock.ConsumeFunc: method is nil but Processor.Consume was just called")
 	}
 	callInfo := struct {
-		In1 context.Context
-		In2 kafka.IConsumerGroup
-		In3 event.Handler
+		ContextMoqParam context.Context
+		IConsumerGroup  kafka.IConsumerGroup
+		Handler         event.Handler
 	}{
-		In1: in1,
-		In2: in2,
-		In3: in3,
+		ContextMoqParam: contextMoqParam,
+		IConsumerGroup:  iConsumerGroup,
+		Handler:         handler,
 	}
-	lockProcessorMockConsume.Lock()
+	mock.lockConsume.Lock()
 	mock.calls.Consume = append(mock.calls.Consume, callInfo)
-	lockProcessorMockConsume.Unlock()
-	mock.ConsumeFunc(in1, in2, in3)
+	mock.lockConsume.Unlock()
+	mock.ConsumeFunc(contextMoqParam, iConsumerGroup, handler)
 }
 
 // ConsumeCalls gets all the calls that were made to Consume.
 // Check the length with:
 //     len(mockedProcessor.ConsumeCalls())
 func (mock *ProcessorMock) ConsumeCalls() []struct {
-	In1 context.Context
-	In2 kafka.IConsumerGroup
-	In3 event.Handler
+	ContextMoqParam context.Context
+	IConsumerGroup  kafka.IConsumerGroup
+	Handler         event.Handler
 } {
 	var calls []struct {
-		In1 context.Context
-		In2 kafka.IConsumerGroup
-		In3 event.Handler
+		ContextMoqParam context.Context
+		IConsumerGroup  kafka.IConsumerGroup
+		Handler         event.Handler
 	}
-	lockProcessorMockConsume.RLock()
+	mock.lockConsume.RLock()
 	calls = mock.calls.Consume
-	lockProcessorMockConsume.RUnlock()
+	mock.lockConsume.RUnlock()
 	return calls
 }

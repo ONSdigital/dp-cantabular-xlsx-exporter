@@ -9,29 +9,25 @@ import (
 	"sync"
 )
 
-var (
-	lockHandlerMockHandle sync.RWMutex
-)
-
 // Ensure, that HandlerMock does implement event.Handler.
 // If this is not the case, regenerate this file with moq.
 var _ event.Handler = &HandlerMock{}
 
 // HandlerMock is a mock implementation of event.Handler.
 //
-//     func TestSomethingThatUsesHandler(t *testing.T) {
+// 	func TestSomethingThatUsesHandler(t *testing.T) {
 //
-//         // make and configure a mocked event.Handler
-//         mockedHandler := &HandlerMock{
-//             HandleFunc: func(ctx context.Context, instanceComplete *event.InstanceComplete) error {
-// 	               panic("mock out the Handle method")
-//             },
-//         }
+// 		// make and configure a mocked event.Handler
+// 		mockedHandler := &HandlerMock{
+// 			HandleFunc: func(ctx context.Context, instanceComplete *event.InstanceComplete) error {
+// 				panic("mock out the Handle method")
+// 			},
+// 		}
 //
-//         // use mockedHandler in code that requires event.Handler
-//         // and then make assertions.
+// 		// use mockedHandler in code that requires event.Handler
+// 		// and then make assertions.
 //
-//     }
+// 	}
 type HandlerMock struct {
 	// HandleFunc mocks the Handle method.
 	HandleFunc func(ctx context.Context, instanceComplete *event.InstanceComplete) error
@@ -46,6 +42,7 @@ type HandlerMock struct {
 			InstanceComplete *event.InstanceComplete
 		}
 	}
+	lockHandle sync.RWMutex
 }
 
 // Handle calls HandleFunc.
@@ -60,9 +57,9 @@ func (mock *HandlerMock) Handle(ctx context.Context, instanceComplete *event.Ins
 		Ctx:              ctx,
 		InstanceComplete: instanceComplete,
 	}
-	lockHandlerMockHandle.Lock()
+	mock.lockHandle.Lock()
 	mock.calls.Handle = append(mock.calls.Handle, callInfo)
-	lockHandlerMockHandle.Unlock()
+	mock.lockHandle.Unlock()
 	return mock.HandleFunc(ctx, instanceComplete)
 }
 
@@ -77,8 +74,8 @@ func (mock *HandlerMock) HandleCalls() []struct {
 		Ctx              context.Context
 		InstanceComplete *event.InstanceComplete
 	}
-	lockHandlerMockHandle.RLock()
+	mock.lockHandle.RLock()
 	calls = mock.calls.Handle
-	lockHandlerMockHandle.RUnlock()
+	mock.lockHandle.RUnlock()
 	return calls
 }

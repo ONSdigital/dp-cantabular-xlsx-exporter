@@ -4,7 +4,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
-//go:generate moq -out mock/dataset-api-client.go -pkg mock . DatasetAPIClient
 //go:generate moq -out mock/s3-client.go -pkg mock . S3Uploader
 //go:generate moq -out mock/vault.go -pkg mock . VaultClient
 //go:generate moq -out mock/generator.go -pkg mock . Generator

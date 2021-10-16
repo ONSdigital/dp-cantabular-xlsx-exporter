@@ -5,36 +5,36 @@ package mock
 
 import (
 	"context"
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/service"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"sync"
 )
 
-var (
-	lockVaultClientMockChecker  sync.RWMutex
-	lockVaultClientMockWriteKey sync.RWMutex
-)
+// Ensure, that VaultClientMock does implement service.VaultClient.
+// If this is not the case, regenerate this file with moq.
+var _ service.VaultClient = &VaultClientMock{}
 
 // VaultClientMock is a mock implementation of service.VaultClient.
 //
-//     func TestSomethingThatUsesVaultClient(t *testing.T) {
+// 	func TestSomethingThatUsesVaultClient(t *testing.T) {
 //
-//         // make and configure a mocked service.VaultClient
-//         mockedVaultClient := &VaultClientMock{
-//             CheckerFunc: func(in1 context.Context, in2 *healthcheck.CheckState) error {
-// 	               panic("mock out the Checker method")
-//             },
-//             WriteKeyFunc: func(path string, key string, value string) error {
-// 	               panic("mock out the WriteKey method")
-//             },
-//         }
+// 		// make and configure a mocked service.VaultClient
+// 		mockedVaultClient := &VaultClientMock{
+// 			CheckerFunc: func(contextMoqParam context.Context, checkState *healthcheck.CheckState) error {
+// 				panic("mock out the Checker method")
+// 			},
+// 			WriteKeyFunc: func(path string, key string, value string) error {
+// 				panic("mock out the WriteKey method")
+// 			},
+// 		}
 //
-//         // use mockedVaultClient in code that requires service.VaultClient
-//         // and then make assertions.
+// 		// use mockedVaultClient in code that requires service.VaultClient
+// 		// and then make assertions.
 //
-//     }
+// 	}
 type VaultClientMock struct {
 	// CheckerFunc mocks the Checker method.
-	CheckerFunc func(in1 context.Context, in2 *healthcheck.CheckState) error
+	CheckerFunc func(contextMoqParam context.Context, checkState *healthcheck.CheckState) error
 
 	// WriteKeyFunc mocks the WriteKey method.
 	WriteKeyFunc func(path string, key string, value string) error
@@ -43,10 +43,10 @@ type VaultClientMock struct {
 	calls struct {
 		// Checker holds details about calls to the Checker method.
 		Checker []struct {
-			// In1 is the in1 argument value.
-			In1 context.Context
-			// In2 is the in2 argument value.
-			In2 *healthcheck.CheckState
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// CheckState is the checkState argument value.
+			CheckState *healthcheck.CheckState
 		}
 		// WriteKey holds details about calls to the WriteKey method.
 		WriteKey []struct {
@@ -58,40 +58,42 @@ type VaultClientMock struct {
 			Value string
 		}
 	}
+	lockChecker  sync.RWMutex
+	lockWriteKey sync.RWMutex
 }
 
 // Checker calls CheckerFunc.
-func (mock *VaultClientMock) Checker(in1 context.Context, in2 *healthcheck.CheckState) error {
+func (mock *VaultClientMock) Checker(contextMoqParam context.Context, checkState *healthcheck.CheckState) error {
 	if mock.CheckerFunc == nil {
 		panic("VaultClientMock.CheckerFunc: method is nil but VaultClient.Checker was just called")
 	}
 	callInfo := struct {
-		In1 context.Context
-		In2 *healthcheck.CheckState
+		ContextMoqParam context.Context
+		CheckState      *healthcheck.CheckState
 	}{
-		In1: in1,
-		In2: in2,
+		ContextMoqParam: contextMoqParam,
+		CheckState:      checkState,
 	}
-	lockVaultClientMockChecker.Lock()
+	mock.lockChecker.Lock()
 	mock.calls.Checker = append(mock.calls.Checker, callInfo)
-	lockVaultClientMockChecker.Unlock()
-	return mock.CheckerFunc(in1, in2)
+	mock.lockChecker.Unlock()
+	return mock.CheckerFunc(contextMoqParam, checkState)
 }
 
 // CheckerCalls gets all the calls that were made to Checker.
 // Check the length with:
 //     len(mockedVaultClient.CheckerCalls())
 func (mock *VaultClientMock) CheckerCalls() []struct {
-	In1 context.Context
-	In2 *healthcheck.CheckState
+	ContextMoqParam context.Context
+	CheckState      *healthcheck.CheckState
 } {
 	var calls []struct {
-		In1 context.Context
-		In2 *healthcheck.CheckState
+		ContextMoqParam context.Context
+		CheckState      *healthcheck.CheckState
 	}
-	lockVaultClientMockChecker.RLock()
+	mock.lockChecker.RLock()
 	calls = mock.calls.Checker
-	lockVaultClientMockChecker.RUnlock()
+	mock.lockChecker.RUnlock()
 	return calls
 }
 
@@ -109,9 +111,9 @@ func (mock *VaultClientMock) WriteKey(path string, key string, value string) err
 		Key:   key,
 		Value: value,
 	}
-	lockVaultClientMockWriteKey.Lock()
+	mock.lockWriteKey.Lock()
 	mock.calls.WriteKey = append(mock.calls.WriteKey, callInfo)
-	lockVaultClientMockWriteKey.Unlock()
+	mock.lockWriteKey.Unlock()
 	return mock.WriteKeyFunc(path, key, value)
 }
 
@@ -128,8 +130,8 @@ func (mock *VaultClientMock) WriteKeyCalls() []struct {
 		Key   string
 		Value string
 	}
-	lockVaultClientMockWriteKey.RLock()
+	mock.lockWriteKey.RLock()
 	calls = mock.calls.WriteKey
-	lockVaultClientMockWriteKey.RUnlock()
+	mock.lockWriteKey.RUnlock()
 	return calls
 }

@@ -8,29 +8,25 @@ import (
 	"sync"
 )
 
-var (
-	lockVaultClientMockWriteKey sync.RWMutex
-)
-
 // Ensure, that VaultClientMock does implement handler.VaultClient.
 // If this is not the case, regenerate this file with moq.
 var _ handler.VaultClient = &VaultClientMock{}
 
 // VaultClientMock is a mock implementation of handler.VaultClient.
 //
-//     func TestSomethingThatUsesVaultClient(t *testing.T) {
+// 	func TestSomethingThatUsesVaultClient(t *testing.T) {
 //
-//         // make and configure a mocked handler.VaultClient
-//         mockedVaultClient := &VaultClientMock{
-//             WriteKeyFunc: func(path string, key string, value string) error {
-// 	               panic("mock out the WriteKey method")
-//             },
-//         }
+// 		// make and configure a mocked handler.VaultClient
+// 		mockedVaultClient := &VaultClientMock{
+// 			WriteKeyFunc: func(path string, key string, value string) error {
+// 				panic("mock out the WriteKey method")
+// 			},
+// 		}
 //
-//         // use mockedVaultClient in code that requires handler.VaultClient
-//         // and then make assertions.
+// 		// use mockedVaultClient in code that requires handler.VaultClient
+// 		// and then make assertions.
 //
-//     }
+// 	}
 type VaultClientMock struct {
 	// WriteKeyFunc mocks the WriteKey method.
 	WriteKeyFunc func(path string, key string, value string) error
@@ -47,6 +43,7 @@ type VaultClientMock struct {
 			Value string
 		}
 	}
+	lockWriteKey sync.RWMutex
 }
 
 // WriteKey calls WriteKeyFunc.
@@ -63,9 +60,9 @@ func (mock *VaultClientMock) WriteKey(path string, key string, value string) err
 		Key:   key,
 		Value: value,
 	}
-	lockVaultClientMockWriteKey.Lock()
+	mock.lockWriteKey.Lock()
 	mock.calls.WriteKey = append(mock.calls.WriteKey, callInfo)
-	lockVaultClientMockWriteKey.Unlock()
+	mock.lockWriteKey.Unlock()
 	return mock.WriteKeyFunc(path, key, value)
 }
 
@@ -82,8 +79,8 @@ func (mock *VaultClientMock) WriteKeyCalls() []struct {
 		Key   string
 		Value string
 	}
-	lockVaultClientMockWriteKey.RLock()
+	mock.lockWriteKey.RLock()
 	calls = mock.calls.WriteKey
-	lockVaultClientMockWriteKey.RUnlock()
+	mock.lockWriteKey.RUnlock()
 	return calls
 }
