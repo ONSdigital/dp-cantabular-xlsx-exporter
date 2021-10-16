@@ -39,6 +39,7 @@ func TestConfig(t *testing.T) {
 				So(cfg.DownloadServiceURL, ShouldEqual, "http://localhost:23600")
 				So(cfg.AWSRegion, ShouldEqual, "eu-west-1")
 				So(cfg.UploadBucketName, ShouldEqual, "dp-cantabular-csv-exporter")
+				So(cfg.LocalObjectStore, ShouldEqual, "")
 				So(cfg.MinioAccessKey, ShouldEqual, "")
 				So(cfg.MinioSecretKey, ShouldEqual, "")
 				So(cfg.OutputFilePath, ShouldEqual, "/tmp/helloworld.txt")

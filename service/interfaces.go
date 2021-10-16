@@ -2,16 +2,24 @@ package service
 
 import (
 	"context"
+	"io"
 	"net/http"
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	kafka "github.com/ONSdigital/dp-kafka/v2"
+
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
-//go:generate moq -out mock/initialiser.go -pkg mock . Initialiser
 //go:generate moq -out mock/server.go -pkg mock . HTTPServer
-//go:generate moq -out mock/healthCheck.go -pkg mock . HealthChecker
+//go:generate moq -out mock/health_check.go -pkg mock . HealthChecker
+//go:generate moq -out mock/s3_uploader.go -pkg mock . S3Uploader
+//go:generate moq -out mock/vault.go -pkg mock . VaultClient
+//go:generate moq -out mock/processor.go -pkg mock . Processor
+//!!! is generator missing from above list, or is it done elsewhere ?
+//!!! because a generator is defined below.
 
 // Initialiser defines the methods to initialise external services
 type Initialiser interface {
@@ -34,7 +42,25 @@ type HealthChecker interface {
 	AddCheck(name string, checker healthcheck.Checker) (err error)
 }
 
-// EventConsumer defines the required methods from event Consumer
-type EventConsumer interface {
-	Close(ctx context.Context) (err error)
+type S3Uploader interface {
+	Get(key string) (io.ReadCloser, *int64, error)
+	Upload(input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error)
+	UploadWithPSK(input *s3manager.UploadInput, psk []byte) (*s3manager.UploadOutput, error)
+	BucketName() string
+	Checker(context.Context, *healthcheck.CheckState) error
+}
+
+type Processor interface {
+	Consume(context.Context, kafka.IConsumerGroup, event.Handler)
+}
+
+type VaultClient interface {
+	WriteKey(path, key, value string) error
+	Checker(context.Context, *healthcheck.CheckState) error
+}
+
+// Generator contains methods for dynamically required strings and tokens
+// e.g. UUIDs, PSKs.
+type Generator interface {
+	NewPSK() ([]byte, error)
 }

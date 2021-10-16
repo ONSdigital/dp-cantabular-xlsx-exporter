@@ -1,19 +1,40 @@
 package schema
 
 import (
-	"github.com/ONSdigital/go-ns/avro"
+	"github.com/ONSdigital/dp-kafka/v2/avro"
 )
 
-// TODO: remove or replace hello called structure and model with app specific
-var helloCalledEvent = `{
+//!!! TODO, adjust these as needed fo xlsx exporter
+var instanceComplete = `{
   "type": "record",
-  "name": "hello-called",
+  "name": "cantabular-dataset-instance-complete",
   "fields": [
-    {"name": "recipient_name", "type": "string", "default": ""}
+    {"name": "instance_id",     "type": "string", "default": ""},
+    {"name": "cantabular_blob", "type": "string", "default": ""}
   ]
 }`
 
-// HelloCalledEvent is the Avro schema for Hello Called messages.
-var HelloCalledEvent = &avro.Schema{
-	Definition: helloCalledEvent,
+// InstanceComplete is the Avro schema for Instance Complete messages.
+var InstanceComplete = &avro.Schema{
+	Definition: instanceComplete,
+}
+
+var commonOutputCreated = `{
+  "type": "record",
+  "name": "common-output-created",
+  "fields": [
+    {"name": "filter_output_id", "type": "string", "default": ""},
+    {"name": "file_url", "type": "string", "default": ""},
+    {"name": "instance_id", "type": "string", "default": ""},
+    {"name": "dataset_id", "type": "string", "default": ""},
+    {"name": "edition", "type": "string", "default": ""},
+    {"name": "version", "type": "string", "default": ""},
+    {"name": "filename", "type": "string", "default": ""},
+    {"name": "row_count", "type": "int", "default": 0}
+  ]
+}`
+
+// CommonOutputCreated the Avro schema for CSV exported messages.
+var CommonOutputCreated = &avro.Schema{
+	Definition: commonOutputCreated,
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
 	kafka "github.com/ONSdigital/dp-kafka/v2"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 )
 
 const serviceName = "dp-cantabular-xlsx-exporter"
@@ -21,19 +21,19 @@ func main() {
 	ctx := context.Background()
 
 	// Get Config
-	config, err := config.Get()
+	cfg, err := config.Get()
 	if err != nil {
-		log.Event(ctx, "error getting config", log.FATAL, log.Error(err))
+		log.Fatal(ctx, "error getting config", err)
 		os.Exit(1)
 	}
 
 	// Create Kafka Producer
 	pChannels := kafka.CreateProducerChannels()
-	kafkaProducer, err := kafka.NewProducer(ctx, config.KafkaAddr, config.HelloCalledTopic, pChannels, &kafka.ProducerConfig{
-		KafkaVersion: &config.KafkaVersion,
+	kafkaProducer, err := kafka.NewProducer(ctx, cfg.KafkaAddr, cfg.CsvCreatedTopic, pChannels, &kafka.ProducerConfig{
+		KafkaVersion: &cfg.KafkaVersion,
 	})
 	if err != nil {
-		log.Event(ctx, "fatal error trying to create kafka producer", log.FATAL, log.Error(err), log.Data{"topic": config.HelloCalledTopic})
+		log.Fatal(ctx, "fatal error trying to create kafka producer", err, log.Data{"topic": cfg.CsvCreatedTopic})
 		os.Exit(1)
 	}
 
@@ -44,30 +44,39 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		e := scanEvent(scanner)
-		log.Event(ctx, "sending hello-called event", log.INFO, log.Data{"helloCalledEvent": e})
+		log.Info(ctx, "sending hello-called event", log.Data{"helloCalledEvent": e})
 
-		bytes, err := schema.HelloCalledEvent.Marshal(e)
+		bytes, err := schema.CommonOutputCreated.Marshal(e)
 		if err != nil {
-			log.Event(ctx, "hello-called event error", log.FATAL, log.Error(err))
+			log.Fatal(ctx, "hello-called event error", err)
 			os.Exit(1)
 		}
 
 		// Send bytes to Output channel, after calling Initialise just in case it is not initialised.
-		kafkaProducer.Initialise(ctx)
+		// Wait for producer to be initialised
+		<-kafkaProducer.Channels().Ready
 		kafkaProducer.Channels().Output <- bytes
 	}
+
 }
 
 // scanEvent creates a HelloCalled event according to the user input
-func scanEvent(scanner *bufio.Scanner) *event.HelloCalled {
-	fmt.Println("--- [Send Kafka HelloCalled] ---")
+func scanEvent(scanner *bufio.Scanner) *event.CommonOutputCreated { //!!! in csv-exporter - the even possibly needs renaming to be: CantabularCsvCreated
+	fmt.Println("--- [Send Kafka CommonOutputCreated] ---")
 
-	fmt.Println("Please type the recipient name")
+	fmt.Println("Please type the instance_id")
 	fmt.Printf("$ ")
 	scanner.Scan()
 	name := scanner.Text()
 
-	return &event.HelloCalled{
-		RecipientName: name,
+	fmt.Println("Please type the cantabular_blob")
+	fmt.Printf("$ ")
+	scanner.Scan()
+	blob := scanner.Text()
+
+	return &event.InstanceComplete{
+		InstanceID:     name,
+		CantabularBlob: blob,
 	}
 }
+

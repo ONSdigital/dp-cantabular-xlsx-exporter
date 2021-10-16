@@ -2,74 +2,43 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/generator"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
-	dpkafka "github.com/ONSdigital/dp-kafka/v2"
+	dpkafka "github.com/ONSdigital/dp-kafka/v2" //!!! one of these two lines should go
+	kafka "github.com/ONSdigital/dp-kafka/v2"
 	dphttp "github.com/ONSdigital/dp-net/http"
+	dps3 "github.com/ONSdigital/dp-s3"
+	vault "github.com/ONSdigital/dp-vault"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
 )
 
-// ExternalServiceList holds the initialiser and initialisation state of external services.
-type ExternalServiceList struct {
-	HealthCheck   bool
-	KafkaConsumer bool
-	Init          Initialiser
-}
+const VaultRetries = 3
 
-// NewServiceList creates a new service list with the provided initialiser
-func NewServiceList(initialiser Initialiser) *ExternalServiceList {
-	return &ExternalServiceList{
-		HealthCheck:   false,
-		KafkaConsumer: false,
-		Init:          initialiser,
-	}
-}
-
-// Init implements the Initialiser interface to initialise dependencies
-type Init struct{}
-
-// GetHTTPServer creates an http server and sets the Server flag to true
-func (e *ExternalServiceList) GetHTTPServer(bindAddr string, router http.Handler) HTTPServer {
-	s := e.Init.DoGetHTTPServer(bindAddr, router)
-	return s
-}
-
-// GetKafkaConsumer creates a Kafka consumer and sets the consumer flag to true
-func (e *ExternalServiceList) GetKafkaConsumer(ctx context.Context, cfg *config.Config) (dpkafka.IConsumerGroup, error) {
-	consumer, err := e.Init.DoGetKafkaConsumer(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-	e.KafkaConsumer = true
-	return consumer, nil
-}
-
-// GetHealthCheck creates a healthcheck with versionInfo and sets teh HealthCheck flag to true
-func (e *ExternalServiceList) GetHealthCheck(cfg *config.Config, buildTime, gitCommit, version string) (HealthChecker, error) {
-	hc, err := e.Init.DoGetHealthCheck(cfg, buildTime, gitCommit, version)
-	if err != nil {
-		return nil, err
-	}
-	e.HealthCheck = true
-	return hc, nil
-}
-
-// DoGetHTTPServer creates an HTTP Server with the provided bind address and router
-func (e *Init) DoGetHTTPServer(bindAddr string, router http.Handler) HTTPServer {
+// GetHTTPServer creates an http server and sets the Server
+var GetHTTPServer = func(bindAddr string, router http.Handler) HTTPServer {
 	s := dphttp.NewServer(bindAddr, router)
 	s.HandleOSSignals = false
 	return s
 }
 
-// DoGetKafkaConsumer returns a Kafka Consumer group
-func (e *Init) DoGetKafkaConsumer(ctx context.Context, cfg *config.Config) (dpkafka.IConsumerGroup, error) {
+// GetKafkaConsumer creates a Kafka consumer
+var GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (dpkafka.IConsumerGroup, error) {
 	cgChannels := dpkafka.CreateConsumerGroupChannels(1)
+
 	kafkaOffset := dpkafka.OffsetNewest
 	if cfg.KafkaOffsetOldest {
 		kafkaOffset = dpkafka.OffsetOldest
 	}
-	kafkaConsumer, err := dpkafka.NewConsumerGroup(
+
+	return dpkafka.NewConsumerGroup(
 		ctx,
 		cfg.KafkaAddr,
 		cfg.CsvCreatedTopic,
@@ -80,19 +49,71 @@ func (e *Init) DoGetKafkaConsumer(ctx context.Context, cfg *config.Config) (dpka
 			Offset:       &kafkaOffset,
 		},
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return kafkaConsumer, nil
 }
 
-// DoGetHealthCheck creates a healthcheck with versionInfo
-func (e *Init) DoGetHealthCheck(cfg *config.Config, buildTime, gitCommit, version string) (HealthChecker, error) {
+// GetKafkaProducer creates a Kafka producer
+var GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (dpkafka.IProducer, error) {
+	pChannels := dpkafka.CreateProducerChannels()
+	return dpkafka.NewProducer(
+		ctx,
+		cfg.KafkaAddr,
+		cfg.CantabularOutputCreatedTopic,
+		pChannels,
+		&kafka.ProducerConfig{},
+	)
+}
+
+// GetS3Uploader creates an S3 Uploader
+var GetS3Uploader = func(cfg *config.Config) (S3Uploader, error) {
+	if cfg.LocalObjectStore != "" {
+		s3Config := &aws.Config{
+			Credentials:      credentials.NewStaticCredentials(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
+			Endpoint:         aws.String(cfg.LocalObjectStore),
+			Region:           aws.String(cfg.AWSRegion),
+			DisableSSL:       aws.Bool(true),
+			S3ForcePathStyle: aws.Bool(true),
+		}
+
+		s, err := session.NewSession(s3Config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create aws session: %w", err)
+		}
+		return dps3.NewUploaderWithSession(cfg.UploadBucketName, s), nil
+	}
+
+	uploader, err := dps3.NewUploader(cfg.AWSRegion, cfg.UploadBucketName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create S3 Client: %w", err)
+	}
+
+	return uploader, nil
+}
+
+// GetVault creates a VaultClient
+var GetVault = func(cfg *config.Config) (VaultClient, error) {
+	return vault.CreateClient(cfg.VaultToken, cfg.VaultAddress, VaultRetries)
+}
+
+// GetProcessor gets and initialises the event Processor
+var GetProcessor = func(cfg *config.Config) Processor {
+	return event.NewProcessor(*cfg)
+}
+
+// GetHealthCheck creates a healthcheck with versionInfo
+var GetHealthCheck = func(cfg *config.Config, buildTime, gitCommit, version string) (HealthChecker, error) {
 	versionInfo, err := healthcheck.NewVersionInfo(buildTime, gitCommit, version)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get version info: %w", err)
 	}
-	hc := healthcheck.New(versionInfo, cfg.HealthCheckCriticalTimeout, cfg.HealthCheckInterval)
+
+	hc := healthcheck.New(
+		versionInfo,
+		cfg.HealthCheckCriticalTimeout,
+		cfg.HealthCheckInterval,
+	)
 	return &hc, nil
+}
+
+var GetGenerator = func() Generator {
+	return generator.New()
 }

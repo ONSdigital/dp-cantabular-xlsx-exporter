@@ -6,7 +6,6 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-// TODO: remove hello call config options
 // Config represents service configuration for dp-cantabular-xlsx-exporter
 type Config struct {
 	BindAddr                     string        `envconfig:"BIND_ADDR"`
@@ -27,6 +26,7 @@ type Config struct {
 	DownloadServiceURL           string        `envconfig:"DOWNLOAD_SERVICE_URL"` // needed to create url for file downloads, but this service is not actually called - TODO - remove if not needed
 	AWSRegion                    string        `envconfig:"AWS_REGION"`
 	UploadBucketName             string        `envconfig:"UPLOAD_BUCKET_NAME"`
+	LocalObjectStore             string        `envconfig:"LOCAL_OBJECT_STORE"`
 	MinioAccessKey               string        `envconfig:"MINIO_ACCESS_KEY"`
 	MinioSecretKey               string        `envconfig:"MINIO_SECRET_KEY"`
 	OutputFilePath               string        `envconfig:"OUTPUT_FILE_PATH"`
@@ -60,6 +60,7 @@ func Get() (*Config, error) {
 		DownloadServiceURL:           "http://localhost:23600",
 		AWSRegion:                    "eu-west-1",
 		UploadBucketName:             "dp-cantabular-csv-exporter", // needed for place to download .csv from
+		LocalObjectStore:             "",
 		MinioAccessKey:               "",                           // in develop & prod this is also the AWS_ACCESS_KEY_ID
 		MinioSecretKey:               "",                           // in develop & prod this is also the AWS_SECRET_ACCESS_KEY
 		OutputFilePath:               "/tmp/helloworld.txt",        // TODO remove this
