@@ -1,9 +1,10 @@
-package service
+package service_test
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/service"
 	"net/http"
 	"sync"
 	"testing"
@@ -42,24 +43,24 @@ func TestInit(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		consumerMock := &kafkatest.IConsumerGroupMock{}
-		GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.IConsumerGroup, error) {
+		service.GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.IConsumerGroup, error) {
 			return consumerMock, nil
 		}
 
 		producerMock := &kafkatest.IProducerMock{}
-		GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (kafka.IProducer, error) {
+		service.GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (kafka.IProducer, error) {
 			return producerMock, nil
 		}
 
 		hcMock := &serviceMock.HealthCheckerMock{
 			AddCheckFunc: func(name string, checker healthcheck.Checker) error { return nil },
 		}
-		GetHealthCheck = func(cfg *config.Config, buildTime, gitCommit, version string) (HealthChecker, error) {
+		service.GetHealthCheck = func(cfg *config.Config, buildTime, gitCommit, version string) (service.HealthChecker, error) {
 			return hcMock, nil
 		}
 
 		serverMock := &serviceMock.HTTPServerMock{}
-		GetHTTPServer = func(bindAddr string, router http.Handler) HTTPServer {
+		service.GetHTTPServer = func(bindAddr string, router http.Handler) service.HTTPServer {
 			return serverMock
 		}
 
@@ -68,7 +69,7 @@ func TestInit(t *testing.T) {
 				return nil
 			},
 		}
-		GetS3Uploader = func(cfg *config.Config) (S3Uploader, error) {
+		service.GetS3Uploader = func(cfg *config.Config) (service.S3Uploader, error) {
 			return s3UploaderMock, nil
 		}
 
@@ -77,27 +78,27 @@ func TestInit(t *testing.T) {
 				return nil
 			},
 		}
-		GetVault = func(cfg *config.Config) (VaultClient, error) {
+		service.GetVault = func(cfg *config.Config) (service.VaultClient, error) {
 			return vaultMock, nil
 		}
 
-		GetProcessor = func(cfg *config.Config) Processor {
+		service.GetProcessor = func(cfg *config.Config) service.Processor {
 			return &serviceMock.ProcessorMock{
 				ConsumeFunc: func(context.Context, kafka.IConsumerGroup, event.Handler) {},
 			}
 		}
 
-		svc := &Service{}
+		svc := &service.Service{}
 
 		Convey("Given that initialising Kafka consumer returns an error", func() {
-			GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.IConsumerGroup, error) {
+			service.GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.IConsumerGroup, error) {
 				return nil, errKafkaConsumer
 			}
 
 			Convey("Then service Init fails with the same error and no further initialisations are attempted", func() {
 				err := svc.Init(ctx, cfg, testBuildTime, testGitCommit, testVersion)
 				So(errors.Unwrap(err), ShouldResemble, errKafkaConsumer)
-				So(svc.cfg, ShouldResemble, cfg)
+				So(svc.Cfg, ShouldResemble, cfg)
 
 				Convey("And no checkers are registered ", func() {
 					So(hcMock.AddCheckCalls(), ShouldHaveLength, 0)
@@ -106,15 +107,15 @@ func TestInit(t *testing.T) {
 		})
 
 		Convey("Given that initialising healthcheck returns an error", func() {
-			GetHealthCheck = func(cfg *config.Config, buildTime, gitCommit, version string) (HealthChecker, error) {
+			service.GetHealthCheck = func(cfg *config.Config, buildTime, gitCommit, version string) (service.HealthChecker, error) {
 				return nil, errHealthcheck
 			}
 
 			Convey("Then service Init fails with the same error and no further initialisations are attempted", func() {
 				err := svc.Init(ctx, cfg, testBuildTime, testGitCommit, testVersion)
 				So(errors.Unwrap(err), ShouldResemble, errHealthcheck)
-				So(svc.cfg, ShouldResemble, cfg)
-				So(svc.consumer, ShouldResemble, consumerMock)
+				So(svc.Cfg, ShouldResemble, cfg)
+				So(svc.Consumer, ShouldResemble, consumerMock)
 
 				Convey("And no checkers are registered ", func() {
 					So(hcMock.AddCheckCalls(), ShouldHaveLength, 0)
@@ -129,8 +130,8 @@ func TestInit(t *testing.T) {
 				err := svc.Init(ctx, cfg, testBuildTime, testGitCommit, testVersion)
 				So(err, ShouldNotBeNil)
 				So(errors.Is(err, errAddCheck), ShouldBeTrue)
-				So(svc.cfg, ShouldResemble, cfg)
-				So(svc.consumer, ShouldResemble, consumerMock)
+				So(svc.Cfg, ShouldResemble, cfg)
+				So(svc.Consumer, ShouldResemble, consumerMock)
 
 				Convey("And other checkers don't try to register", func() {
 					So(hcMock.AddCheckCalls(), ShouldHaveLength, 1)
@@ -144,25 +145,25 @@ func TestInit(t *testing.T) {
 			Convey("Then service Init succeeds, all dependencies are initialised", func() {
 				err := svc.Init(ctx, cfg, testBuildTime, testGitCommit, testVersion)
 				So(err, ShouldBeNil)
-				So(svc.cfg, ShouldResemble, cfg)
-				So(svc.server, ShouldEqual, serverMock)
-				So(svc.healthCheck, ShouldResemble, hcMock)
-				So(svc.consumer, ShouldResemble, consumerMock)
+				So(svc.Cfg, ShouldResemble, cfg)
+				So(svc.Server, ShouldEqual, serverMock)
+				So(svc.HealthCheck, ShouldResemble, hcMock)
+				So(svc.Consumer, ShouldResemble, consumerMock)
 				//!!!				So(svc.cantabularClient, ShouldResemble, cantabularMock)
-				So(svc.producer, ShouldResemble, producerMock)
+				So(svc.Producer, ShouldResemble, producerMock)
 				//!!!				So(svc.datasetAPIClient, ShouldResemble, datasetApiMock)
 				//!!!				So(svc.cantabularClient, ShouldResemble, cantabularMock)
-				So(svc.s3Uploader, ShouldResemble, s3UploaderMock)
-				So(svc.vaultClient, ShouldResemble, vaultMock)
+				So(svc.S3Uploader, ShouldResemble, s3UploaderMock)
+				So(svc.VaultClient, ShouldResemble, vaultMock)
 
 				Convey("And all checks are registered", func() {
-					So(hcMock.AddCheckCalls(), ShouldHaveLength, 6)
+					So(hcMock.AddCheckCalls(), ShouldHaveLength, 4)
 					So(hcMock.AddCheckCalls()[0].Name, ShouldResemble, "Kafka consumer")
 					So(hcMock.AddCheckCalls()[1].Name, ShouldResemble, "Kafka producer")
 					//					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "Cantabular client")
 					//					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "Dataset API client")
-					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "S3 uploader")
-					So(hcMock.AddCheckCalls()[5].Name, ShouldResemble, "Vault")
+					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "S3 uploader")
+					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "Vault")
 				})
 			})
 		})
@@ -173,23 +174,23 @@ func TestInit(t *testing.T) {
 			Convey("Then service Init succeeds, all dependencies are initialised, except Vault", func() {
 				err := svc.Init(ctx, cfg, testBuildTime, testGitCommit, testVersion)
 				So(err, ShouldBeNil)
-				So(svc.cfg, ShouldResemble, cfg)
-				So(svc.server, ShouldEqual, serverMock)
-				So(svc.healthCheck, ShouldResemble, hcMock)
-				So(svc.consumer, ShouldResemble, consumerMock)
+				So(svc.Cfg, ShouldResemble, cfg)
+				So(svc.Server, ShouldEqual, serverMock)
+				So(svc.HealthCheck, ShouldResemble, hcMock)
+				So(svc.Consumer, ShouldResemble, consumerMock)
 				//				So(svc.cantabularClient, ShouldResemble, cantabularMock)
-				So(svc.producer, ShouldResemble, producerMock)
+				So(svc.Producer, ShouldResemble, producerMock)
 				//				So(svc.datasetAPIClient, ShouldResemble, datasetApiMock)
 				//				So(svc.cantabularClient, ShouldResemble, cantabularMock)
-				So(svc.s3Uploader, ShouldResemble, s3UploaderMock)
+				So(svc.S3Uploader, ShouldResemble, s3UploaderMock)
 
 				Convey("And all checks are registered, except Vault", func() {
-					So(hcMock.AddCheckCalls(), ShouldHaveLength, 5)
+					So(hcMock.AddCheckCalls(), ShouldHaveLength, 3)
 					So(hcMock.AddCheckCalls()[0].Name, ShouldResemble, "Kafka consumer")
 					So(hcMock.AddCheckCalls()[1].Name, ShouldResemble, "Kafka producer")
 					//					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "Cantabular client")
 					//					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "Dataset API client")
-					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "S3 uploader")
+					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "S3 uploader")
 				})
 			})
 		})
@@ -217,12 +218,12 @@ func TestStart(t *testing.T) {
 		serverWg := &sync.WaitGroup{}
 		serverMock := &serviceMock.HTTPServerMock{}
 
-		svc := &Service{
-			cfg:         cfg,
-			server:      serverMock,
-			healthCheck: hcMock,
-			consumer:    consumerMock,
-			processor:   processorMock,
+		svc := &service.Service{
+			Cfg:         cfg,
+			Server:      serverMock,
+			HealthCheck: hcMock,
+			Consumer:    consumerMock,
+			Processor:   processorMock,
 		}
 
 		Convey("When a service with a successful HTTP server is started", func() {
@@ -288,11 +289,11 @@ func TestClose(t *testing.T) {
 			},
 		}
 
-		svc := &Service{
-			cfg:         cfg,
-			server:      serverMock,
-			healthCheck: hcMock,
-			consumer:    consumerMock,
+		svc := &service.Service{
+			Cfg:         cfg,
+			Server:      serverMock,
+			HealthCheck: hcMock,
+			Consumer:    consumerMock,
 		}
 
 		Convey("Closing the service results in all the dependencies being closed in the expected order", func() {

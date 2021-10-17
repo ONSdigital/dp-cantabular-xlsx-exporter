@@ -69,14 +69,15 @@ func scanEvent(scanner *bufio.Scanner) *event.CommonOutputCreated { //!!! in csv
 	scanner.Scan()
 	name := scanner.Text()
 
-	fmt.Println("Please type the cantabular_blob")
-	fmt.Printf("$ ")
-	scanner.Scan()
-	blob := scanner.Text()
+	//!!! more work to be done here
 
-	return &event.InstanceComplete{
-		InstanceID:     name,
-		CantabularBlob: blob,
+	/*	fmt.Println("Please type the cantabular_blob")
+		fmt.Printf("$ ")
+		scanner.Scan()
+		blob := scanner.Text()*/
+
+	return &event.CommonOutputCreated{
+		InstanceID: name,
+		//		CantabularBlob: blob,
 	}
 }
-

@@ -74,9 +74,9 @@ func (c *Component) initService(ctx context.Context) error {
 	log.Info(ctx, "config read", log.Data{"cfg": cfg})
 
 	cfg.EncryptionDisabled = true
-	cfg.DatasetAPIURL = c.DatasetAPI.ResolveURL("")
-	cfg.CantabularURL = c.CantabularSrv.ResolveURL("")
-	cfg.CantabularExtURL = c.CantabularAPIExt.ResolveURL("")
+	//	cfg.DatasetAPIURL = c.DatasetAPI.ResolveURL("")
+	//	cfg.CantabularURL = c.CantabularSrv.ResolveURL("")
+	//!!!	cfg.CantabularExtURL = c.CantabularAPIExt.ResolveURL("")
 
 	s3Config := &aws.Config{
 		Credentials:      credentials.NewStaticCredentials(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
@@ -93,7 +93,7 @@ func (c *Component) initService(ctx context.Context) error {
 	if c.producer, err = kafka.NewProducer(
 		ctx,
 		cfg.KafkaAddr,
-		cfg.InstanceCompleteTopic,
+		cfg.CantabularOutputCreatedTopic,
 		kafka.CreateProducerChannels(),
 		&kafka.ProducerConfig{
 			KafkaVersion:    &cfg.KafkaVersion,
@@ -110,7 +110,7 @@ func (c *Component) initService(ctx context.Context) error {
 	if c.consumer, err = kafka.NewConsumerGroup(
 		ctx,
 		cfg.KafkaAddr,
-		cfg.CommonOutputCreatedTopic,
+		cfg.CsvCreatedTopic,
 		"category-dimension-import-group",
 		kafka.CreateConsumerGroupChannels(1),
 		&kafka.ConsumerGroupConfig{
