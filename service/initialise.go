@@ -63,7 +63,10 @@ var GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (dpkafka.IP
 	)
 }
 
-// GetS3Uploader creates an S3 Uploader
+// GetS3Uploader creates an S3 Uploader, or a local storage client if a non-empty LocalObjectStore is provided
+//!!! should following actually be:
+// func (*External) S3Client(cfg *config.Config) (content.S3Client, error) {
+// etc as this service will be reading frmo S3 and writting to it ???
 var GetS3Uploader = func(cfg *config.Config) (S3Uploader, error) {
 	if cfg.LocalObjectStore != "" {
 		s3Config := &aws.Config{
@@ -76,6 +79,7 @@ var GetS3Uploader = func(cfg *config.Config) (S3Uploader, error) {
 
 		s, err := session.NewSession(s3Config)
 		if err != nil {
+			//!!! should the following actually say (as in doenload-service): "could not create the local-object-store s3 client: %w", err   ???
 			return nil, fmt.Errorf("failed to create aws session: %w", err)
 		}
 		return dps3.NewUploaderWithSession(cfg.UploadBucketName, s), nil

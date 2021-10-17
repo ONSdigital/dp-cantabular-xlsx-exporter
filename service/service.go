@@ -88,7 +88,7 @@ func (svc *Service) Start(ctx context.Context, svcErrors chan error) {
 	svc.Processor.Consume(
 		ctx,
 		svc.Consumer,
-		handler.NewInstanceComplete(
+		handler.NewCsvComplete(
 			*svc.Cfg,
 			//			svc.cantabularClient,
 			//			svc.datasetAPIClient,

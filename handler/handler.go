@@ -18,8 +18,9 @@ import (
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
-// InstanceComplete is the handle for the InstanceCompleteHandler event
-type InstanceComplete struct {
+// !!! the below needs renaming to suit this service - see what dp-dataset-exporter-xlsx names things and copy
+// CsvComplete is the handle for the CsvHandler event
+type CsvComplete struct {
 	cfg config.Config
 	//	ctblr       CantabularClient
 	//	datasets    DatasetAPIClient
@@ -29,9 +30,9 @@ type InstanceComplete struct {
 	generator   Generator
 }
 
-// NewInstanceComplete creates a new InstanceCompleteHandler
-func NewInstanceComplete(cfg config.Config /*c CantabularClient, d DatasetAPIClient,*/, s S3Uploader, v VaultClient, p kafka.IProducer, g Generator) *InstanceComplete {
-	return &InstanceComplete{
+// NewCsvComplete creates a new CsvHandler
+func NewCsvComplete(cfg config.Config /*c CantabularClient, d DatasetAPIClient,*/, s S3Uploader, v VaultClient, p kafka.IProducer, g Generator) *CsvComplete {
+	return &CsvComplete{
 		cfg: cfg,
 		//		ctblr:       c,
 		//		datasets:    d,
@@ -43,10 +44,11 @@ func NewInstanceComplete(cfg config.Config /*c CantabularClient, d DatasetAPICli
 }
 
 // Handle takes a single event.
-func (h *InstanceComplete) Handle(ctx context.Context, e *event.InstanceComplete) error {
-	/*logData := log.Data{
+func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) error {
+	logData := log.Data{
 		"event": e,
-	}*/
+	}
+	log.Info(ctx, "Info from incomming event: CommonOutputCreated :", logData)
 
 	/*	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", e.InstanceID, headers.IfMatchAnyETag)
 		if err != nil {
@@ -117,6 +119,7 @@ func (h *InstanceComplete) Handle(ctx context.Context, e *event.InstanceComplete
 	log.Event(ctx, "producing common output created event", log.INFO, log.Data{})
 
 	//!!! fix following for xlsx output
+	//!!! need to figure out what to produce ... or do whatever the dp-dataset-exporter-xlsx does ...
 	// Generate output kafka message
 	if err := h.ProduceExportCompleteEvent(e.InstanceID); err != nil {
 		return fmt.Errorf("failed to produce export complete kafka message: %w", err)
@@ -125,7 +128,7 @@ func (h *InstanceComplete) Handle(ctx context.Context, e *event.InstanceComplete
 }
 
 // ValidateInstance validates the instance returned from dp-dataset-api
-func (h *InstanceComplete) ValidateInstance(i dataset.Instance) error {
+func (h *CsvComplete) ValidateInstance(i dataset.Instance) error {
 	if len(i.CSVHeader) < 2 {
 		return &Error{
 			err: errors.New("no dimensions in headers"),
@@ -380,7 +383,7 @@ func (h *InstanceComplete) UploadCSVFile(ctx context.Context, instanceID string,
 }*/
 
 // ProduceExportCompleteEvent sends the final kafka message signifying the export complete
-func (h *InstanceComplete) ProduceExportCompleteEvent(instanceID string) error {
+func (h *CsvComplete) ProduceExportCompleteEvent(instanceID string) error {
 	downloadURL := generateURL(h.cfg.DownloadServiceURL, instanceID)
 
 	// create CommonOutputCreated event and Marshal it
