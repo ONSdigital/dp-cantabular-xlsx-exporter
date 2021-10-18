@@ -51,7 +51,7 @@ func Get() (*Config, error) {
 		KafkaAddr:                    []string{"localhost:9092"},
 		KafkaVersion:                 "1.0.2",
 		KafkaOffsetOldest:            true,
-		KafkaNumWorkers:              1,
+		KafkaNumWorkers:              1, // it is not advised to change this, as it may cause Out of Memeory problems for very large files - TBD
 		KafkaMaxBytes:                2000000,
 		CsvCreatedGroup:              "dp-cantabular-xlsx-exporter",
 		CsvCreatedTopic:              "common-output-created", //!!! put following bck in when it exists as a kafka topic"cantabular-csv-created",

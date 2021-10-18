@@ -7,10 +7,10 @@ import (
 //go:generate moq -out mock/handler.go -pkg mock . Handler
 
 type Handler interface {
-	Handle(ctx context.Context, instanceComplete *InstanceComplete) error
+	Handle(ctx context.Context, csvComplete *CommonOutputCreated) error
 }
 
-type dataLogger interface {//!!! figure out where and how this is used
+type dataLogger interface { //!!! figure out where and how this is used
 	LogData() map[string]interface{}
 }
 
