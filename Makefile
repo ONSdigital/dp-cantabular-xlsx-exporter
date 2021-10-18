@@ -37,3 +37,7 @@ convey:
 .PHONY: test-component
 test-component:
 	go test -cover -coverpkg=github.com/ONSdigital/dp-cantabular-xlsx-exporter/... -component
+
+.PHONY: lint
+lint:
+	exit

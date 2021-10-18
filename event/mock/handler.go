@@ -5,7 +5,6 @@ package mock
 
 import (
 	"context"
-	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"sync"
 )
@@ -20,7 +19,7 @@ var _ event.Handler = &HandlerMock{}
 //
 // 		// make and configure a mocked event.Handler
 // 		mockedHandler := &HandlerMock{
-// 			HandleFunc: func(ctx context.Context, cfg *config.Config, helloCalled *event.HelloCalled) error {
+// 			HandleFunc: func(ctx context.Context, instanceComplete *event.InstanceComplete) error {
 // 				panic("mock out the Handle method")
 // 			},
 // 		}
@@ -31,7 +30,7 @@ var _ event.Handler = &HandlerMock{}
 // 	}
 type HandlerMock struct {
 	// HandleFunc mocks the Handle method.
-	HandleFunc func(ctx context.Context, cfg *config.Config, helloCalled *event.HelloCalled) error
+	HandleFunc func(ctx context.Context, instanceComplete *event.InstanceComplete) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -39,47 +38,41 @@ type HandlerMock struct {
 		Handle []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Cfg is the cfg argument value.
-			Cfg *config.Config
-			// HelloCalled is the helloCalled argument value.
-			HelloCalled *event.HelloCalled
+			// InstanceComplete is the instanceComplete argument value.
+			InstanceComplete *event.InstanceComplete
 		}
 	}
 	lockHandle sync.RWMutex
 }
 
 // Handle calls HandleFunc.
-func (mock *HandlerMock) Handle(ctx context.Context, cfg *config.Config, helloCalled *event.HelloCalled) error {
+func (mock *HandlerMock) Handle(ctx context.Context, instanceComplete *event.InstanceComplete) error {
 	if mock.HandleFunc == nil {
 		panic("HandlerMock.HandleFunc: method is nil but Handler.Handle was just called")
 	}
 	callInfo := struct {
-		Ctx         context.Context
-		Cfg         *config.Config
-		HelloCalled *event.HelloCalled
+		Ctx              context.Context
+		InstanceComplete *event.InstanceComplete
 	}{
-		Ctx:         ctx,
-		Cfg:         cfg,
-		HelloCalled: helloCalled,
+		Ctx:              ctx,
+		InstanceComplete: instanceComplete,
 	}
 	mock.lockHandle.Lock()
 	mock.calls.Handle = append(mock.calls.Handle, callInfo)
 	mock.lockHandle.Unlock()
-	return mock.HandleFunc(ctx, cfg, helloCalled)
+	return mock.HandleFunc(ctx, instanceComplete)
 }
 
 // HandleCalls gets all the calls that were made to Handle.
 // Check the length with:
 //     len(mockedHandler.HandleCalls())
 func (mock *HandlerMock) HandleCalls() []struct {
-	Ctx         context.Context
-	Cfg         *config.Config
-	HelloCalled *event.HelloCalled
+	Ctx              context.Context
+	InstanceComplete *event.InstanceComplete
 } {
 	var calls []struct {
-		Ctx         context.Context
-		Cfg         *config.Config
-		HelloCalled *event.HelloCalled
+		Ctx              context.Context
+		InstanceComplete *event.InstanceComplete
 	}
 	mock.lockHandle.RLock()
 	calls = mock.calls.Handle

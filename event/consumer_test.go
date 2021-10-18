@@ -3,13 +3,14 @@ package event_test
 import (
 	"context"
 	"errors"
-	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"sync"
 	"testing"
 
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event/mock"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
+
 	kafka "github.com/ONSdigital/dp-kafka/v2"
 	"github.com/ONSdigital/dp-kafka/v2/kafkatest"
 	. "github.com/smartystreets/goconvey/convey"
@@ -19,8 +20,8 @@ var testCtx = context.Background()
 
 var errHandler = errors.New("Handler Error")
 
-var testEvent = event.HelloCalled{
-	RecipientName: "World",
+var testEvent = event.InstanceComplete{
+	InstanceID: "World",
 }
 
 // kafkaStubConsumer mock which exposes Channels function returning empty channels
@@ -31,11 +32,15 @@ var kafkaStubConsumer = &kafkatest.IConsumerGroupMock{
 	},
 }
 
-// TODO: remove or replace hello called logic with app specific
 func TestConsume(t *testing.T) {
+	cfg, err := config.Get()
+	if err != nil {
+		t.Fatalf("failed to get config: %s", err)
+	}
+
+	var proc = event.NewProcessor(*cfg)
 
 	Convey("Given kafka consumer and event handler mocks", t, func() {
-
 		cgChannels := &kafka.ConsumerGroupChannels{Upstream: make(chan kafka.Message, 2)}
 		mockConsumer := &kafkatest.IConsumerGroupMock{
 			ChannelsFunc: func() *kafka.ConsumerGroupChannels { return cgChannels },
@@ -43,26 +48,24 @@ func TestConsume(t *testing.T) {
 
 		handlerWg := &sync.WaitGroup{}
 		mockEventHandler := &mock.HandlerMock{
-			HandleFunc: func(ctx context.Context, config *config.Config, event *event.HelloCalled) error {
+			HandleFunc: func(ctx context.Context, event *event.InstanceComplete) error {
 				defer handlerWg.Done()
 				return nil
 			},
 		}
 
 		Convey("And a kafka message with the valid schema being sent to the Upstream channel", func() {
-
 			message := kafkatest.NewMessage(marshal(testEvent), 0)
 			mockConsumer.Channels().Upstream <- message
 
 			Convey("When consume message is called", func() {
-
 				handlerWg.Add(1)
-				event.Consume(testCtx, mockConsumer, mockEventHandler, &config.Config{KafkaNumWorkers: 1})
+				proc.Consume(testCtx, mockConsumer, mockEventHandler)
 				handlerWg.Wait()
 
 				Convey("An event is sent to the mockEventHandler ", func() {
 					So(len(mockEventHandler.HandleCalls()), ShouldEqual, 1)
-					So(*mockEventHandler.HandleCalls()[0].HelloCalled, ShouldResemble, testEvent)
+					So(*mockEventHandler.HandleCalls()[0].InstanceComplete, ShouldResemble, testEvent)
 				})
 
 				Convey("The message is committed and the consumer is released", func() {
@@ -83,12 +86,12 @@ func TestConsume(t *testing.T) {
 			Convey("When consume messages is called", func() {
 
 				handlerWg.Add(1)
-				event.Consume(testCtx, mockConsumer, mockEventHandler, &config.Config{KafkaNumWorkers: 1})
+				proc.Consume(testCtx, mockConsumer, mockEventHandler)
 				handlerWg.Wait()
 
 				Convey("Only the valid event is sent to the mockEventHandler ", func() {
 					So(len(mockEventHandler.HandleCalls()), ShouldEqual, 1)
-					So(*mockEventHandler.HandleCalls()[0].HelloCalled, ShouldResemble, testEvent)
+					So(*mockEventHandler.HandleCalls()[0].InstanceComplete, ShouldResemble, testEvent)
 				})
 
 				Convey("Only the valid message is committed, but the consumer is released for both messages", func() {
@@ -103,7 +106,7 @@ func TestConsume(t *testing.T) {
 		})
 
 		Convey("With a failing handler and a kafka message with the valid schema being sent to the Upstream channel", func() {
-			mockEventHandler.HandleFunc = func(ctx context.Context, config *config.Config, event *event.HelloCalled) error {
+			mockEventHandler.HandleFunc = func(ctx context.Context, event *event.InstanceComplete) error {
 				defer handlerWg.Done()
 				return errHandler
 			}
@@ -113,12 +116,12 @@ func TestConsume(t *testing.T) {
 			Convey("When consume message is called", func() {
 
 				handlerWg.Add(1)
-				event.Consume(testCtx, mockConsumer, mockEventHandler, &config.Config{KafkaNumWorkers: 1})
+				proc.Consume(testCtx, mockConsumer, mockEventHandler)
 				handlerWg.Wait()
 
 				Convey("An event is sent to the mockEventHandler ", func() {
 					So(len(mockEventHandler.HandleCalls()), ShouldEqual, 1)
-					So(*mockEventHandler.HandleCalls()[0].HelloCalled, ShouldResemble, testEvent)
+					So(*mockEventHandler.HandleCalls()[0].InstanceComplete, ShouldResemble, testEvent)
 				})
 
 				Convey("The message is committed and the consumer is released", func() {
@@ -132,8 +135,8 @@ func TestConsume(t *testing.T) {
 }
 
 // marshal helper method to marshal a event into a []byte
-func marshal(event event.HelloCalled) []byte {
-	bytes, err := schema.HelloCalledEvent.Marshal(event)
+func marshal(event event.InstanceComplete) []byte {
+	bytes, err := schema.InstanceComplete.Marshal(event)
 	So(err, ShouldBeNil)
 	return bytes
 }

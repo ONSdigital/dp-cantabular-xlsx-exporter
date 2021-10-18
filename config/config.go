@@ -6,7 +6,6 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-// TODO: remove hello call config options
 // Config represents service configuration for dp-cantabular-xlsx-exporter
 type Config struct {
 	BindAddr                     string        `envconfig:"BIND_ADDR"`
@@ -16,7 +15,8 @@ type Config struct {
 	KafkaAddr                    []string      `envconfig:"KAFKA_ADDR"                     json:"-"`
 	KafkaVersion                 string        `envconfig:"KAFKA_VERSION"`
 	KafkaOffsetOldest            bool          `envconfig:"KAFKA_OFFSET_OLDEST"`
-	KafkaNumWorkers              int           `envconfig:"KAFKA_NUM_WORKERS"`
+	KafkaNumWorkers              int           `envconfig:"KAFKA_NUM_WORKERS"`               //!!! it might be best to remove this to avoid out of memory issues
+	KafkaMaxBytes                int           `envconfig:"KAFKA_MAX_BYTES"`                 //!!! add to secrets
 	CsvCreatedGroup              string        `envconfig:"CSV_CREATED_GROUP"`               // this is the consumed group, and is only defined for the consumer(s)
 	CsvCreatedTopic              string        `envconfig:"CSV_CREATED_TOPIC"`               // this is the consumed topic
 	CantabularOutputCreatedTopic string        `envconfig:"CANTABULAR_OUTPUT_CREATED_TOPIC"` // this is produced
@@ -27,9 +27,11 @@ type Config struct {
 	DownloadServiceURL           string        `envconfig:"DOWNLOAD_SERVICE_URL"` // needed to create url for file downloads, but this service is not actually called - TODO - remove if not needed
 	AWSRegion                    string        `envconfig:"AWS_REGION"`
 	UploadBucketName             string        `envconfig:"UPLOAD_BUCKET_NAME"`
+	LocalObjectStore             string        `envconfig:"LOCAL_OBJECT_STORE"`
 	MinioAccessKey               string        `envconfig:"MINIO_ACCESS_KEY"`
 	MinioSecretKey               string        `envconfig:"MINIO_SECRET_KEY"`
 	OutputFilePath               string        `envconfig:"OUTPUT_FILE_PATH"`
+	ComponentTestUseLogFile      bool          `envconfig:"COMPONENT_TEST_USE_LOG_FILE"` //!!! add to secrets (if needs be)
 }
 
 var cfg *Config
@@ -50,8 +52,9 @@ func Get() (*Config, error) {
 		KafkaVersion:                 "1.0.2",
 		KafkaOffsetOldest:            true,
 		KafkaNumWorkers:              1,
+		KafkaMaxBytes:                2000000,
 		CsvCreatedGroup:              "dp-cantabular-xlsx-exporter",
-		CsvCreatedTopic:              "cantabular-csv-created",
+		CsvCreatedTopic:              "common-output-created", //!!! put following bck in when it exists as a kafka topic"cantabular-csv-created",
 		CantabularOutputCreatedTopic: "cantabular-output-created",
 		EncryptionDisabled:           false,               // needed for local development to skip needing vault - TODO - remove if not needed
 		VaultPath:                    "secret/shared/psk", // TODO - remove if not needed
@@ -60,9 +63,11 @@ func Get() (*Config, error) {
 		DownloadServiceURL:           "http://localhost:23600",
 		AWSRegion:                    "eu-west-1",
 		UploadBucketName:             "dp-cantabular-csv-exporter", // needed for place to download .csv from
-		MinioAccessKey:               "",                           // in develop & prod this is also the AWS_ACCESS_KEY_ID
-		MinioSecretKey:               "",                           // in develop & prod this is also the AWS_SECRET_ACCESS_KEY
-		OutputFilePath:               "/tmp/helloworld.txt",        // TODO remove this
+		LocalObjectStore:             "",
+		MinioAccessKey:               "",                    // in develop & prod this is also the AWS_ACCESS_KEY_ID
+		MinioSecretKey:               "",                    // in develop & prod this is also the AWS_SECRET_ACCESS_KEY
+		OutputFilePath:               "/tmp/helloworld.txt", // TODO remove this
+		ComponentTestUseLogFile:      false,
 	}
 
 	return cfg, envconfig.Process("", cfg)

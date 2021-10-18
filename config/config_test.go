@@ -30,7 +30,8 @@ func TestConfig(t *testing.T) {
 				So(cfg.KafkaOffsetOldest, ShouldEqual, true)
 				So(cfg.KafkaNumWorkers, ShouldEqual, 1)
 				So(cfg.CsvCreatedGroup, ShouldEqual, "dp-cantabular-xlsx-exporter")
-				So(cfg.CsvCreatedTopic, ShouldEqual, "cantabular-csv-created")
+				So(cfg.CsvCreatedTopic, ShouldEqual, "common-output-created")
+				//!!! put following bck in above when it exists as a kafka topic"cantabular-csv-created",
 				So(cfg.CantabularOutputCreatedTopic, ShouldEqual, "cantabular-output-created")
 				So(cfg.EncryptionDisabled, ShouldBeFalse)
 				So(cfg.VaultPath, ShouldEqual, "secret/shared/psk")
@@ -39,6 +40,7 @@ func TestConfig(t *testing.T) {
 				So(cfg.DownloadServiceURL, ShouldEqual, "http://localhost:23600")
 				So(cfg.AWSRegion, ShouldEqual, "eu-west-1")
 				So(cfg.UploadBucketName, ShouldEqual, "dp-cantabular-csv-exporter")
+				So(cfg.LocalObjectStore, ShouldEqual, "")
 				So(cfg.MinioAccessKey, ShouldEqual, "")
 				So(cfg.MinioSecretKey, ShouldEqual, "")
 				So(cfg.OutputFilePath, ShouldEqual, "/tmp/helloworld.txt")
