@@ -3,9 +3,12 @@ package handler
 //!!! adjust all of this to read csv and output xlsx
 // !!! and also get metadata and put that into the xlsx as part of the above xlsx production
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"sync"
 
 	//	"github.com/ONSdigital/dp-api-clients-go/v2/cantabular"
 	//	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
@@ -16,6 +19,13 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
 	kafka "github.com/ONSdigital/dp-kafka/v2"
 	"github.com/ONSdigital/log.go/v2/log"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+
+	_ "github.com/aws/aws-sdk-go-v2/aws"
 )
 
 // !!! the below needs renaming to suit this service - see what dp-dataset-exporter-xlsx names things and copy
@@ -43,51 +53,146 @@ func NewCsvComplete(cfg config.Config /*c CantabularClient, d DatasetAPIClient,*
 	}
 }
 
+// GetS3Downloader creates an S3 Uploader, or a local storage client if a non-empty LocalObjectStore is provided
+var GetS3Downloader = func(cfg *config.Config) (*s3manager.Downloader, error) {
+	if cfg.LocalObjectStore != "" {
+		s3Config := &aws.Config{
+			Credentials:      credentials.NewStaticCredentials(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
+			Endpoint:         aws.String(cfg.LocalObjectStore),
+			Region:           aws.String(cfg.AWSRegion),
+			DisableSSL:       aws.Bool(true),
+			S3ForcePathStyle: aws.Bool(true),
+		}
+
+		// !!! may need to save the session from 'GetS3Uploader' and re-use it here
+		sess, err := session.NewSession(s3Config)
+		if err != nil {
+			//!!! should the following actually say (as in download-service): "could not create the local-object-store s3 client: %w", err   ???
+			return nil, fmt.Errorf("failed to create aws session: %w", err)
+		}
+		return s3manager.NewDownloader(sess), nil
+	}
+
+	sess, _ := session.NewSession(&aws.Config{
+		Region: aws.String(cfg.AWSRegion),
+	})
+
+	return s3manager.NewDownloader(sess), nil
+}
+
+// Create a fake WriterAt to wrap a Writer
+// from: https://stackoverflow.com/questions/60034007/is-there-an-aws-s3-go-api-for-reading-file-instead-of-download-file
+// see also: https://dev.to/flowup/using-io-reader-io-writer-in-go-to-stream-data-3i7b
+type FakeWriterAt struct {
+	w io.Writer
+}
+
+func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
+	// ignore 'offset' because we forced sequential downloads
+	return fw.w.Write(p)
+}
+
 // Handle takes a single event.
 func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) error {
 	logData := log.Data{
 		"event": e,
 	}
-	log.Info(ctx, "Info from incomming event: CommonOutputCreated :", logData)
+	log.Info(ctx, "Info from incomming event: CommonOutputCreated :", logData) //!!! for development, trash later
 
-	/*	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", e.InstanceID, headers.IfMatchAnyETag)
+	if e.InstanceID == "" {
+		return &Error{
+			err:     fmt.Errorf("instanceID is empty"),
+			logData: logData,
+		}
+	}
+	filenameCsv := generateS3FilenameCsv(e.InstanceID)
+
+	bucketName := h.s3.BucketName()
+
+	//S3Uploader
+
+	// Create an io.Pipe to have the ability to read what is written to a writer
+	r, w := io.Pipe()
+
+	//var downloader *s3manager.Downloader
+	/*	cfg, err := awsConfig.LoadDefaultConfig(context.TODO(), awsConfig.WithRegion(h.cfg.AWSRegion))
 		if err != nil {
 			return &Error{
-				err:     fmt.Errorf("failed to get instance: %w", err),
+				err:     fmt.Errorf("aws config error"),
 				logData: logData,
 			}
 		}
 
-		log.Info(ctx, "instance obtained from dataset API", log.Data{
-			"instance_id": instance.ID,
+		client := s3v2.NewFromConfig(cfg)*/
+
+	// optimize with sync pools, see this article:
+	// https://levyeran.medium.com/high-memory-allocations-and-gc-cycles-while-downloading-large-s3-objects-using-the-aws-sdk-for-go-e776a136c5d0
+
+	/*client, err := configS3(h.cfg.MinioAccessKey, h.cfg.MinioSecretKey, bucketName)
+	if err != nil {
+		return &Error{
+			err:     fmt.Errorf("client problem"),
+			logData: logData,
+		}
+	}
+
+	downloader := s3manager.NewDownloader(client)*/
+	downloader, err := GetS3Downloader(&h.cfg)
+	if err != nil {
+		return &Error{
+			err:     fmt.Errorf("client problem"),
+			logData: logData,
+		}
+	}
+	// Set concurrency to one so the download will be sequential
+	downloader.Concurrency = 1
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	// Wrap the writer created with io.Pipe() with the FakeWriterAt created in the first step.
+	// Use the Download function to write to the wrapped Writer:
+	go func() {
+		defer w.Close() //!!! this may need closing after all the lines have been processed further on in the NewScanner section
+		defer wg.Done()
+		//!!! may need something to close stuff to do with the io.Pipe()
+		n, err := downloader.Download( /*context.TODO(),*/ FakeWriterAt{w},
+			&s3.GetObjectInput{
+				Bucket: aws.String(bucketName),
+				Key:    aws.String(filenameCsv),
+			})
+		if err != nil {
+			//!!! flag error to exit
+			//!!! eventually log an error instead of the Info
+			log.Info(ctx, "problem downloading unencrypted file from S3", log.Data{"err": err, "bucketName": bucketName, "filenameCsv": filenameCsv})
+		} else {
+			//!!! my want to log the following for initial development and then trash displaying this info
+			fmt.Printf("file downloaded, %d bytes\n", n)
+		}
+	}()
+
+	// see  https://www.socketloop.com/tutorials/golang-download-file-example
+
+	/*	req, err := h.s3.GetObject(&s3.GetObjectInput{
+			Bucket: aws.String("my.s3.bucket"),
+			Key:    aws.String("TEST/test.log"),
 		})
-
-		if err := h.ValidateInstance(instance); err != nil {
-			return fmt.Errorf("failed to validate instance: %w", err)
-		}
-
-		req := cantabular.StaticDatasetQueryRequest{
-			Dataset:   e.CantabularBlob,
-			Variables: instance.CSVHeader[1:],
-		}
-
-		logData["request"] = req
-
-		resp, err := h.ctblr.StaticDatasetQuery(ctx, req)
 		if err != nil {
-			return &Error{
-				err:     fmt.Errorf("failed to query dataset: %w", err),
-				logData: logData,
-			}
+			panic(err)
 		}
+		var reader io.Reader
+		reader = req.Body*/
+	//	data, _ := ioutil.ReadAll(r /*reader*/) // !!! this needs to be read a line at a time ...
+	//	var stringData string
+	//	stringData = string(data[:])
+	scanner := bufio.NewScanner(r /*strings.NewReader(stringData)*/)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fmt.Println(line)
+		log.Info(ctx, line) //!!! for development, trash later
+	}
+	//!!! probably need to do error check of end result of scanner
 
-		if err := h.ValidateQueryResponse(resp); err != nil {
-			return &Error{
-				err:     fmt.Errorf("failed to validate query response: %w", err),
-				logData: logData,
-			}
-		}*/
-
+	wg.Wait()
 	// Convert Cantabular Response To CSV file
 	/*	file, numBytes, err := h.ParseQueryResponse(resp)
 		if err != nil {
@@ -409,8 +514,9 @@ func generateURL(downloadServiceURL, instanceID string) string {
 	)
 }
 
-// generateS3Filename generates the S3 key (filename including `subpaths` after the bucket) for the provided instanceID
-func generateS3Filename(instanceID string) string {
+// generateS3FilenameCsv generates the S3 key (filename including `subpaths` after the bucket)
+// for the provided instanceID CSV file that is going to be read
+func generateS3FilenameCsv(instanceID string) string {
 	return fmt.Sprintf("instances/%s.csv", instanceID)
 }
 
