@@ -54,7 +54,7 @@ func Get() (*Config, error) {
 		KafkaNumWorkers:              1, // it is not advised to change this, as it may cause Out of Memeory problems for very large files - TBD
 		KafkaMaxBytes:                2000000,
 		CsvCreatedGroup:              "dp-cantabular-xlsx-exporter",
-		CsvCreatedTopic:              "common-output-created", //!!! put following bck in when it exists as a kafka topic"cantabular-csv-created",
+		CsvCreatedTopic:              "cantabular-csv-created",
 		CantabularOutputCreatedTopic: "cantabular-output-created",
 		EncryptionDisabled:           false,               // needed for local development to skip needing vault - TODO - remove if not needed
 		VaultPath:                    "secret/shared/psk", // TODO - remove if not needed
