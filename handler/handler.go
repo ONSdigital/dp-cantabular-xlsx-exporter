@@ -24,8 +24,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-
-	_ "github.com/aws/aws-sdk-go-v2/aws"
 )
 
 // !!! the below needs renaming to suit this service - see what dp-dataset-exporter-xlsx names things and copy
@@ -70,14 +68,44 @@ var GetS3Downloader = func(cfg *config.Config) (*s3manager.Downloader, error) {
 			//!!! should the following actually say (as in download-service): "could not create the local-object-store s3 client: %w", err   ???
 			return nil, fmt.Errorf("failed to create aws session: %w", err)
 		}
-		return s3manager.NewDownloader(sess), nil
+		return s3manager.NewDownloader(sess), nil //!!! ultimatley this needs to be more like the csv-exporter's GetS3Uploader
 	}
 
+	//!!! ultimatley this needs to be more like the csv-exporter's GetS3Uploader, for rest of this function
 	sess, _ := session.NewSession(&aws.Config{
 		Region: aws.String(cfg.AWSRegion),
 	})
 
 	return s3manager.NewDownloader(sess), nil
+}
+
+//!!! the below comment may need fixing
+// GetS3UploaderXlsx creates an S3 Downloader, or a local storage client if a non-empty LocalObjectStore is provided
+var GetS3UploaderXlsx = func(cfg *config.Config) (*s3manager.Uploader, error) {
+	if cfg.LocalObjectStore != "" {
+		s3Config := &aws.Config{
+			Credentials:      credentials.NewStaticCredentials(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
+			Endpoint:         aws.String(cfg.LocalObjectStore),
+			Region:           aws.String(cfg.AWSRegion),
+			DisableSSL:       aws.Bool(true),
+			S3ForcePathStyle: aws.Bool(true),
+		}
+
+		// !!! may need to save the session from 'GetS3Uploader' and re-use it here
+		sess, err := session.NewSession(s3Config)
+		if err != nil {
+			//!!! should the following actually say (as in download-service): "could not create the local-object-store s3 client: %w", err   ???
+			return nil, fmt.Errorf("failed to create aws session: %w", err)
+		}
+		return s3manager.NewUploader(sess), nil //!!! ultimatley this needs to be more like the csv-exporter's GetS3Uploader
+	}
+
+	//!!! ultimatley this needs to be more like the csv-exporter's GetS3Uploader, for rest of this function
+	sess, _ := session.NewSession(&aws.Config{
+		Region: aws.String(cfg.AWSRegion),
+	})
+
+	return s3manager.NewUploader(sess), nil
 }
 
 // Create a fake WriterAt to wrap a Writer
@@ -106,54 +134,49 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) 
 		}
 	}
 	filenameCsv := generateS3FilenameCsv(e.InstanceID)
-	filenameXlsx := generateS3FilenameXlsx(e.instanceID)
+	filenameXlsx := generateS3FilenameXlsx(e.InstanceID)
 
 	bucketName := h.s3.BucketName()
 
-	//S3Uploader
-
 	// Create an io.Pipe to have the ability to read what is written to a writer
 	csvReader, csvWriter := io.Pipe()
-
-	//var downloader *s3manager.Downloader
-	/*	cfg, err := awsConfig.LoadDefaultConfig(context.TODO(), awsConfig.WithRegion(h.cfg.AWSRegion))
-		if err != nil {
-			return &Error{
-				err:     fmt.Errorf("aws config error"),
-				logData: logData,
-			}
-		}
-
-		client := s3v2.NewFromConfig(cfg)*/
+	xlsxReader, xlsxWriter := io.Pipe()
 
 	// optimize with sync pools, see this article:
 	// https://levyeran.medium.com/high-memory-allocations-and-gc-cycles-while-downloading-large-s3-objects-using-the-aws-sdk-for-go-e776a136c5d0
 
-	/*client, err := configS3(h.cfg.MinioAccessKey, h.cfg.MinioSecretKey, bucketName)
-	if err != nil {
-		return &Error{
-			err:     fmt.Errorf("client problem"),
-			logData: logData,
-		}
-	}
+	// !!! get the metadata
 
-	downloader := s3manager.NewDownloader(client)*/
+	// !!! set up the excelize code here
+
+	// !!! write header on first sheet, just to demonstrate ...
+
 	downloader, err := GetS3Downloader(&h.cfg)
 	if err != nil {
 		return &Error{
-			err:     fmt.Errorf("client problem"),
+			err:     fmt.Errorf("downloader client problem"),
 			logData: logData,
 		}
 	}
-	// Set concurrency to one so the download will be sequential
+
+	uploader, err := GetS3UploaderXlsx(&h.cfg)
+	if err != nil {
+		return &Error{
+			err:     fmt.Errorf("uploader client problem"),
+			logData: logData,
+		}
+	}
+
+	// Set concurrency to one so the download will be sequential (which is essential to stream reading file in order)
 	downloader.Concurrency = 1
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
+	wgDownload := sync.WaitGroup{}
+	wgDownload.Add(1)
 	go func() {
-		defer wg.Done()
+		defer wgDownload.Done()
 		// Wrap the writer created with io.Pipe() with the FakeWriterAt created in the first step.
 		// Use the Download function to write to the wrapped Writer:
+		// !!! this code needs to use 'DownloadWithContext' with all additiional needed changes for cancelling
 		numberOfBytesRead, err := downloader.Download( /*context.TODO(),*/ FakeWriterAt{csvWriter},
 			&s3.GetObjectInput{
 				Bucket: aws.String(bucketName),
@@ -165,39 +188,62 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) 
 			csvWriter.CloseWithError(fmt.Errorf("problem downloading unencrypted file from S3"))
 		} else {
 			//!!! my want to log the following for initial development and then trash displaying this info
-			log.Info(ctx, fmt.Sprintf("file downloaded, %d bytes\n", numberOfBytesRead))
+			log.Info(ctx, fmt.Sprintf("file downloaded, %d bytes", numberOfBytesRead))
 			csvWriter.Close()
+		}
+	}()
+
+	wgUpload := sync.WaitGroup{}
+	wgUpload.Add(1)
+	go func() {
+		defer wgUpload.Done()
+		// Wrap the writer created with io.Pipe() with the FakeWriterAt created in the first step.
+		// Use the Download function to write to the wrapped Writer:
+		// !!! this code needs to use 'DownloadWithContext' with all additiional needed changes for cancelling
+		result, err := uploader.Upload(&s3manager.UploadInput{
+			Body:   xlsxReader,
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(filenameXlsx),
+		})
+		if err != nil {
+			//!!! eventually log an error instead of the Info
+			log.Info(ctx, "upload of xlsx to S3 failed", log.Data{"err": err, "bucketName": bucketName, "filenameCsv": filenameCsv})
+			// !!! may need to set some flag to abort the scanner loop somehow, or maybe close its
+			// writer with an error ... need to frig code to determine how to recognise a failure
+			// and process it.
+		} else {
+			//!!! my want to log the following for initial development and then trash displaying this info
+			log.Info(ctx, fmt.Sprintf("file uploaded to: %s", result.Location))
 		}
 	}()
 
 	// see  https://www.socketloop.com/tutorials/golang-download-file-example
 
-	/*	req, err := h.s3.GetObject(&s3.GetObjectInput{
-			Bucket: aws.String("my.s3.bucket"),
-			Key:    aws.String("TEST/test.log"),
-		})
-		if err != nil {
-			panic(err)
-		}
-		var reader io.Reader
-		reader = req.Body*/
-	//	data, _ := ioutil.ReadAll(r /*reader*/) // !!! this needs to be read a line at a time ...
-	//	var stringData string
-	//	stringData = string(data[:])
-	scanner := bufio.NewScanner(csvReader /*strings.NewReader(stringData)*/)
+	var row = 2
+
+	scanner := bufio.NewScanner(csvReader)
 	for scanner.Scan() {
 		line := scanner.Text()
+		//!!! split 'line' and do the excel stream write at 'row' & deal with any errors
+		row++
 		fmt.Println(line)
 		log.Info(ctx, line) //!!! for development, trash later
+		fmt.Fprintf(xlsxWriter, line)
 	}
-	wg.Wait()
+	wgDownload.Wait()
+
+	// !!! do the excel stream writer flush, and deal with any errors
+
 	if err := scanner.Err(); err != nil {
+		xlsxWriter.Close() //!!! or may need CloseWithError
+		wgUpload.Wait()
 		return fmt.Errorf("failed scanning csv lines: %s", err)
 	}
 
-	// !!! set up a different io.pipe
-	// set up another go routine to do the upload to S3 reading from the pipe
-	// inside the above for scanner loop do the execell stuff for writing the csv lines.
+	//!!! add in the metadata to sheet 2, and deal with any errors
+
+	xlsxWriter.Close() //!!! or may need CloseWithError
+	wgUpload.Wait()
 
 	// !!! then need to figure out need for encryption of files ?
 
@@ -536,5 +582,5 @@ func generateVaultPathForFile(vaultPathRoot, instanceID string) string {
 // generateS3FilenameXlsx generates the S3 key (filename including `subpaths` after the bucket)
 // for the provided instanceID XLSX file that is going to be written
 func generateS3FilenameXlsx(instanceID string) string {
-	return fmt.Sprintf("instances/%s.csv", instanceID)
+	return fmt.Sprintf("instances/%s.xlsx", instanceID)
 }
