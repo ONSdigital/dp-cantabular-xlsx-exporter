@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
 	//	"github.com/ONSdigital/dp-api-clients-go/v2/cantabular"
@@ -24,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/xuri/excelize/v2"
 )
 
 // !!! the below needs renaming to suit this service - see what dp-dataset-exporter-xlsx names things and copy
@@ -148,8 +150,25 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) 
 	// !!! get the metadata
 
 	// !!! set up the excelize code here
+	excelFile := excelize.NewFile()
+	streamWriter, err := excelFile.NewStreamWriter("Sheet1")
+	if err != nil {
+		return &Error{
+			err:     fmt.Errorf("excel stream writer creation problem"),
+			logData: logData,
+		}
+	}
 
-	// !!! write header on first sheet, just to demonstrate ...
+	// !!! write header on first sheet, just to demonstrate ... (if its to be kept, add error handling)
+	styleID, err := excelFile.NewStyle(`{"font":{"color":"#EE2277"}}`)
+	if err != nil {
+		fmt.Println(err)
+	}
+	if err := streamWriter.SetRow("A1", []interface{}{
+		excelize.Cell{StyleID: styleID, Value: "Data"}}); err != nil {
+		fmt.Println(err)
+	}
+	// !!! above section for test only
 
 	downloader, err := GetS3Downloader(&h.cfg)
 	if err != nil {
@@ -225,14 +244,30 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) 
 	for scanner.Scan() {
 		line := scanner.Text()
 		//!!! split 'line' and do the excel stream write at 'row' & deal with any errors
+		columns := strings.Split(line, ",")
+		nofColumns := len(columns)
+		if nofColumns == 0 {
+			//!!! handle error and close all open things, may need to write on a stream
+			// to the go func's so that they can use whatever ctx to cancel the S3 bucket actions, etc
+		}
+		rowItems := make([]interface{}, nofColumns)
+		for colID := 0; colID < nofColumns; colID++ {
+			rowItems[colID] = columns[colID]
+		}
+		cell, _ := excelize.CoordinatesToCellName(0, row)
+		if err := streamWriter.SetRow(cell, rowItems); err != nil {
+			fmt.Println(err) //!!! fix this error handling
+		}
 		row++
-		fmt.Println(line)
-		log.Info(ctx, line) //!!! for development, trash later
-		fmt.Fprintf(xlsxWriter, line)
+
+		fmt.Println(line)             //!!! for development, trash later
+		log.Info(ctx, line)           //!!! for development, trash later
+		fmt.Fprintf(xlsxWriter, line) //!!! for development, trash later
 	}
 	wgDownload.Wait()
-
-	// !!! do the excel stream writer flush, and deal with any errors
+	if err := streamWriter.Flush(); err != nil {
+		fmt.Println(err) //!!! fix this error handling
+	}
 
 	if err := scanner.Err(); err != nil {
 		xlsxWriter.Close() //!!! or may need CloseWithError
@@ -241,6 +276,14 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) 
 	}
 
 	//!!! add in the metadata to sheet 2, and deal with any errors
+
+	//!!! write the in memory excel file out
+	// Save spreadsheet by the given path.
+	//!!! BUT the following writes to a file, so need our own version of it
+	//    that does not open a file but simply uses the 'xlsxWriter' pipe ...
+	if err := excelFile.SaveAs("Book1.xlsx"); err != nil {
+		fmt.Println(err)
+	}
 
 	xlsxWriter.Close() //!!! or may need CloseWithError
 	wgUpload.Wait()

@@ -26,5 +26,6 @@ require (
 	github.com/maxcnunes/httpfake v1.2.1
 	github.com/rdumont/assistdog v0.0.0-20201106100018-168b06230d14
 	github.com/smartystreets/goconvey v1.6.6
+	github.com/xuri/excelize/v2 v2.4.1
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
 )
