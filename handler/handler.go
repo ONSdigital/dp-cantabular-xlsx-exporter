@@ -106,13 +106,14 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) 
 		}
 	}
 	filenameCsv := generateS3FilenameCsv(e.InstanceID)
+	filenameXlsx := generateS3FilenameXlsx(e.instanceID)
 
 	bucketName := h.s3.BucketName()
 
 	//S3Uploader
 
 	// Create an io.Pipe to have the ability to read what is written to a writer
-	r, w := io.Pipe()
+	csvReader, csvWriter := io.Pipe()
 
 	//var downloader *s3manager.Downloader
 	/*	cfg, err := awsConfig.LoadDefaultConfig(context.TODO(), awsConfig.WithRegion(h.cfg.AWSRegion))
@@ -149,24 +150,23 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) 
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	// Wrap the writer created with io.Pipe() with the FakeWriterAt created in the first step.
-	// Use the Download function to write to the wrapped Writer:
 	go func() {
-		defer w.Close() //!!! this may need closing after all the lines have been processed further on in the NewScanner section
 		defer wg.Done()
-		//!!! may need something to close stuff to do with the io.Pipe()
-		n, err := downloader.Download( /*context.TODO(),*/ FakeWriterAt{w},
+		// Wrap the writer created with io.Pipe() with the FakeWriterAt created in the first step.
+		// Use the Download function to write to the wrapped Writer:
+		numberOfBytesRead, err := downloader.Download( /*context.TODO(),*/ FakeWriterAt{csvWriter},
 			&s3.GetObjectInput{
 				Bucket: aws.String(bucketName),
 				Key:    aws.String(filenameCsv),
 			})
 		if err != nil {
-			//!!! flag error to exit
 			//!!! eventually log an error instead of the Info
 			log.Info(ctx, "problem downloading unencrypted file from S3", log.Data{"err": err, "bucketName": bucketName, "filenameCsv": filenameCsv})
+			csvWriter.CloseWithError(fmt.Errorf("problem downloading unencrypted file from S3"))
 		} else {
 			//!!! my want to log the following for initial development and then trash displaying this info
-			fmt.Printf("file downloaded, %d bytes\n", n)
+			log.Info(ctx, fmt.Sprintf("file downloaded, %d bytes\n", numberOfBytesRead))
+			csvWriter.Close()
 		}
 	}()
 
@@ -184,15 +184,23 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) 
 	//	data, _ := ioutil.ReadAll(r /*reader*/) // !!! this needs to be read a line at a time ...
 	//	var stringData string
 	//	stringData = string(data[:])
-	scanner := bufio.NewScanner(r /*strings.NewReader(stringData)*/)
+	scanner := bufio.NewScanner(csvReader /*strings.NewReader(stringData)*/)
 	for scanner.Scan() {
 		line := scanner.Text()
 		fmt.Println(line)
 		log.Info(ctx, line) //!!! for development, trash later
 	}
-	//!!! probably need to do error check of end result of scanner
-
 	wg.Wait()
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("failed scanning csv lines: %s", err)
+	}
+
+	// !!! set up a different io.pipe
+	// set up another go routine to do the upload to S3 reading from the pipe
+	// inside the above for scanner loop do the execell stuff for writing the csv lines.
+
+	// !!! then need to figure out need for encryption of files ?
+
 	// Convert Cantabular Response To CSV file
 	/*	file, numBytes, err := h.ParseQueryResponse(resp)
 		if err != nil {
@@ -523,4 +531,10 @@ func generateS3FilenameCsv(instanceID string) string {
 // generateVaultPathForFile generates the vault path for the provided root and filename
 func generateVaultPathForFile(vaultPathRoot, instanceID string) string {
 	return fmt.Sprintf("%s/%s.csv", vaultPathRoot, instanceID)
+}
+
+// generateS3FilenameXlsx generates the S3 key (filename including `subpaths` after the bucket)
+// for the provided instanceID XLSX file that is going to be written
+func generateS3FilenameXlsx(instanceID string) string {
+	return fmt.Sprintf("instances/%s.csv", instanceID)
 }
