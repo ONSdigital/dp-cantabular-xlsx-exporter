@@ -142,7 +142,6 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) 
 
 	// Create an io.Pipe to have the ability to read what is written to a writer
 	csvReader, csvWriter := io.Pipe()
-	xlsxReader, xlsxWriter := io.Pipe()
 
 	// optimize with sync pools, see this article:
 	// https://levyeran.medium.com/high-memory-allocations-and-gc-cycles-while-downloading-large-s3-objects-using-the-aws-sdk-for-go-e776a136c5d0
@@ -212,6 +211,51 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) 
 		}
 	}()
 
+	// see  https://www.socketloop.com/tutorials/golang-download-file-example
+
+	var row = 3 // !!! this value choosen for test to visually see effect in excel spreadsheet
+
+	scanner := bufio.NewScanner(csvReader)
+	for scanner.Scan() {
+		line := scanner.Text()
+		//!!! split 'line' and do the excel stream write at 'row' & deal with any errors
+		columns := strings.Split(line, ",")
+		nofColumns := len(columns)
+		if nofColumns == 0 {
+			log.Info(ctx, "nofColumns == 0") //!!! for development, trash later
+			//!!! handle error and close all open things, may need to write on a stream
+			// to the go func's so that they can use whatever ctx to cancel the S3 bucket actions, etc
+		}
+		rowItems := make([]interface{}, nofColumns)
+		for colID := 0; colID < nofColumns; colID++ {
+			rowItems[colID] = columns[colID]
+		}
+		cell, _ := excelize.CoordinatesToCellName(1, row)
+		if err := streamWriter.SetRow(cell, rowItems); err != nil {
+			fmt.Println(err)                 //!!! fix this error handling
+			log.Info(ctx, "set row problem") //!!! for development, trash later
+		}
+		row++
+
+		//	fmt.Println(line)   //!!! for development, trash later
+		//	log.Info(ctx, line) //!!! for development, trash later
+		//		fmt.Fprintf(xlsxWriter, line) //!!! for development, trash later
+	}
+	wgDownload.Wait()
+	if err := scanner.Err(); err != nil {
+		//		xlsxWriter.Close() //!!! or may need CloseWithError
+		//		wgUpload.Wait()
+		return fmt.Errorf("failed scanning csv lines: %s", err)
+	}
+
+	if err := streamWriter.Flush(); err != nil {
+		fmt.Println(err) //!!! fix this error handling
+	}
+
+	//!!! add in the metadata to sheet 2, and deal with any errors
+
+	xlsxReader, xlsxWriter := io.Pipe()
+
 	wgUpload := sync.WaitGroup{}
 	wgUpload.Add(1)
 	go func() {
@@ -236,52 +280,9 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) 
 		}
 	}()
 
-	// see  https://www.socketloop.com/tutorials/golang-download-file-example
-
-	var row = 2
-
-	scanner := bufio.NewScanner(csvReader)
-	for scanner.Scan() {
-		line := scanner.Text()
-		//!!! split 'line' and do the excel stream write at 'row' & deal with any errors
-		columns := strings.Split(line, ",")
-		nofColumns := len(columns)
-		if nofColumns == 0 {
-			//!!! handle error and close all open things, may need to write on a stream
-			// to the go func's so that they can use whatever ctx to cancel the S3 bucket actions, etc
-		}
-		rowItems := make([]interface{}, nofColumns)
-		for colID := 0; colID < nofColumns; colID++ {
-			rowItems[colID] = columns[colID]
-		}
-		cell, _ := excelize.CoordinatesToCellName(0, row)
-		if err := streamWriter.SetRow(cell, rowItems); err != nil {
-			fmt.Println(err) //!!! fix this error handling
-		}
-		row++
-
-		fmt.Println(line)             //!!! for development, trash later
-		log.Info(ctx, line)           //!!! for development, trash later
-		fmt.Fprintf(xlsxWriter, line) //!!! for development, trash later
-	}
-	wgDownload.Wait()
-	if err := streamWriter.Flush(); err != nil {
-		fmt.Println(err) //!!! fix this error handling
-	}
-
-	if err := scanner.Err(); err != nil {
-		xlsxWriter.Close() //!!! or may need CloseWithError
-		wgUpload.Wait()
-		return fmt.Errorf("failed scanning csv lines: %s", err)
-	}
-
-	//!!! add in the metadata to sheet 2, and deal with any errors
-
 	//!!! write the in memory excel file out
-	// Save spreadsheet by the given path.
-	//!!! BUT the following writes to a file, so need our own version of it
-	//    that does not open a file but simply uses the 'xlsxWriter' pipe ...
-	if err := excelFile.SaveAs("Book1.xlsx"); err != nil {
+	// Write spreadsheet by the given io.writer
+	if err := excelFile.Write(xlsxWriter); err != nil {
 		fmt.Println(err)
 	}
 
