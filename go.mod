@@ -14,10 +14,8 @@ require (
 	github.com/ONSdigital/dp-vault v1.2.0
 	github.com/ONSdigital/log.go/v2 v2.0.9
 	github.com/aws/aws-sdk-go v1.41.4
-	github.com/aws/aws-sdk-go-v2 v1.9.2
 	github.com/aws/aws-sdk-go-v2/config v1.8.3
 	github.com/aws/aws-sdk-go-v2/credentials v1.4.3
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.5.4
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.16.1
 	github.com/cucumber/godog v0.12.1
 	github.com/google/go-cmp v0.5.6
