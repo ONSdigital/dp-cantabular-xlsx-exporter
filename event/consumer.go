@@ -57,8 +57,8 @@ func (p *Processor) Consume(ctx context.Context, cg kafka.IConsumerGroup, h Hand
 func (p *Processor) processMessage(ctx context.Context, msg kafka.Message, h Handler) error {
 	defer msg.Commit()
 
-	var event CommonOutputCreated
-	s := schema.CommonOutputCreated
+	var event CantabularCsvCreated
+	s := schema.CantabularCsvCreated
 
 	if err := s.Unmarshal(msg.GetData(), &event); err != nil {
 		return &Error{
