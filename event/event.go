@@ -9,8 +9,8 @@ type InstanceComplete struct {
 
 //!!! the following should be renamed to CantabularCsvCreated
 //!!! and fix the comment below to indicat that this is an input to this service
-// CommonOutputCreated provides an avro structure for an Output Created event
-type CommonOutputCreated struct {
+// CantabularCsvCreated provides an avro structure for an Input event
+type CantabularCsvCreated struct {
 	FilterID   string `avro:"filter_output_id"`
 	FileURL    string `avro:"file_url"`
 	InstanceID string `avro:"instance_id"`

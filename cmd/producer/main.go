@@ -46,7 +46,7 @@ func main() {
 		e := scanEvent(scanner)
 		log.Info(ctx, "sending hello-called event", log.Data{"helloCalledEvent": e})
 
-		bytes, err := schema.CommonOutputCreated.Marshal(e)
+		bytes, err := schema.CantabularCsvCreated.Marshal(e)
 		if err != nil {
 			log.Fatal(ctx, "hello-called event error", err)
 			os.Exit(1)
@@ -61,8 +61,8 @@ func main() {
 }
 
 // scanEvent creates a HelloCalled event according to the user input
-func scanEvent(scanner *bufio.Scanner) *event.CommonOutputCreated { //!!! in csv-exporter - the even possibly needs renaming to be: CantabularCsvCreated
-	fmt.Println("--- [Send Kafka CommonOutputCreated] ---")
+func scanEvent(scanner *bufio.Scanner) *event.CantabularCsvCreated { //!!! in csv-exporter - the even possibly needs renaming to be: CantabularCsvCreated
+	fmt.Println("--- [Send Kafka CantabularCsvCreated] ---")
 
 	fmt.Println("Please type the instance_id")
 	fmt.Printf("$ ")
@@ -76,7 +76,7 @@ func scanEvent(scanner *bufio.Scanner) *event.CommonOutputCreated { //!!! in csv
 		scanner.Scan()
 		blob := scanner.Text()*/
 
-	return &event.CommonOutputCreated{
+	return &event.CantabularCsvCreated{
 		InstanceID: name,
 		//		CantabularBlob: blob,
 	}

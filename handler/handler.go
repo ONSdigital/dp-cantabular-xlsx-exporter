@@ -67,13 +67,13 @@ var GetS3Downloader = func(cfg *config.Config) (*s3manager.Downloader, error) {
 		// !!! may need to save the session from 'GetS3Uploader' and re-use it here
 		sess, err := session.NewSession(s3Config)
 		if err != nil {
-			//!!! should the following actually say (as in download-service): "could not create the local-object-store s3 client: %w", err   ???
-			return nil, fmt.Errorf("failed to create aws session: %w", err)
+			return nil, fmt.Errorf("failed to create aws session (local): %w", err)
 		}
 		return s3manager.NewDownloader(sess), nil //!!! ultimatley this needs to be more like the csv-exporter's GetS3Uploader
 	}
 
 	//!!! ultimatley this needs to be more like the csv-exporter's GetS3Uploader, for rest of this function
+	//!!! and process any error return
 	sess, _ := session.NewSession(&aws.Config{
 		Region: aws.String(cfg.AWSRegion),
 	})
@@ -96,13 +96,13 @@ var GetS3UploaderXlsx = func(cfg *config.Config) (*s3manager.Uploader, error) {
 		// !!! may need to save the session from 'GetS3Uploader' and re-use it here
 		sess, err := session.NewSession(s3Config)
 		if err != nil {
-			//!!! should the following actually say (as in download-service): "could not create the local-object-store s3 client: %w", err   ???
-			return nil, fmt.Errorf("failed to create aws session: %w", err)
+			return nil, fmt.Errorf("failed to create aws session (local): %w", err)
 		}
 		return s3manager.NewUploader(sess), nil //!!! ultimatley this needs to be more like the csv-exporter's GetS3Uploader
 	}
 
 	//!!! ultimatley this needs to be more like the csv-exporter's GetS3Uploader, for rest of this function
+	//!!! and process any error return
 	sess, _ := session.NewSession(&aws.Config{
 		Region: aws.String(cfg.AWSRegion),
 	})
@@ -123,11 +123,11 @@ func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
 }
 
 // Handle takes a single event.
-func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) error {
+func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated) error {
 	logData := log.Data{
 		"event": e,
 	}
-	log.Info(ctx, "Info from incomming event: CommonOutputCreated :", logData) //!!! for development, trash later
+	log.Info(ctx, "Info from incomming event: CantabularCsvCreated :", logData) //!!! for development, trash later
 
 	if e.InstanceID == "" {
 		return &Error{
@@ -135,8 +135,8 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) 
 			logData: logData,
 		}
 	}
-	filenameCsv := generateS3FilenameCsv(e.InstanceID)
-	filenameXlsx := generateS3FilenameXlsx(e.InstanceID)
+	filenameCsv := generateS3FilenameCSV(e.InstanceID)
+	filenameXlsx := generateS3FilenameXLSX(e.InstanceID)
 
 	bucketName := h.s3.BucketName()
 
@@ -230,10 +230,14 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) 
 		for colID := 0; colID < nofColumns; colID++ {
 			rowItems[colID] = columns[colID]
 		}
-		cell, _ := excelize.CoordinatesToCellName(1, row)
+		cell, err := excelize.CoordinatesToCellName(1, row)
+		if err != nil {
+			fmt.Println(err)                               //!!! fix this error handling
+			log.Info(ctx, "CoordinatesToCellName problem") //!!! for development, trash later
+		}
 		if err := streamWriter.SetRow(cell, rowItems); err != nil {
-			fmt.Println(err)                 //!!! fix this error handling
-			log.Info(ctx, "set row problem") //!!! for development, trash later
+			fmt.Println(err)                //!!! fix this error handling
+			log.Info(ctx, "SetRow problem") //!!! for development, trash later
 		}
 		row++
 
@@ -585,14 +589,15 @@ func (h *InstanceComplete) UploadCSVFile(ctx context.Context, instanceID string,
 	return nil
 }*/
 
+//!!! need to have discussion to determin what the output of this service should be
 // ProduceExportCompleteEvent sends the final kafka message signifying the export complete
 func (h *CsvComplete) ProduceExportCompleteEvent(instanceID string) error {
-	downloadURL := generateURL(h.cfg.DownloadServiceURL, instanceID)
+	//!!!	downloadURL := generateURL(h.cfg.DownloadServiceURL, instanceID)
 
-	// create CommonOutputCreated event and Marshal it
-	b, err := schema.CommonOutputCreated.Marshal(&event.CommonOutputCreated{
+	// create InstanceComplete event and Marshal it
+	b, err := schema.InstanceComplete.Marshal(&event.InstanceComplete{
 		InstanceID: instanceID,
-		FileURL:    downloadURL, // download service URL for the CSV file
+		//!!!		FileURL:    downloadURL, // download service URL for the CSV file
 	})
 	if err != nil {
 		return fmt.Errorf("error marshalling instance complete event: %w", err)
@@ -612,9 +617,9 @@ func generateURL(downloadServiceURL, instanceID string) string {
 	)
 }
 
-// generateS3FilenameCsv generates the S3 key (filename including `subpaths` after the bucket)
+// generateS3FilenameCSV generates the S3 key (filename including `subpaths` after the bucket)
 // for the provided instanceID CSV file that is going to be read
-func generateS3FilenameCsv(instanceID string) string {
+func generateS3FilenameCSV(instanceID string) string {
 	return fmt.Sprintf("instances/%s.csv", instanceID)
 }
 
@@ -623,8 +628,8 @@ func generateVaultPathForFile(vaultPathRoot, instanceID string) string {
 	return fmt.Sprintf("%s/%s.csv", vaultPathRoot, instanceID)
 }
 
-// generateS3FilenameXlsx generates the S3 key (filename including `subpaths` after the bucket)
+// generateS3FilenameXLSX generates the S3 key (filename including `subpaths` after the bucket)
 // for the provided instanceID XLSX file that is going to be written
-func generateS3FilenameXlsx(instanceID string) string {
+func generateS3FilenameXLSX(instanceID string) string {
 	return fmt.Sprintf("instances/%s.xlsx", instanceID)
 }

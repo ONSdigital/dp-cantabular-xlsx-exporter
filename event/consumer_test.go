@@ -20,7 +20,7 @@ var testCtx = context.Background()
 
 var errHandler = errors.New("Handler Error")
 
-var testEvent = event.InstanceComplete{
+var testEvent = event.CantabularCsvCreated{
 	InstanceID: "World",
 }
 
@@ -48,7 +48,7 @@ func TestConsume(t *testing.T) {
 
 		handlerWg := &sync.WaitGroup{}
 		mockEventHandler := &mock.HandlerMock{
-			HandleFunc: func(ctx context.Context, event *event.CommonOutputCreated) error {
+			HandleFunc: func(ctx context.Context, event *event.CantabularCsvCreated) error {
 				defer handlerWg.Done()
 				return nil
 			},
@@ -60,7 +60,7 @@ func TestConsume(t *testing.T) {
 
 			Convey("When consume message is called", func() {
 				handlerWg.Add(1)
-				proc.Consume(testCtx, mockConsumer, mockEventHandler)
+				proc.Consume(testCtx, mockConsumer, mockEventHandler) //!!! hangs here
 				handlerWg.Wait()
 
 				Convey("An event is sent to the mockEventHandler ", func() {
@@ -107,7 +107,7 @@ func TestConsume(t *testing.T) {
 		})
 
 		Convey("With a failing handler and a kafka message with the valid schema being sent to the Upstream channel", func() {
-			mockEventHandler.HandleFunc = func(ctx context.Context, event *event.CommonOutputCreated) error {
+			mockEventHandler.HandleFunc = func(ctx context.Context, event *event.CantabularCsvCreated) error {
 				defer handlerWg.Done()
 				return errHandler
 			}
@@ -136,8 +136,8 @@ func TestConsume(t *testing.T) {
 }
 
 // marshal helper method to marshal a event into a []byte
-func marshal(event event.InstanceComplete) []byte {
-	bytes, err := schema.InstanceComplete.Marshal(event)
+func marshal(event event.CantabularCsvCreated) []byte {
+	bytes, err := schema.CantabularCsvCreated.Marshal(event)
 	So(err, ShouldBeNil)
 	return bytes
 }

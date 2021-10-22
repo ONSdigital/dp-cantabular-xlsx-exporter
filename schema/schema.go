@@ -19,7 +19,7 @@ var InstanceComplete = &avro.Schema{
 	Definition: instanceComplete,
 }
 
-var commonOutputCreated = `{
+var cantabularCsvCreated = `{
   "type": "record",
   "name": "common-output-created",
   "fields": [
@@ -34,7 +34,7 @@ var commonOutputCreated = `{
   ]
 }`
 
-// CommonOutputCreated the Avro schema for CSV exported messages.
-var CommonOutputCreated = &avro.Schema{
-	Definition: commonOutputCreated,
+// CantabularCsvCreated the Avro schema for CSV exported messages.
+var CantabularCsvCreated = &avro.Schema{
+	Definition: cantabularCsvCreated,
 }
