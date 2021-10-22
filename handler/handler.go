@@ -44,7 +44,7 @@ func NewCsvComplete(cfg config.Config /*c CantabularClient, d DatasetAPIClient,*
 }
 
 // Handle takes a single event.
-func (h *CsvComplete) Handle(ctx context.Context, e *event.CommonOutputCreated) error {
+func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated) error {
 	logData := log.Data{
 		"event": e,
 	}
@@ -382,14 +382,15 @@ func (h *InstanceComplete) UploadCSVFile(ctx context.Context, instanceID string,
 	return nil
 }*/
 
+//!!! need to have discussion to determin what the output of this service should be
 // ProduceExportCompleteEvent sends the final kafka message signifying the export complete
 func (h *CsvComplete) ProduceExportCompleteEvent(instanceID string) error {
-	downloadURL := generateURL(h.cfg.DownloadServiceURL, instanceID)
+	//!!!	downloadURL := generateURL(h.cfg.DownloadServiceURL, instanceID)
 
-	// create CommonOutputCreated event and Marshal it
-	b, err := schema.CommonOutputCreated.Marshal(&event.CommonOutputCreated{
+	// create InstanceComplete event and Marshal it
+	b, err := schema.InstanceComplete.Marshal(&event.InstanceComplete{
 		InstanceID: instanceID,
-		FileURL:    downloadURL, // download service URL for the CSV file
+		//!!!		FileURL:    downloadURL, // download service URL for the CSV file
 	})
 	if err != nil {
 		return fmt.Errorf("error marshalling instance complete event: %w", err)
