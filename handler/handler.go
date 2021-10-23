@@ -118,6 +118,7 @@ type FakeWriterAt struct {
 }
 
 func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
+	_ = offset // stop any linters complaining
 	// ignore 'offset' because we forced sequential downloads
 	return fw.w.Write(p)
 }
@@ -127,7 +128,6 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	logData := log.Data{
 		"event": e,
 	}
-	log.Info(ctx, "Info from incomming event: CantabularCsvCreated :", logData) //!!! for development, trash later
 
 	if e.InstanceID == "" {
 		return &Error{
@@ -148,7 +148,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 
 	// !!! get the metadata
 
-	// !!! set up the excelize code here
+	// start creating the excel file
 	excelFile := excelize.NewFile()
 	streamWriter, err := excelFile.NewStreamWriter("Sheet1")
 	if err != nil {
@@ -167,7 +167,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		excelize.Cell{StyleID: styleID, Value: "Data"}}); err != nil {
 		fmt.Println(err)
 	}
-	// !!! above section for test only
+	// !!! above section for test & demonstration only
 
 	downloader, err := GetS3Downloader(&h.cfg)
 	if err != nil {
@@ -188,72 +188,95 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	// Set concurrency to one so the download will be sequential (which is essential to stream reading file in order)
 	downloader.Concurrency = 1
 
+	msgCtx, cancelDownload := context.WithCancel(ctx)
+
 	wgDownload := sync.WaitGroup{}
 	wgDownload.Add(1)
-	go func() {
+	go func(ctx context.Context) {
 		defer wgDownload.Done()
+
 		// Wrap the writer created with io.Pipe() with the FakeWriterAt created in the first step.
-		// Use the Download function to write to the wrapped Writer:
-		// !!! this code needs to use 'DownloadWithContext' with all additiional needed changes for cancelling
-		numberOfBytesRead, err := downloader.Download( /*context.TODO(),*/ FakeWriterAt{csvWriter},
+		// Use the DownloadWithContext function to write to the wrapped Writer:
+		numberOfBytesRead, err := downloader.DownloadWithContext(ctx, FakeWriterAt{csvWriter},
 			&s3.GetObjectInput{
 				Bucket: aws.String(bucketName),
 				Key:    aws.String(filenameCsv),
 			})
 		if err != nil {
-			//!!! eventually log an error instead of the Info
-			log.Info(ctx, "problem downloading unencrypted file from S3", log.Data{"err": err, "bucketName": bucketName, "filenameCsv": filenameCsv})
-			csvWriter.CloseWithError(fmt.Errorf("problem downloading unencrypted file from S3"))
+			report := &Error{
+				err:     err,
+				logData: log.Data{"err": err, "bucketName": bucketName, "filenameCsv": filenameCsv},
+			}
+
+			if closeErr := csvWriter.CloseWithError(report); closeErr != nil {
+				log.Error(ctx, "error closing download writerWithError", closeErr)
+			}
 		} else {
-			//!!! my want to log the following for initial development and then trash displaying this info
-			log.Info(ctx, fmt.Sprintf("file downloaded, %d bytes", numberOfBytesRead))
-			csvWriter.Close()
+			log.Info(ctx, fmt.Sprintf("CSV file: %s, downloaded from bucket: %s, length: %d bytes", filenameCsv, bucketName, numberOfBytesRead))
+
+			if closeErr := csvWriter.Close(); closeErr != nil {
+				log.Error(ctx, "error closing download writer", closeErr)
+			}
 		}
-	}()
+	}(msgCtx)
 
-	// see  https://www.socketloop.com/tutorials/golang-download-file-example
+	var outputRow = 3 // !!! this value choosen for test to visually see effect in excel spreadsheet AND most importantly to NOT touch any cells previously streamed to above in test code
 
-	var row = 3 // !!! this value choosen for test to visually see effect in excel spreadsheet
-
+	var incomingCsvRow = 0
 	scanner := bufio.NewScanner(csvReader)
 	for scanner.Scan() {
+		incomingCsvRow++
 		line := scanner.Text()
-		//!!! split 'line' and do the excel stream write at 'row' & deal with any errors
+
+		// split 'line' and do the excel stream write at 'row' & deal with any errors
 		columns := strings.Split(line, ",")
 		nofColumns := len(columns)
 		if nofColumns == 0 {
-			log.Info(ctx, "nofColumns == 0") //!!! for development, trash later
-			//!!! handle error and close all open things, may need to write on a stream
-			// to the go func's so that they can use whatever ctx to cancel the S3 bucket actions, etc
+			cancelDownload()
+			return &Error{
+				err:     fmt.Errorf("incoming csv file has no columns at row %d", incomingCsvRow),
+				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv},
+			}
 		}
 		rowItems := make([]interface{}, nofColumns)
 		for colID := 0; colID < nofColumns; colID++ {
 			rowItems[colID] = columns[colID]
 		}
-		cell, err := excelize.CoordinatesToCellName(1, row)
+		cell, err := excelize.CoordinatesToCellName(1, outputRow)
 		if err != nil {
-			fmt.Println(err)                               //!!! fix this error handling
-			log.Info(ctx, "CoordinatesToCellName problem") //!!! for development, trash later
+			cancelDownload()
+			return &Error{
+				err:     err,
+				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
+			}
 		}
 		if err := streamWriter.SetRow(cell, rowItems); err != nil {
-			fmt.Println(err)                //!!! fix this error handling
-			log.Info(ctx, "SetRow problem") //!!! for development, trash later
+			cancelDownload()
+			return &Error{
+				err:     err,
+				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
+			}
 		}
-		row++
-
-		//	fmt.Println(line)   //!!! for development, trash later
-		//	log.Info(ctx, line) //!!! for development, trash later
-		//		fmt.Fprintf(xlsxWriter, line) //!!! for development, trash later
+		outputRow++
 	}
-	wgDownload.Wait()
 	if err := scanner.Err(); err != nil {
-		//		xlsxWriter.Close() //!!! or may need CloseWithError
-		//		wgUpload.Wait()
-		return fmt.Errorf("failed scanning csv lines: %s", err)
+		cancelDownload()
+		return &Error{
+			err:     err,
+			logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow, "Bingo": "*** wow ***"},
+		}
 	}
 
+	// All of the CSV file has now been downloaded OK, do appropriate clean up
+	wgDownload.Wait()
+	cancelDownload()
+
+	// Must now finish up the CSV excelize streamWriter before doing excelize API calls in building up metadata sheet:
 	if err := streamWriter.Flush(); err != nil {
-		fmt.Println(err) //!!! fix this error handling
+		return &Error{
+			err:     err,
+			logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv},
+		}
 	}
 
 	//!!! add in the metadata to sheet 2, and deal with any errors
@@ -280,17 +303,21 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 			// and process it.
 		} else {
 			//!!! my want to log the following for initial development and then trash displaying this info
-			log.Info(ctx, fmt.Sprintf("file uploaded to: %s", result.Location))
+			log.Info(ctx, fmt.Sprintf("XLSX file uploaded to: %s", result.Location))
 		}
 	}()
 
-	//!!! write the in memory excel file out
-	// Write spreadsheet by the given io.writer
+	// Write the 'in memory' spreadsheet to the given io.writer
 	if err := excelFile.Write(xlsxWriter); err != nil {
 		fmt.Println(err)
+		//!!! figure out error handling, need CloseWithError ?
+		//!!! context cancel the uploader go routine ...
 	}
 
-	xlsxWriter.Close() //!!! or may need CloseWithError
+	if closeErr := xlsxWriter.Close(); closeErr != nil {
+		log.Error(ctx, "error closing upload writer", closeErr)
+	}
+
 	wgUpload.Wait()
 
 	// !!! then need to figure out need for encryption of files ?
@@ -621,6 +648,8 @@ func generateURL(downloadServiceURL, instanceID string) string {
 // for the provided instanceID CSV file that is going to be read
 func generateS3FilenameCSV(instanceID string) string {
 	return fmt.Sprintf("instances/%s.csv", instanceID)
+	//return fmt.Sprintf("instances/1000Kx50.csv")
+	//return fmt.Sprintf("instances/50Kx50.csv")
 }
 
 // generateVaultPathForFile generates the vault path for the provided root and filename

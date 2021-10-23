@@ -26,7 +26,7 @@ func (p *Processor) Consume(ctx context.Context, cg kafka.IConsumerGroup, h Hand
 				if err := p.processMessage(msgCtx, msg, h); err != nil {
 					log.Error(
 						msgCtx,
-						"failed to process message",
+						"failed to process message", //!!! should this mention that its also committing the message like what happens at the end of the function processMessage() ?
 						err,
 						log.Data{
 							"log_data":    unwrapLogData(err),
