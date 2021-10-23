@@ -10,6 +10,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	//	"github.com/ONSdigital/dp-api-clients-go/v2/cantabular"
 	//	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
@@ -189,11 +190,15 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	downloader.Concurrency = 1
 
 	msgCtx, cancelDownload := context.WithCancel(ctx)
+	defer cancelDownload()
 
 	wgDownload := sync.WaitGroup{}
 	wgDownload.Add(1)
 	go func(ctx context.Context) {
 		defer wgDownload.Done()
+
+		currentTime := time.Now()
+		log.Info(ctx, fmt.Sprintf("Download Start time: %s", currentTime.Format("2006.01.02 15:04:05  ")))
 
 		// Wrap the writer created with io.Pipe() with the FakeWriterAt created in the first step.
 		// Use the DownloadWithContext function to write to the wrapped Writer:
@@ -212,6 +217,9 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 				log.Error(ctx, "error closing download writerWithError", closeErr)
 			}
 		} else {
+			currentTime := time.Now()
+			log.Info(ctx, fmt.Sprintf("Download End time: %s", currentTime.Format("2006.01.02 15:04:05  ")))
+
 			log.Info(ctx, fmt.Sprintf("CSV file: %s, downloaded from bucket: %s, length: %d bytes", filenameCsv, bucketName, numberOfBytesRead))
 
 			if closeErr := csvWriter.Close(); closeErr != nil {
@@ -219,6 +227,9 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 			}
 		}
 	}(msgCtx)
+
+	currentTime := time.Now()
+	log.Info(ctx, fmt.Sprintf("Excel Start time: %s", currentTime.Format("2006.01.02 15:04:05  ")))
 
 	var outputRow = 3 // !!! this value choosen for test to visually see effect in excel spreadsheet AND most importantly to NOT touch any cells previously streamed to above in test code
 
@@ -232,7 +243,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		columns := strings.Split(line, ",")
 		nofColumns := len(columns)
 		if nofColumns == 0 {
-			cancelDownload()
+			//cancelDownload()
 			return &Error{
 				err:     fmt.Errorf("incoming csv file has no columns at row %d", incomingCsvRow),
 				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv},
@@ -244,14 +255,14 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 		cell, err := excelize.CoordinatesToCellName(1, outputRow)
 		if err != nil {
-			cancelDownload()
+			//cancelDownload()
 			return &Error{
 				err:     err,
 				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
 			}
 		}
 		if err := streamWriter.SetRow(cell, rowItems); err != nil {
-			cancelDownload()
+			//cancelDownload()
 			return &Error{
 				err:     err,
 				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
@@ -260,7 +271,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		outputRow++
 	}
 	if err := scanner.Err(); err != nil {
-		cancelDownload()
+		//cancelDownload()
 		return &Error{
 			err:     err,
 			logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow, "Bingo": "*** wow ***"},
@@ -269,7 +280,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 
 	// All of the CSV file has now been downloaded OK, do appropriate clean up
 	wgDownload.Wait()
-	cancelDownload()
+	//cancelDownload()
 
 	// Must now finish up the CSV excelize streamWriter before doing excelize API calls in building up metadata sheet:
 	if err := streamWriter.Flush(); err != nil {
@@ -278,6 +289,9 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 			logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv},
 		}
 	}
+
+	currentTime = time.Now()
+	log.Info(ctx, fmt.Sprintf("Execel Create End time: %s", currentTime.Format("2006.01.02 15:04:05  ")))
 
 	//!!! add in the metadata to sheet 2, and deal with any errors
 
@@ -307,6 +321,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}()
 
+	//!!! try putting this into go func above and put the S3 stuff here and if OK, try using PutFile() from dp-dataset-exporter ...
 	// Write the 'in memory' spreadsheet to the given io.writer
 	if err := excelFile.Write(xlsxWriter); err != nil {
 		fmt.Println(err)
@@ -319,6 +334,9 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	}
 
 	wgUpload.Wait()
+
+	currentTime = time.Now()
+	log.Info(ctx, fmt.Sprintf("Execel Write End time: %s", currentTime.Format("2006.01.02 15:04:05  ")))
 
 	// !!! then need to figure out need for encryption of files ?
 
