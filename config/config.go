@@ -11,6 +11,8 @@ const KafkaTLSProtocolFlag = "TLS"
 
 // Config represents service configuration for dp-cantabular-xlsx-exporter
 type Config struct {
+	// in develop & prod there is also AWS_ACCESS_KEY_ID & AWS_SECRET_ACCESS_KEY in the secrets files
+
 	BindAddr                   string        `envconfig:"BIND_ADDR"`
 	GracefulShutdownTimeout    time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
 	HealthCheckInterval        time.Duration `envconfig:"HEALTHCHECK_INTERVAL"`
@@ -21,11 +23,10 @@ type Config struct {
 	LocalObjectStore           string        `envconfig:"LOCAL_OBJECT_STORE"`
 	MinioAccessKey             string        `envconfig:"MINIO_ACCESS_KEY"`
 	MinioSecretKey             string        `envconfig:"MINIO_SECRET_KEY"`
-	OutputFilePath             string        `envconfig:"OUTPUT_FILE_PATH"`
 	VaultToken                 string        `envconfig:"VAULT_TOKEN"                   json:"-"`
 	VaultAddress               string        `envconfig:"VAULT_ADDR"`
 	VaultPath                  string        `envconfig:"VAULT_PATH"`
-	ComponentTestUseLogFile    bool          `envconfig:"COMPONENT_TEST_USE_LOG_FILE"` //!!! add to secrets (if needs be)
+	ComponentTestUseLogFile    bool          `envconfig:"COMPONENT_TEST_USE_LOG_FILE"`
 	EncryptionDisabled         bool          `envconfig:"ENCRYPTION_DISABLED"`
 	KafkaConfig                KafkaConfig
 }
@@ -63,12 +64,11 @@ func Get() (*Config, error) {
 		HealthCheckCriticalTimeout: 90 * time.Second,
 		DownloadServiceURL:         "http://localhost:23600",
 		AWSRegion:                  "eu-west-1",
-		UploadBucketName:           "dp-cantabular-csv-exporter", // needed for place to download .csv from
+		UploadBucketName:           "dp-cantabular-csv-exporter", // where to place the created .xlsx
 		LocalObjectStore:           "",
-		MinioAccessKey:             "",                    // in develop & prod this is also the AWS_ACCESS_KEY_ID
-		MinioSecretKey:             "",                    // in develop & prod this is also the AWS_SECRET_ACCESS_KEY
-		OutputFilePath:             "/tmp/helloworld.txt", // TODO remove this
-		VaultPath:                  "secret/shared/psk",   // TODO - remove if not needed
+		MinioAccessKey:             "",
+		MinioSecretKey:             "",
+		VaultPath:                  "secret/shared/psk",
 		VaultAddress:               "http://localhost:8200",
 		VaultToken:                 "",
 		ComponentTestUseLogFile:    false,

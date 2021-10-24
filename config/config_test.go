@@ -30,7 +30,6 @@ func TestConfig(t *testing.T) {
 				So(cfg.LocalObjectStore, ShouldEqual, "")
 				So(cfg.MinioAccessKey, ShouldEqual, "")
 				So(cfg.MinioSecretKey, ShouldEqual, "")
-				So(cfg.OutputFilePath, ShouldEqual, "/tmp/helloworld.txt")
 				So(cfg.VaultPath, ShouldEqual, "secret/shared/psk")
 				So(cfg.VaultAddress, ShouldEqual, "http://localhost:8200")
 				So(cfg.VaultToken, ShouldEqual, "")
