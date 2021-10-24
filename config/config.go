@@ -26,7 +26,7 @@ type Config struct {
 	VaultPath                    string        `envconfig:"VAULT_PATH"`
 	DownloadServiceURL           string        `envconfig:"DOWNLOAD_SERVICE_URL"` // needed to create url for file downloads, but this service is not actually called - TODO - remove if not needed
 	AWSRegion                    string        `envconfig:"AWS_REGION"`
-	UploadBucketName             string        `envconfig:"UPLOAD_BUCKET_NAME"`
+	UploadBucketName             string        `envconfig:"UPLOAD_BUCKET_NAME"` //!!! also need privat bucket name
 	LocalObjectStore             string        `envconfig:"LOCAL_OBJECT_STORE"`
 	MinioAccessKey               string        `envconfig:"MINIO_ACCESS_KEY"`
 	MinioSecretKey               string        `envconfig:"MINIO_SECRET_KEY"`

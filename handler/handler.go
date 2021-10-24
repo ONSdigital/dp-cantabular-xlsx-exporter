@@ -5,9 +5,11 @@ package handler
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -85,36 +87,7 @@ var GetS3Downloader = func(cfg *config.Config) (*s3manager.Downloader, error) {
 	return s3manager.NewDownloader(sess), nil
 }
 
-//!!! the below comment may need fixing
-// GetS3UploaderXlsx creates an S3 Downloader, or a local storage client if a non-empty LocalObjectStore is provided
-var GetS3UploaderXlsx = func(cfg *config.Config) (*s3manager.Uploader, error) {
-	if cfg.LocalObjectStore != "" {
-		s3Config := &aws.Config{
-			Credentials:      credentials.NewStaticCredentials(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
-			Endpoint:         aws.String(cfg.LocalObjectStore),
-			Region:           aws.String(cfg.AWSRegion),
-			DisableSSL:       aws.Bool(true),
-			S3ForcePathStyle: aws.Bool(true),
-		}
-
-		// !!! may need to save the session from 'GetS3Uploader' and re-use it here
-		sess, err := session.NewSession(s3Config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create aws session (local): %w", err)
-		}
-		return s3manager.NewUploader(sess), nil //!!! ultimatley this needs to be more like the csv-exporter's GetS3Uploader
-	}
-
-	//!!! ultimatley this needs to be more like the csv-exporter's GetS3Uploader, for rest of this function
-	//!!! and process any error return
-	sess, _ := session.NewSession(&aws.Config{
-		Region: aws.String(cfg.AWSRegion),
-	})
-
-	return s3manager.NewUploader(sess), nil
-}
-
-// Create a fake WriterAt to wrap a Writer
+// FakeWriterAt is a fake WriterAt to wrap a Writer
 // from: https://stackoverflow.com/questions/60034007/is-there-an-aws-s3-go-api-for-reading-file-instead-of-download-file
 // see also: https://dev.to/flowup/using-io-reader-io-writer-in-go-to-stream-data-3i7b
 type FakeWriterAt struct {
@@ -135,7 +108,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 
 	if e.RowCount > maxObservationCount {
 		return &Error{
-			err:     fmt.Errorf("full download too large to export to XLSX file"),
+			err:     fmt.Errorf("full download too large to export to .xlsx file"),
 			logData: logData,
 		}
 	}
@@ -188,14 +161,6 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}
 
-	uploader, err := GetS3UploaderXlsx(&h.cfg)
-	if err != nil {
-		return &Error{
-			err:     fmt.Errorf("uploader client problem"),
-			logData: logData,
-		}
-	}
-
 	// Set concurrency to one so the download will be sequential (which is essential to stream reading file in order)
 	downloader.Concurrency = 1
 
@@ -224,7 +189,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 				log.Error(ctx, "error closing download writerWithError", closeErr)
 			}
 		} else {
-			log.Info(ctx, fmt.Sprintf("CSV file: %s, downloaded from bucket: %s, length: %d bytes", filenameCsv, bucketName, numberOfBytesRead))
+			log.Info(ctx, fmt.Sprintf(".csv file: %s, downloaded from bucket: %s, length: %d bytes", filenameCsv, bucketName, numberOfBytesRead))
 
 			if closeErr := csvWriter.Close(); closeErr != nil {
 				log.Error(ctx, "error closing download writer", closeErr)
@@ -245,7 +210,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		nofColumns := len(columns)
 		if nofColumns == 0 {
 			return &Error{
-				err:     fmt.Errorf("incoming csv file has no columns at row %d", incomingCsvRow),
+				err:     fmt.Errorf("downloaded .csv file has no columns at row %d", incomingCsvRow),
 				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv},
 			}
 		}
@@ -308,7 +273,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 				log.Error(ctx, "error closing upload writerWithError", closeErr)
 			}
 		} else {
-			log.Info(ctx, fmt.Sprintf("XLSX file: %s, uploaded to bucket: %s", filenameXlsx, bucketName)) // !!! do we want this log line or the one "XLSX file uploaded to" further on ?
+			log.Info(ctx, fmt.Sprintf(".xlsx file: %s, uploaded to bucket: %s", filenameXlsx, bucketName)) // !!! do we want this log line or the one "XLSX file uploaded to" further on ?
 
 			if closeErr := xlsxWriter.Close(); closeErr != nil {
 				log.Error(ctx, "error closing upload writer", closeErr)
@@ -316,22 +281,18 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}()
 
-	// !!! try using PutFile() from dp-dataset-exporter ...
+	isPublished := true
 
 	// Use the Upload function to read from the io.Pipe() Writer:
-	// !!! this code needs to use 'UploadWithContext' with all additiional needed changes for cancelling
-	result, err := uploader.Upload(&s3manager.UploadInput{
-		Body:   xlsxReader,
-		Bucket: aws.String(bucketName),
-		Key:    aws.String(filenameXlsx),
-	})
+	_, err = h.UploadXLSXFile(ctx, e.InstanceID, xlsxReader, isPublished)
 	if err != nil {
 		return &Error{
-			err:     fmt.Errorf("upload of XLSX to S3 failed"),
-			logData: log.Data{"err": err, "bucketName": bucketName, "filenameXlsx": filenameXlsx},
+			err: fmt.Errorf("failed to upload .csv file to S3 bucket: %w", err),
+			logData: log.Data{
+				"bucket":      h.s3.BucketName(),
+				"instance_id": e.InstanceID,
+			},
 		}
-	} else {
-		log.Info(ctx, fmt.Sprintf("XLSX file uploaded to: %s", result.Location))
 	}
 
 	// All of the CSV file has now been uploaded OK
@@ -350,7 +311,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		isPublished := true
 
 		// Upload CSV file to S3, note that the S3 file location is ignored
-		// because we will use download service to access the file
+		// because we will use download service to access the file !!! this comment seems wrong because the donwload service downloads and the following code is doing an upload !!!
 		_, err = h.UploadCSVFile(ctx, e.InstanceID, file, isPublished)
 		if err != nil {
 			return &Error{
@@ -514,10 +475,10 @@ func createCSVRow(dims []cantabular.Dimension, index, count int) []string {
 	}
 	row[0] = fmt.Sprintf("%d", count)
 	return row
-}
+}*/
 
-// UploadCSVFile uploads the provided file content to AWS S3
-func (h *InstanceComplete) UploadCSVFile(ctx context.Context, instanceID string, file io.Reader, isPublished bool) (string, error) {
+// UploadXLSXFile uploads the provided file content to AWS S3
+func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, file io.Reader, isPublished bool) (string, error) {
 	if instanceID == "" {
 		return "", errors.New("empty instance id not allowed")
 	}
@@ -525,10 +486,10 @@ func (h *InstanceComplete) UploadCSVFile(ctx context.Context, instanceID string,
 		return "", errors.New("no file content has been provided")
 	}
 
-	bucketName := h.s3.BucketName()
-	filename := generateS3Filename(instanceID)
+	bucketName := h.s3.BucketName() //!!! this is flawed as there should be seperate 'S3PrivateBucketName' and 'S3BucketName'
+	filename := generateS3FilenameXLSX(instanceID)
 
-	// As the code is now it is assumed that the file is always published
+	// As the code is now it is assumed that the file is always published - TODO, thi function needs rationalising once full system is in place
 	if isPublished {
 
 		logData := log.Data{
@@ -539,6 +500,9 @@ func (h *InstanceComplete) UploadCSVFile(ctx context.Context, instanceID string,
 
 		log.Info(ctx, "uploading published file to S3", logData)
 
+		// !!! this code needs to use 'UploadWithContext' ???, because when processing an excel file that is
+		// nearly 1million lines it has been seen to take over 45 seconds and if nomad has instructed a service
+		// to shut down gracefully before installing a new version of this app, then this could cause problems.
 		result, err := h.s3.Upload(&s3manager.UploadInput{
 			Body:   file,
 			Bucket: &bucketName,
@@ -565,6 +529,9 @@ func (h *InstanceComplete) UploadCSVFile(ctx context.Context, instanceID string,
 	if h.cfg.EncryptionDisabled {
 		log.Info(ctx, "uploading unencrypted file to S3", logData)
 
+		// !!! this code needs to use 'UploadWithContext' ???, because when processing an excel file that is
+		// nearly 1million lines it has been seen to take over 45 seconds and if nomad has instructed a service
+		// to shut down gracefully before installing a new version of this app, then this could cause problems.
 		result, err := h.s3.Upload(&s3manager.UploadInput{
 			Body:   file,
 			Bucket: &bucketName,
@@ -602,6 +569,9 @@ func (h *InstanceComplete) UploadCSVFile(ctx context.Context, instanceID string,
 		)
 	}
 
+	// !!! this code needs to use 'UploadWithContext' ???, because when processing an excel file that is
+	// nearly 1million lines it has been seen to take over 45 seconds and if nomad has instructed a service
+	// to shut down gracefully before installing a new version of this app, then this could cause problems.
 	result, err := h.s3.UploadWithPSK(&s3manager.UploadInput{
 		Body:   file,
 		Bucket: &bucketName,
@@ -615,7 +585,7 @@ func (h *InstanceComplete) UploadCSVFile(ctx context.Context, instanceID string,
 	}
 
 	return url.PathUnescape(result.Location)
-}*/
+}
 
 // UpdateInstance updates the instance downlad CSV link using dataset API PUT /instances/{id} endpoint
 // note that the URL refers to the download service (it is not the URL returned by the S3 client directly)
@@ -635,7 +605,7 @@ func (h *InstanceComplete) UploadCSVFile(ctx context.Context, instanceID string,
 	return nil
 }*/
 
-//!!! need to have discussion to determin what the output of this service should be
+//!!! need to have discussion to determine what the output of this service should be
 // ProduceExportCompleteEvent sends the final kafka message signifying the export complete
 func (h *CsvComplete) ProduceExportCompleteEvent(instanceID string) error {
 	//!!!	downloadURL := generateURL(h.cfg.DownloadServiceURL, instanceID)

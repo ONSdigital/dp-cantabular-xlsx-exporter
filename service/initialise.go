@@ -77,9 +77,12 @@ var GetS3Uploader = func(cfg *config.Config) (S3Uploader, error) {
 		s, err := session.NewSession(s3Config)
 		if err != nil {
 			//!!! should the following actually say (as in download-service): "could not create the local-object-store s3 client: %w", err   ???
-			return nil, fmt.Errorf("failed to create aws session: %w", err)
+			return nil, fmt.Errorf("failed to create aws session (local): %w", err)
 		}
-		return dps3.NewUploaderWithSession(cfg.UploadBucketName, s), nil
+		return dps3.NewUploaderWithSession(cfg.UploadBucketName, s), nil //!!! should this be using 'private' bucket name ???
+		// !!! as in:
+		// cryptoUploader := s3client.NewUploaderWithSession(privateBucket, true, uploader.Session())
+		// from dp-dataset-exporter, where it sets up a public and a private crypto uploader ??? !!!
 	}
 
 	uploader, err := dps3.NewUploader(cfg.AWSRegion, cfg.UploadBucketName)
