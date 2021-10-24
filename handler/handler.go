@@ -1,7 +1,5 @@
 package handler
 
-//!!! adjust all of this to read csv and output xlsx
-// !!! and also get metadata and put that into the xlsx as part of the above xlsx production
 import (
 	"bufio"
 	"context"
@@ -13,9 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	//	"github.com/ONSdigital/dp-api-clients-go/v2/cantabular"
-	//	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
-	//	"github.com/ONSdigital/dp-api-clients-go/v2/headers"
 	"github.com/ONSdigital/dp-api-clients-go/dataset"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
@@ -153,6 +148,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	}
 	// !!! above section for test & demonstration only
 
+	// !!! need to figure out what to do about not yet published files ... (that is encrypted incoming CSV)
 	downloader, err := GetS3Downloader(&h.cfg)
 	if err != nil {
 		return &Error{
@@ -254,6 +250,19 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	}
 
 	//!!! add in the metadata to sheet 2, and deal with any errors
+	// -=-=- : example test code for demo, using the excelize API calls ONLY (no more streaming) ...
+	excelFile.NewSheet("Sheet2")
+	// Set value of a cell.
+	excelFile.SetCellValue("Sheet2", "A1", "Place")
+	excelFile.SetCellValue("Sheet2", "B1", "Metadata")
+	excelFile.SetCellValue("Sheet2", "C1", "here ...")
+
+	excelFile.SetCellValue("Sheet2", "B9", "Hello")
+	excelFile.SetCellValue("Sheet2", "C10", "world")
+
+	// Set active sheet of the workbook.
+	excelFile.SetActiveSheet(excelFile.GetSheetIndex("Sheet1"))
+	// -=-=-
 
 	xlsxReader, xlsxWriter := io.Pipe()
 
