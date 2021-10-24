@@ -10,7 +10,6 @@ import (
 	"io"
 	"strings"
 	"sync"
-	"time"
 
 	//	"github.com/ONSdigital/dp-api-clients-go/v2/cantabular"
 	//	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
@@ -27,6 +26,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/xuri/excelize/v2"
+)
+
+const (
+	maxObservationCount = 999900 //!!! the name of this might be wrong ?
 )
 
 // !!! the below needs renaming to suit this service - see what dp-dataset-exporter-xlsx names things and copy
@@ -119,8 +122,8 @@ type FakeWriterAt struct {
 }
 
 func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
-	_ = offset // stop any linters complaining
 	// ignore 'offset' because we forced sequential downloads
+	_ = offset // stop any linters complaining
 	return fw.w.Write(p)
 }
 
@@ -128,6 +131,13 @@ func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
 func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated) error {
 	logData := log.Data{
 		"event": e,
+	}
+
+	if e.RowCount > maxObservationCount {
+		return &Error{
+			err:     fmt.Errorf("full download too large to export to XLSX file"),
+			logData: logData,
+		}
 	}
 
 	if e.InstanceID == "" {
@@ -197,9 +207,6 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	go func(ctx context.Context) {
 		defer wgDownload.Done()
 
-		currentTime := time.Now()
-		log.Info(ctx, fmt.Sprintf("Download Start time: %s", currentTime.Format("2006.01.02 15:04:05  ")))
-
 		// Wrap the writer created with io.Pipe() with the FakeWriterAt created in the first step.
 		// Use the DownloadWithContext function to write to the wrapped Writer:
 		numberOfBytesRead, err := downloader.DownloadWithContext(ctx, FakeWriterAt{csvWriter},
@@ -217,9 +224,6 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 				log.Error(ctx, "error closing download writerWithError", closeErr)
 			}
 		} else {
-			currentTime := time.Now()
-			log.Info(ctx, fmt.Sprintf("Download End time: %s", currentTime.Format("2006.01.02 15:04:05  ")))
-
 			log.Info(ctx, fmt.Sprintf("CSV file: %s, downloaded from bucket: %s, length: %d bytes", filenameCsv, bucketName, numberOfBytesRead))
 
 			if closeErr := csvWriter.Close(); closeErr != nil {
@@ -227,9 +231,6 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 			}
 		}
 	}(msgCtx)
-
-	currentTime := time.Now()
-	log.Info(ctx, fmt.Sprintf("Excel Start time: %s", currentTime.Format("2006.01.02 15:04:05  ")))
 
 	var outputRow = 3 // !!! this value choosen for test to visually see effect in excel spreadsheet AND most importantly to NOT touch any cells previously streamed to above in test code
 
@@ -243,7 +244,6 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		columns := strings.Split(line, ",")
 		nofColumns := len(columns)
 		if nofColumns == 0 {
-			//cancelDownload()
 			return &Error{
 				err:     fmt.Errorf("incoming csv file has no columns at row %d", incomingCsvRow),
 				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv},
@@ -255,14 +255,12 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 		cell, err := excelize.CoordinatesToCellName(1, outputRow)
 		if err != nil {
-			//cancelDownload()
 			return &Error{
 				err:     err,
 				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
 			}
 		}
 		if err := streamWriter.SetRow(cell, rowItems); err != nil {
-			//cancelDownload()
 			return &Error{
 				err:     err,
 				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
@@ -271,16 +269,16 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		outputRow++
 	}
 	if err := scanner.Err(); err != nil {
-		//cancelDownload()
 		return &Error{
 			err:     err,
 			logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow, "Bingo": "*** wow ***"},
 		}
 	}
 
-	// All of the CSV file has now been downloaded OK, do appropriate clean up
+	// All of the CSV file has now been downloaded OK
+	// We wait until any logs coming from the go routine have completed before doing anything
+	// else to ensure the logs appear in the log file in the correct order.
 	wgDownload.Wait()
-	//cancelDownload()
 
 	// Must now finish up the CSV excelize streamWriter before doing excelize API calls in building up metadata sheet:
 	if err := streamWriter.Flush(); err != nil {
@@ -290,9 +288,6 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}
 
-	currentTime = time.Now()
-	log.Info(ctx, fmt.Sprintf("Execel Create End time: %s", currentTime.Format("2006.01.02 15:04:05  ")))
-
 	//!!! add in the metadata to sheet 2, and deal with any errors
 
 	xlsxReader, xlsxWriter := io.Pipe()
@@ -301,42 +296,48 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	wgUpload.Add(1)
 	go func() {
 		defer wgUpload.Done()
-		// Wrap the writer created with io.Pipe() with the FakeWriterAt created in the first step.
-		// Use the Download function to write to the wrapped Writer:
-		// !!! this code needs to use 'DownloadWithContext' with all additiional needed changes for cancelling
-		result, err := uploader.Upload(&s3manager.UploadInput{
-			Body:   xlsxReader,
-			Bucket: aws.String(bucketName),
-			Key:    aws.String(filenameXlsx),
-		})
-		if err != nil {
-			//!!! eventually log an error instead of the Info
-			log.Info(ctx, "upload of xlsx to S3 failed", log.Data{"err": err, "bucketName": bucketName, "filenameCsv": filenameCsv})
-			// !!! may need to set some flag to abort the scanner loop somehow, or maybe close its
-			// writer with an error ... need to frig code to determine how to recognise a failure
-			// and process it.
+
+		// Write the 'in memory' spreadsheet to the given io.writer
+		if err := excelFile.Write(xlsxWriter); err != nil {
+			report := &Error{
+				err:     err,
+				logData: log.Data{"err": err, "bucketName": bucketName, "filenameXlsx": filenameXlsx},
+			}
+
+			if closeErr := csvWriter.CloseWithError(report); closeErr != nil {
+				log.Error(ctx, "error closing upload writerWithError", closeErr)
+			}
 		} else {
-			//!!! my want to log the following for initial development and then trash displaying this info
-			log.Info(ctx, fmt.Sprintf("XLSX file uploaded to: %s", result.Location))
+			log.Info(ctx, fmt.Sprintf("XLSX file: %s, uploaded to bucket: %s", filenameXlsx, bucketName)) // !!! do we want this log line or the one "XLSX file uploaded to" further on ?
+
+			if closeErr := xlsxWriter.Close(); closeErr != nil {
+				log.Error(ctx, "error closing upload writer", closeErr)
+			}
 		}
 	}()
 
-	//!!! try putting this into go func above and put the S3 stuff here and if OK, try using PutFile() from dp-dataset-exporter ...
-	// Write the 'in memory' spreadsheet to the given io.writer
-	if err := excelFile.Write(xlsxWriter); err != nil {
-		fmt.Println(err)
-		//!!! figure out error handling, need CloseWithError ?
-		//!!! context cancel the uploader go routine ...
+	// !!! try using PutFile() from dp-dataset-exporter ...
+
+	// Use the Upload function to read from the io.Pipe() Writer:
+	// !!! this code needs to use 'UploadWithContext' with all additiional needed changes for cancelling
+	result, err := uploader.Upload(&s3manager.UploadInput{
+		Body:   xlsxReader,
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(filenameXlsx),
+	})
+	if err != nil {
+		return &Error{
+			err:     fmt.Errorf("upload of XLSX to S3 failed"),
+			logData: log.Data{"err": err, "bucketName": bucketName, "filenameXlsx": filenameXlsx},
+		}
+	} else {
+		log.Info(ctx, fmt.Sprintf("XLSX file uploaded to: %s", result.Location))
 	}
 
-	if closeErr := xlsxWriter.Close(); closeErr != nil {
-		log.Error(ctx, "error closing upload writer", closeErr)
-	}
-
+	// All of the CSV file has now been uploaded OK
+	// We wait until any logs coming from the go routine have completed before doing anything
+	// else to ensure the logs appear in the log file in the correct order.
 	wgUpload.Wait()
-
-	currentTime = time.Now()
-	log.Info(ctx, fmt.Sprintf("Execel Write End time: %s", currentTime.Format("2006.01.02 15:04:05  ")))
 
 	// !!! then need to figure out need for encryption of files ?
 
