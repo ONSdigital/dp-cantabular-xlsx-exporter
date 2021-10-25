@@ -278,7 +278,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 				logData: log.Data{"err": err, "bucketName": bucketName, "filenameXlsx": filenameXlsx},
 			}
 
-			if closeErr := csvWriter.CloseWithError(report); closeErr != nil {
+			if closeErr := xlsxWriter.CloseWithError(report); closeErr != nil {
 				log.Error(ctx, "error closing upload writerWithError", closeErr)
 			}
 		} else {
@@ -296,7 +296,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	_, err = h.UploadXLSXFile(ctx, e.InstanceID, xlsxReader, isPublished)
 	if err != nil {
 		return &Error{
-			err: fmt.Errorf("failed to upload .csv file to S3 bucket: %w", err),
+			err: fmt.Errorf("failed to upload .xlsx file to S3 bucket: %w", err),
 			logData: log.Data{
 				"bucket":      h.s3.BucketName(),
 				"instance_id": e.InstanceID,
@@ -525,7 +525,6 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 		}
 
 		return url.PathUnescape(result.Location)
-
 	}
 
 	logData := log.Data{
