@@ -60,7 +60,7 @@ func TestConsume(t *testing.T) {
 
 			Convey("When consume message is called", func() {
 				handlerWg.Add(1)
-				proc.Consume(testCtx, mockConsumer, mockEventHandler) //!!! hangs here
+				proc.Consume(testCtx, mockConsumer, mockEventHandler)
 				handlerWg.Wait()
 
 				Convey("An event is sent to the mockEventHandler ", func() {

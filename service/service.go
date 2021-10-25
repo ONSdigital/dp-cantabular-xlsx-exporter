@@ -56,7 +56,7 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 	}
 
 	// Kafka error logging go-routine
-	//	consumer.Channels().LogErrors(ctx, "kafka consumer") !!! doe the stuff above have this, ort need something like this ?
+	//	consumer.Channels().LogErrors(ctx, "kafka consumer") !!! does the stuff above have this, or need something like this ?
 
 	svc.Processor = GetProcessor(cfg)
 	svc.generator = GetGenerator()

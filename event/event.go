@@ -7,8 +7,6 @@ type InstanceComplete struct {
 	CantabularBlob string `avro:"cantabular_blob"`
 }
 
-//!!! the following should be renamed to CantabularCsvCreated
-//!!! and fix the comment below to indicat that this is an input to this service
 // CantabularCsvCreated provides an avro structure for an Input event
 type CantabularCsvCreated struct {
 	FilterID   string `avro:"filter_output_id"`
