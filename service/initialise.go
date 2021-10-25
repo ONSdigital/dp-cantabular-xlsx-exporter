@@ -9,7 +9,6 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/generator"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
-	dpkafka "github.com/ONSdigital/dp-kafka/v2" //!!! one of these two lines should go
 	kafka "github.com/ONSdigital/dp-kafka/v2"
 	dphttp "github.com/ONSdigital/dp-net/http"
 	dps3 "github.com/ONSdigital/dp-s3"
@@ -30,36 +29,56 @@ var GetHTTPServer = func(bindAddr string, router http.Handler) HTTPServer {
 }
 
 // GetKafkaConsumer creates a Kafka consumer
-var GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (dpkafka.IConsumerGroup, error) {
-	cgChannels := dpkafka.CreateConsumerGroupChannels(1)
+var GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.IConsumerGroup, error) {
+	cgChannels := kafka.CreateConsumerGroupChannels(cfg.KafkaConfig.NumWorkers)
 
-	kafkaOffset := dpkafka.OffsetNewest
-	if cfg.KafkaOffsetOldest {
-		kafkaOffset = dpkafka.OffsetOldest
+	kafkaOffset := kafka.OffsetNewest
+	if cfg.KafkaConfig.OffsetOldest {
+		kafkaOffset = kafka.OffsetOldest
 	}
-
-	return dpkafka.NewConsumerGroup(
+	cgConfig := &kafka.ConsumerGroupConfig{
+		KafkaVersion: &cfg.KafkaConfig.Version,
+		Offset:       &kafkaOffset,
+	}
+	if cfg.KafkaConfig.SecProtocol == config.KafkaTLSProtocolFlag {
+		cgConfig.SecurityConfig = kafka.GetSecurityConfig(
+			cfg.KafkaConfig.SecCACerts,
+			cfg.KafkaConfig.SecClientCert,
+			cfg.KafkaConfig.SecClientKey,
+			cfg.KafkaConfig.SecSkipVerify,
+		)
+	}
+	return kafka.NewConsumerGroup(
 		ctx,
-		cfg.KafkaAddr,
-		cfg.CsvCreatedTopic,
-		cfg.CsvCreatedGroup,
+		cfg.KafkaConfig.Addr,
+		cfg.KafkaConfig.CsvCreatedTopic,
+		cfg.KafkaConfig.CsvCreatedGroup,
 		cgChannels,
-		&dpkafka.ConsumerGroupConfig{
-			KafkaVersion: &cfg.KafkaVersion,
-			Offset:       &kafkaOffset,
-		},
+		cgConfig,
 	)
 }
 
 // GetKafkaProducer creates a Kafka producer
-var GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (dpkafka.IProducer, error) {
-	pChannels := dpkafka.CreateProducerChannels()
-	return dpkafka.NewProducer(
+var GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (kafka.IProducer, error) {
+	pChannels := kafka.CreateProducerChannels()
+	pConfig := &kafka.ProducerConfig{
+		KafkaVersion:    &cfg.KafkaConfig.Version,
+		MaxMessageBytes: &cfg.KafkaConfig.MaxBytes,
+	}
+	if cfg.KafkaConfig.SecProtocol == config.KafkaTLSProtocolFlag {
+		pConfig.SecurityConfig = kafka.GetSecurityConfig(
+			cfg.KafkaConfig.SecCACerts,
+			cfg.KafkaConfig.SecClientCert,
+			cfg.KafkaConfig.SecClientKey,
+			cfg.KafkaConfig.SecSkipVerify,
+		)
+	}
+	return kafka.NewProducer(
 		ctx,
-		cfg.KafkaAddr,
-		cfg.CantabularOutputCreatedTopic,
+		cfg.KafkaConfig.Addr,
+		cfg.KafkaConfig.CantabularOutputCreatedTopic,
 		pChannels,
-		&kafka.ProducerConfig{},
+		pConfig,
 	)
 }
 

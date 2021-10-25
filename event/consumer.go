@@ -47,7 +47,7 @@ func (p *Processor) Consume(ctx context.Context, cg kafka.IConsumerGroup, h Hand
 	}
 
 	// workers to consume messages in parallel
-	for w := 1; w <= p.cfg.KafkaNumWorkers; w++ {
+	for w := 1; w <= p.cfg.KafkaConfig.NumWorkers; w++ {
 		go consume(w)
 	}
 }
