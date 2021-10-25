@@ -51,6 +51,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to retrieve service configuration: %w", err)
 	}
+	log.Event(ctx, "config on startup", log.INFO, log.Data{"config": cfg, "build_time": BuildTime, "git-commit": GitCommit})
 
 	// Run the service
 	svc := service.New()
