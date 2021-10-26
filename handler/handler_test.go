@@ -351,7 +351,7 @@ func TestUpdateInstance(t *testing.T) {
 }
 
 func TestProduceExportCompleteEvent(t *testing.T) {
-	expectedEvent := event.CommonOutputCreated{
+	expectedEvent := event.CantabularCsvCreated{ //!!! probably should be 'InstanceComplete'
 		FileURL:    fmt.Sprintf("%s/downloads/instances/%s.csv", testDownloadServiceURL, testInstanceID),
 		InstanceID: testInstanceID,
 	}
@@ -371,8 +371,8 @@ func TestProduceExportCompleteEvent(t *testing.T) {
 
 			Convey("Then the expected message is produced", func() {
 				producedBytes := <-producer.Channels().Output
-				producedMessage := event.CommonOutputCreated{}
-				err := schema.CommonOutputCreated.Unmarshal(producedBytes, &producedMessage)
+				producedMessage := event.CantabularCsvCreated{} //!!! probably should be 'InstanceComplete'
+				err := schema.CantabularCsvCreated.Unmarshal(producedBytes, &producedMessage) //!!! probably should be 'InstanceComplete'
 				So(err, ShouldBeNil)
 				So(producedMessage, ShouldResemble, expectedEvent)
 			})
