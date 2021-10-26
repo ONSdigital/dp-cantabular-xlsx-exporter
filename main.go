@@ -44,29 +44,36 @@ func run(ctx context.Context) error {
 	signal.Notify(signals, os.Interrupt, os.Kill)
 	svcErrors := make(chan error, 1)
 
+	serviceCtx, cancelService := context.WithCancel(ctx)
+
 	// Read config
 	cfg, err := config.Get()
 	if err != nil {
 		return fmt.Errorf("unable to retrieve service configuration: %w", err)
 	}
+	log.Event(ctx, "config on startup", log.INFO, log.Data{"config": cfg, "build_time": BuildTime, "git-commit": GitCommit})
 
 	// Run the service
 	svc := service.New()
-	if err := svc.Init(ctx, cfg, BuildTime, GitCommit, Version); err != nil {
+	if err := svc.Init(serviceCtx, cfg, BuildTime, GitCommit, Version); err != nil {
 		return fmt.Errorf("running service failed with error: %w", err)
 	}
-	svc.Start(ctx, svcErrors)
+	svc.Start(serviceCtx, svcErrors)
 
 	// blocks until an os interrupt or a fatal error occurs
 	select {
 	case err := <-svcErrors:
 		err = fmt.Errorf("service error received: %w", err)
-		if errClose := svc.Close(ctx); errClose != nil {
-			log.Error(ctx, "service close error during error handling", errClose)
+		if errClose := svc.Close(serviceCtx); errClose != nil {
+			log.Error(serviceCtx, "service close error during error handling", errClose)
 		}
 		return err
 	case sig := <-signals:
-		log.Info(ctx, "os signal received", log.Data{"signal": sig})
+		log.Info(serviceCtx, "os signal received", log.Data{"signal": sig})
 	}
+
+	// we do this to cancel 3rd part libraries like AWS S3 access
+	cancelService()
+
 	return svc.Close(ctx)
 }

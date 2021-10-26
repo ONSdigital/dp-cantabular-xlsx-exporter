@@ -113,7 +113,7 @@ func (svc *Service) Start(ctx context.Context, svcErrors chan error) {
 func (svc *Service) Close(ctx context.Context) error {
 	timeout := svc.Cfg.GracefulShutdownTimeout
 	log.Info(ctx, "commencing graceful shutdown", log.Data{"graceful_shutdown_timeout": timeout})
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	shutdownCtx, cancel := context.WithTimeout(ctx, timeout)
 	hasShutdownError := false
 
 	go func() {
@@ -122,45 +122,45 @@ func (svc *Service) Close(ctx context.Context) error {
 		// stop healthcheck, as it depends on everything else
 		if svc.HealthCheck != nil {
 			svc.HealthCheck.Stop()
-			log.Info(ctx, "stopped health checker")
+			log.Info(shutdownCtx, "stopped health checker")
 		}
 
 		// If kafka consumer exists, stop listening to it.
 		// This will automatically stop the event consumer loops and no more messages will be processed.
 		// The kafka consumer will be closed after the service shuts down.
 		if svc.Consumer != nil {
-			if err := svc.Consumer.StopListeningToConsumer(ctx); err != nil {
-				log.Error(ctx, "error stopping kafka consumer listener", err)
+			if err := svc.Consumer.StopListeningToConsumer(shutdownCtx); err != nil {
+				log.Error(shutdownCtx, "error stopping kafka consumer listener", err)
 				hasShutdownError = true
 			}
-			log.Info(ctx, "stopped kafka consumer listener")
+			log.Info(shutdownCtx, "stopped kafka consumer listener")
 		}
 
 		// stop any incoming requests before closing any outbound connections
 		if svc.Server != nil {
-			if err := svc.Server.Shutdown(ctx); err != nil {
-				log.Error(ctx, "failed to shutdown http server", err)
+			if err := svc.Server.Shutdown(shutdownCtx); err != nil {
+				log.Error(shutdownCtx, "failed to shutdown http server", err)
 				hasShutdownError = true
 			}
-			log.Info(ctx, "stopped http server")
+			log.Info(shutdownCtx, "stopped http server")
 		}
 
 		// If kafka consumer exists, close it.
 		if svc.Consumer != nil {
-			if err := svc.Consumer.Close(ctx); err != nil {
-				log.Error(ctx, "error closing kafka consumer", err)
+			if err := svc.Consumer.Close(shutdownCtx); err != nil {
+				log.Error(shutdownCtx, "error closing kafka consumer", err)
 				hasShutdownError = true
 			}
-			log.Info(ctx, "closed kafka consumer")
+			log.Info(shutdownCtx, "closed kafka consumer")
 		}
 	}()
 
 	// wait for shutdown success (via cancel) or failure (timeout)
-	<-ctx.Done()
+	<-shutdownCtx.Done()
 
 	// timeout expired
-	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("shutdown timed out: %w", ctx.Err())
+	if shutdownCtx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("shutdown timed out: %w", shutdownCtx.Err())
 	}
 
 	// other error
