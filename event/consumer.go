@@ -80,7 +80,9 @@ func (p *Processor) processMessage(ctx context.Context, msg kafka.Message, h Han
 
 	// handle - commit on failure (implement error handling to not commit if message needs to be consumed again)
 	if err := h.Handle(ctx, &event); err != nil {
-		return fmt.Errorf("failed to handle event: %w", err)
+		return &Error{
+			err: fmt.Errorf("failed to handle event: %w", err),
+		}
 	}
 
 	log.Info(ctx, "event successfully processed - committing message", log.Data{"event": event})
