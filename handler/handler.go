@@ -128,7 +128,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 
 	// start creating the excel file
 	excelFile := excelize.NewFile()
-	streamWriter, err := excelFile.NewStreamWriter("Sheet1")
+	streamWriter, err := excelFile.NewStreamWriter("Dataset")
 	if err != nil {
 		return &Error{
 			err:     fmt.Errorf("excel stream writer creation problem"),
@@ -250,17 +250,17 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 
 	//!!! add in the metadata to sheet 2, and deal with any errors
 	// -=-=- : example test code for demo, using the excelize API calls ONLY (no more streaming) ...
-	excelFile.NewSheet("Sheet2")
+	excelFile.NewSheet("Metadata")
 	// Set value of a cell.
-	excelFile.SetCellValue("Sheet2", "A1", "Place")
-	excelFile.SetCellValue("Sheet2", "B1", "Metadata")
-	excelFile.SetCellValue("Sheet2", "C1", "here ...")
+	excelFile.SetCellValue("Metadata", "A1", "Place")
+	excelFile.SetCellValue("Metadata", "B1", "Metadata")
+	excelFile.SetCellValue("Metadata", "C1", "here ...")
 
-	excelFile.SetCellValue("Sheet2", "B9", "Hello")
-	excelFile.SetCellValue("Sheet2", "C10", "world")
+	excelFile.SetCellValue("Metadata", "B9", "Hello")
+	excelFile.SetCellValue("Metadata", "C10", "world")
 
 	// Set active sheet of the workbook.
-	excelFile.SetActiveSheet(excelFile.GetSheetIndex("Sheet1"))
+	excelFile.SetActiveSheet(excelFile.GetSheetIndex("Dataset"))
 	// -=-=-
 
 	xlsxReader, xlsxWriter := io.Pipe()
@@ -281,7 +281,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 				log.Error(ctx, "error closing upload writerWithError", closeErr)
 			}
 		} else {
-			log.Info(ctx, fmt.Sprintf(".xlsx file: %s, uploaded to bucket: %s", filenameXlsx, bucketName)) // !!! do we want this log line or the one "XLSX file uploaded to" further on ?
+			log.Info(ctx, fmt.Sprintf(".xlsx file: %s, finished writing to pipe for bucket: %s", filenameXlsx, bucketName)) // !!! do we want this log line or the one "XLSX file uploaded to" further on ?
 
 			if closeErr := xlsxWriter.Close(); closeErr != nil {
 				log.Error(ctx, "error closing upload writer", closeErr)
