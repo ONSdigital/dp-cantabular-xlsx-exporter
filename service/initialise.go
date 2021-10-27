@@ -103,6 +103,7 @@ var GetS3Uploader = func(cfg *config.Config) (S3Uploader, error) {
 		// !!! as in:
 		// cryptoUploader := s3client.NewUploaderWithSession(privateBucket, true, uploader.Session())
 		// from dp-dataset-exporter, where it sets up a public and a private crypto uploader ??? !!!
+		//!!! `david suggests: We should have 2 S3 Uploaders, one with the private bucket and one with the public bucket - and they can use the same AWS session.`
 	}
 
 	uploader, err := dps3.NewUploader(cfg.AWSRegion, cfg.UploadBucketName)

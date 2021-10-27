@@ -27,6 +27,13 @@ func (p *Processor) Consume(ctx context.Context, cg kafka.IConsumerGroup, h Hand
 					log.Error(
 						msgCtx,
 						"failed to process message", //!!! should this mention that its also committing the message like what happens at the end of the function processMessage() ?
+						//!!! David's observation about the above todo marker:
+						/*
+						   When we migrate the code to use the latest dp-kafka we could register the handler instead
+						    of creating the consume go-routines in the services. In that case, the following error message would be logged:
+						   https://github.com/ONSdigital/dp-kafka/blob/main/consumer_handler.go#L49 - it shows
+						    commit_message = true or false in log.Data
+						*/
 						err,
 						log.Data{
 							"log_data":    unwrapLogData(err),
@@ -73,7 +80,9 @@ func (p *Processor) processMessage(ctx context.Context, msg kafka.Message, h Han
 
 	// handle - commit on failure (implement error handling to not commit if message needs to be consumed again)
 	if err := h.Handle(ctx, &event); err != nil {
-		return fmt.Errorf("failed to handle event: %w", err)
+		return &Error{
+			err: fmt.Errorf("failed to handle event: %w", err),
+		}
 	}
 
 	log.Info(ctx, "event successfully processed - committing message", log.Data{"event": event})

@@ -352,6 +352,7 @@ func TestUpdateInstance(t *testing.T) {
 
 func TestProduceExportCompleteEvent(t *testing.T) {
 	expectedEvent := event.CantabularCsvCreated{ //!!! probably should be 'InstanceComplete'
+	//!!! David suggests: I think the expected output message generated from cantabular XLSX epxorter should be Common Output Created?
 		FileURL:    fmt.Sprintf("%s/downloads/instances/%s.csv", testDownloadServiceURL, testInstanceID),
 		InstanceID: testInstanceID,
 	}
@@ -372,6 +373,7 @@ func TestProduceExportCompleteEvent(t *testing.T) {
 			Convey("Then the expected message is produced", func() {
 				producedBytes := <-producer.Channels().Output
 				producedMessage := event.CantabularCsvCreated{} //!!! probably should be 'InstanceComplete'
+	//!!! David suggests: I think the expected output message generated from cantabular XLSX epxorter should be Common Output Created?
 				err := schema.CantabularCsvCreated.Unmarshal(producedBytes, &producedMessage) //!!! probably should be 'InstanceComplete'
 				So(err, ShouldBeNil)
 				So(producedMessage, ShouldResemble, expectedEvent)
