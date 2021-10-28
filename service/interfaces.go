@@ -45,6 +45,7 @@ type HealthChecker interface {
 type S3Uploader interface {
 	Get(key string) (io.ReadCloser, *int64, error)
 	Upload(input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error)
+	UploadWithContext(ctx context.Context, input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error)
 	UploadWithPSK(input *s3manager.UploadInput, psk []byte) (*s3manager.UploadOutput, error)
 	BucketName() string
 	Checker(context.Context, *healthcheck.CheckState) error
