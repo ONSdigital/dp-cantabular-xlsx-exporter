@@ -128,13 +128,15 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 
 	// start creating the excel file
 	excelFile := excelize.NewFile()
-	streamWriter, err := excelFile.NewStreamWriter("Dataset")
+	streamWriter, err := excelFile.NewStreamWriter("Sheet1") // have to start with the one and only default 'Sheet1'
 	if err != nil {
 		return &Error{
 			err:     fmt.Errorf("excel stream writer creation problem"),
 			logData: logData,
 		}
 	}
+	// Now rename to 'Dataset'
+	excelFile.SetSheetName("Sheet1", "Dataset")
 
 	// !!! write header on first sheet, just to demonstrate ... (if its to be kept, add error handling)
 	styleID, err := excelFile.NewStyle(`{"font":{"color":"#EE2277"}}`)
@@ -375,7 +377,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 		// !!! this code needs to use 'UploadWithContext' ???, because when processing an excel file that is
 		// nearly 1million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 		// to shut down gracefully before installing a new version of this app, then this could cause problems.
-		result, err := h.s3.Upload(&s3manager.UploadInput{
+		result, err := h.s3.UploadWithContext(ctx, &s3manager.UploadInput{
 			Body:   file,
 			Bucket: &bucketName,
 			Key:    &filename,
@@ -403,7 +405,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 		// !!! this code needs to use 'UploadWithContext' ???, because when processing an excel file that is
 		// nearly 1million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 		// to shut down gracefully before installing a new version of this app, then this could cause problems.
-		result, err := h.s3.Upload(&s3manager.UploadInput{
+		result, err := h.s3.UploadWithContext(ctx, &s3manager.UploadInput{
 			Body:   file,
 			Bucket: &bucketName,
 			Key:    &filename,
