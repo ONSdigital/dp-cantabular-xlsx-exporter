@@ -49,6 +49,7 @@ func run(ctx context.Context) error {
 	// Read config
 	cfg, err := config.Get()
 	if err != nil {
+		cancelService()
 		return fmt.Errorf("unable to retrieve service configuration: %w", err)
 	}
 	log.Event(ctx, "config on startup", log.INFO, log.Data{"config": cfg, "build_time": BuildTime, "git-commit": GitCommit})
@@ -56,6 +57,7 @@ func run(ctx context.Context) error {
 	// Run the service
 	svc := service.New()
 	if err := svc.Init(serviceCtx, cfg, BuildTime, GitCommit, Version); err != nil {
+		cancelService()
 		return fmt.Errorf("running service failed with error: %w", err)
 	}
 	svc.Start(serviceCtx, svcErrors)
@@ -67,6 +69,7 @@ func run(ctx context.Context) error {
 		if errClose := svc.Close(serviceCtx); errClose != nil {
 			log.Error(serviceCtx, "service close error during error handling", errClose)
 		}
+		cancelService()
 		return err
 	case sig := <-signals:
 		log.Info(serviceCtx, "os signal received", log.Data{"signal": sig})
