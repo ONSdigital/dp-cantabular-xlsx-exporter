@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -25,7 +26,8 @@ import (
 )
 
 const (
-	maxObservationCount = 999900 //!!! the name of this might be wrong ?
+	maxObservationCount      = 999900 //!!! the name of this might be wrong ?
+	smallEnoughForFullFormat = 10000  // Not too large to achieve full formatting in memory
 )
 
 // !!! the below needs renaming to suit this service - see what dp-dataset-exporter-xlsx names things and copy
@@ -101,6 +103,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	}
 
 	if e.RowCount > maxObservationCount {
+		// !!! change this to a log info and also report that job complete with no result due to too large an CSV file
 		return &Error{
 			err:     fmt.Errorf("full download too large to export to .xlsx file"),
 			logData: logData,
@@ -113,41 +116,70 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 			logData: logData,
 		}
 	}
-	filenameCsv := generateS3FilenameCSV(e.InstanceID)
-	filenameXlsx := generateS3FilenameXLSX(e.InstanceID)
 
-	bucketName := h.s3.BucketName()
+	doStreaming := true
 
-	// Create an io.Pipe to have the ability to read what is written to a writer
-	csvReader, csvWriter := io.Pipe()
-
-	// optimize with sync pools, see this article:
-	// https://levyeran.medium.com/high-memory-allocations-and-gc-cycles-while-downloading-large-s3-objects-using-the-aws-sdk-for-go-e776a136c5d0
-
-	// !!! get the metadata
+	if e.RowCount <= smallEnoughForFullFormat {
+		// The number of lines in the CSV file is small enough to use the excelize API calls to create
+		// an excel file where we can determine and set the column widths to provide the user with
+		// as good a presented excel file as we can.
+		// (As of Nov 2021 the excelize streaming library code does not allow setting of column widths,
+		//  but we use the stream API calls for its speed and memory allocation efficiency for larger
+		//  CSV files).
+		doStreaming = false
+	}
 
 	// start creating the excel file
 	excelFile := excelize.NewFile()
-	streamWriter, err := excelFile.NewStreamWriter("Sheet1") // have to start with the one and only default 'Sheet1'
-	if err != nil {
-		return &Error{
-			err:     fmt.Errorf("excel stream writer creation problem"),
-			logData: logData,
+	sheet1 := "Sheet1"
+	var streamWriter *excelize.StreamWriter
+	var err error
+	if doStreaming {
+		streamWriter, err = excelFile.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
+		if err != nil {
+			return &Error{
+				err:     fmt.Errorf("excel stream writer creation problem"),
+				logData: logData,
+			}
 		}
 	}
-	// Now rename to 'Dataset'
-	excelFile.SetSheetName("Sheet1", "Dataset")
+
+	excelFile.SetDefaultFont("Aerial")
 
 	// !!! write header on first sheet, just to demonstrate ... (if its to be kept, add error handling)
-	styleID, err := excelFile.NewStyle(`{"font":{"color":"#EE2277"}}`)
-	if err != nil {
-		fmt.Println(err)
-	}
-	if err := streamWriter.SetRow("A1", []interface{}{
-		excelize.Cell{StyleID: styleID, Value: "Data"}}); err != nil {
-		fmt.Println(err)
+	if doStreaming {
+		styleID, err := excelFile.NewStyle(`{"font":{"color":"#EE2277"}}`)
+		if err != nil {
+			fmt.Println(err) //!!! fix
+		}
+		if err := streamWriter.SetRow("A1", []interface{}{
+			excelize.Cell{StyleID: styleID, Value: "Data"}}); err != nil {
+			fmt.Println(err) //!!! fix
+		}
+	} else {
+		styleID, err := excelFile.NewStyle(`{"font":{"color":"#EE2277"}}`)
+		if err != nil {
+			return &Error{
+				err:     err,
+				logData: logData,
+			}
+		}
+		if err = excelFile.SetCellStyle(sheet1, "A1", "C3", styleID); err != nil {
+			return &Error{
+				err:     fmt.Errorf("SetCellStyle %w", err),
+				logData: logData,
+			}
+		}
+		if err := excelFile.SetSheetRow(sheet1, "A1", &[]interface{}{"Data"}); err != nil {
+			return &Error{
+				err:     fmt.Errorf("SetSheetRow 1 %w", err),
+				logData: logData,
+			}
+		}
 	}
 	// !!! above section for test & demonstration only
+
+	bucketName := h.s3.BucketName()
 
 	// !!! need to figure out what to do about not yet published files ... (that is encrypted incoming CSV)
 	downloader, err := GetS3Downloader(&h.cfg)
@@ -160,6 +192,11 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 
 	// Set concurrency to one so the download will be sequential (which is essential to stream reading file in order)
 	downloader.Concurrency = 1
+
+	filenameCsv := generateS3FilenameCSV(e.InstanceID)
+
+	// Create an io.Pipe to have the ability to read what is written to a writer
+	csvReader, csvWriter := io.Pipe()
 
 	downloadCtx, cancelDownload := context.WithCancel(ctx)
 	defer cancelDownload()
@@ -194,8 +231,18 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}(downloadCtx)
 
-	var outputRow = 3 // !!! this value choosen for test to visually see effect in excel spreadsheet AND most importantly to NOT touch any cells previously streamed to above in test code
+	var startRow = 3
+	var outputRow = startRow // !!! this value choosen for test to visually see effect in excel spreadsheet AND most importantly to NOT touch any cells previously streamed to above in test code
 
+	var maxCol = 1
+
+	styleID14, err := excelFile.NewStyle(`{"font":{"size":14}}`)
+	if err != nil {
+		return &Error{
+			err:     fmt.Errorf("NewStyle size 14 %w", err),
+			logData: logData,
+		}
+	}
 	var incomingCsvRow = 0
 	scanner := bufio.NewScanner(csvReader)
 	for scanner.Scan() {
@@ -211,21 +258,56 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv},
 			}
 		}
-		rowItems := make([]interface{}, nofColumns)
-		for colID := 0; colID < nofColumns; colID++ {
-			rowItems[colID] = columns[colID]
+		if nofColumns > maxCol {
+			maxCol = nofColumns
 		}
-		cell, err := excelize.CoordinatesToCellName(1, outputRow)
-		if err != nil {
-			return &Error{
-				err:     err,
-				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
+		var rowItemsWithStyle []interface{}
+		for colID := 0; colID < nofColumns; colID++ {
+			value := columns[colID]
+			valueFloat, err := strconv.ParseFloat(value, 64)
+			if doStreaming {
+				if err == nil {
+					rowItemsWithStyle = append(rowItemsWithStyle, excelize.Cell{StyleID: styleID14, Value: valueFloat})
+				} else {
+					rowItemsWithStyle = append(rowItemsWithStyle, excelize.Cell{StyleID: styleID14, Value: value})
+				}
+			} else {
+				if err == nil {
+					rowItemsWithStyle = append(rowItemsWithStyle, valueFloat)
+				} else {
+					rowItemsWithStyle = append(rowItemsWithStyle, value)
+					//!!! need to gather the max width of each column for all rows (clamping max value to 255 for the excelize library limit of 255)
+				}
 			}
 		}
-		if err := streamWriter.SetRow(cell, rowItems); err != nil {
-			return &Error{
-				err:     err,
-				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
+
+		if doStreaming {
+			cell, err := excelize.CoordinatesToCellName(1, outputRow)
+			if err != nil {
+				return &Error{
+					err:     err,
+					logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
+				}
+			}
+			if err := streamWriter.SetRow(cell, rowItemsWithStyle); err != nil {
+				return &Error{
+					err:     err,
+					logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
+				}
+			}
+		} else {
+			addr, err := excelize.JoinCellName("A", outputRow)
+			if err != nil {
+				return &Error{
+					err:     fmt.Errorf("JoinCellName %w", err),
+					logData: logData,
+				}
+			}
+			if err := excelFile.SetSheetRow(sheet1, addr, &rowItemsWithStyle); err != nil {
+				return &Error{
+					err:     fmt.Errorf("SetSheetRow 2 %w", err),
+					logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
+				}
 			}
 		}
 		outputRow++
@@ -242,29 +324,74 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	// else to ensure the logs appear in the log file in the correct order.
 	wgDownload.Wait()
 
-	// Must now finish up the CSV excelize streamWriter before doing excelize API calls in building up metadata sheet:
-	if err := streamWriter.Flush(); err != nil {
-		return &Error{
-			err:     err,
-			logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv},
+	if doStreaming {
+		// Must now finish up the CSV excelize streamWriter before doing excelize API calls in building up metadata sheet:
+		if err := streamWriter.Flush(); err != nil {
+			return &Error{
+				err:     err,
+				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv},
+			}
+		}
+	} else {
+		// set font style for range of cells written
+
+		cellTopLeft, err := excelize.CoordinatesToCellName(1, startRow)
+		if err != nil {
+			return &Error{
+				err:     fmt.Errorf("SetCellStyle 1 %w", err),
+				logData: logData,
+			}
+		}
+
+		cellBottomRight, err := excelize.CoordinatesToCellName(maxCol, outputRow)
+		if err != nil {
+			return &Error{
+				err:     fmt.Errorf("SetCellStyle 1 %w", err),
+				logData: logData,
+			}
+		}
+
+		if err = excelFile.SetCellStyle(sheet1, cellTopLeft, cellBottomRight, styleID14); err != nil {
+			return &Error{
+				err:     fmt.Errorf("SetCellStyle %w", err),
+				logData: logData,
+			}
+		}
+
+		for i := startRow; i < outputRow; i++ { //!!! this may not be needed ?
+			if err = excelFile.SetRowHeight(sheet1, i, 14); err != nil {
+				return &Error{
+					err:     fmt.Errorf("SetRowHeight %w", err),
+					logData: logData,
+				}
+			}
+		}
+
+		err = excelFile.SetColWidth(sheet1, "A", "B", 20) //!!! this is for test and needs further work to apply desired widths for all columns
+		if err != nil {
+			return &Error{
+				err:     err,
+				logData: logData,
+			}
 		}
 	}
 
-	//!!! add in the metadata to sheet 2, and deal with any errors
-	// -=-=- : example test code for demo, using the excelize API calls ONLY (no more streaming) ...
-	excelFile.NewSheet("Metadata")
-	// Set value of a cell.
-	excelFile.SetCellValue("Metadata", "A1", "Place")
-	excelFile.SetCellValue("Metadata", "B1", "Metadata")
-	excelFile.SetCellValue("Metadata", "C1", "here ...")
+	if err = h.AddMetaData(excelFile); err != nil {
+		return &Error{
+			err:     fmt.Errorf("AddMetaData failed: %w", err),
+			logData: logData,
+		}
+	}
 
-	excelFile.SetCellValue("Metadata", "B9", "Hello")
-	excelFile.SetCellValue("Metadata", "C10", "world")
+	// Now rename to 'Dataset'
+	dataset := "Dataset"
+	excelFile.SetSheetName(sheet1, dataset)
 
 	// Set active sheet of the workbook.
-	excelFile.SetActiveSheet(excelFile.GetSheetIndex("Dataset"))
-	// -=-=-
+	excelFile.SetActiveSheet(excelFile.GetSheetIndex(dataset))
 
+	// Now save by streaming out the excel memory image to file on S3 bucket
+	filenameXlsx := generateS3FilenameXLSX(e.InstanceID)
 	xlsxReader, xlsxWriter := io.Pipe()
 
 	wgUpload := sync.WaitGroup{}
@@ -291,10 +418,10 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}()
 
-	isPublished := true
+	isPublished := true //!!! this line will need some work
 
 	// Use the Upload function to read from the io.Pipe() Writer:
-	_, err = h.UploadXLSXFile(ctx, e.InstanceID, xlsxReader, isPublished)
+	_, err = h.UploadXLSXFile(ctx, e.InstanceID, xlsxReader, isPublished, filenameXlsx)
 	if err != nil {
 		return &Error{
 			err: fmt.Errorf("failed to upload .xlsx file to S3 bucket: %w", err),
@@ -309,29 +436,6 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	// We wait until any logs coming from the go routine have completed before doing anything
 	// else to ensure the logs appear in the log file in the correct order.
 	wgUpload.Wait()
-
-	// !!! then need to figure out need for encryption of files ?
-
-	// Convert Cantabular Response To CSV file
-	/*	file, numBytes, err := h.ParseQueryResponse(resp)
-		if err != nil {
-			return fmt.Errorf("failed to generate table from query response: %w", err)
-		}
-
-		isPublished := true
-
-		// Upload CSV file to S3, note that the S3 file location is ignored
-		// because we will use download service to access the file !!! this comment seems wrong because the donwload service downloads and the following code is doing an upload !!!
-		_, err = h.UploadCSVFile(ctx, e.InstanceID, file, isPublished)
-		if err != nil {
-			return &Error{
-				err: fmt.Errorf("failed to upload .csv file to S3 bucket: %w", err),
-				logData: log.Data{
-					"bucket":      h.s3.BucketName(),
-					"instance_id": e.InstanceID,
-				},
-			}
-		}*/
 
 	//!!! hmm, may need dataset stuff to go updating instance ??? - ask others about this
 	// Update instance with link to file
@@ -352,7 +456,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 }
 
 // UploadXLSXFile uploads the provided file content to AWS S3
-func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, file io.Reader, isPublished bool) (string, error) {
+func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, file io.Reader, isPublished bool, filename string) (string, error) {
 	if instanceID == "" {
 		return "", errors.New("empty instance id not allowed")
 	}
@@ -361,7 +465,6 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 	}
 
 	bucketName := h.s3.BucketName() //!!! this is flawed as there should be seperate 'S3PrivateBucketName' and 'S3BucketName'
-	filename := generateS3FilenameXLSX(instanceID)
 
 	// As the code is now it is assumed that the file is always published - TODO, thi function needs rationalising once full system is in place
 	if isPublished {
@@ -443,7 +546,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 	}
 
 	// !!! this code needs to use 'UploadWithContext' ???, because when processing an excel file that is
-	// nearly 1million lines it has been seen to take over 45 seconds and if nomad has instructed a service
+	// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 	// to shut down gracefully before installing a new version of this app, then this could cause problems.
 	result, err := h.s3.UploadWithPSK(&s3manager.UploadInput{
 		Body:   file,
@@ -510,8 +613,13 @@ func generateURL(downloadServiceURL, instanceID string) string {
 // for the provided instanceID CSV file that is going to be read
 func generateS3FilenameCSV(instanceID string) string {
 	return fmt.Sprintf("instances/%s.csv", instanceID)
-	//return fmt.Sprintf("instances/1000Kx50.csv")
-	//return fmt.Sprintf("instances/50Kx50.csv")
+	//return fmt.Sprintf("instances/1000Kx50.csv")//!!! for non stram code this crashes using 13GB RAM in docker
+	//return fmt.Sprintf("instances/50Kx50.csv") //!!! this uses 1.7GB for non stream code
+	//return fmt.Sprintf("instances/10Kx7.csv")
+	//return fmt.Sprintf("instances/25Kx7.csv")
+	//return fmt.Sprintf("instances/50Kx7.csv")
+	//return fmt.Sprintf("instances/100Kx7.csv")
+	//return fmt.Sprintf("instances/1000Kx7.csv")
 }
 
 // generateVaultPathForFile generates the vault path for the provided root and filename
@@ -523,4 +631,35 @@ func generateVaultPathForFile(vaultPathRoot, instanceID string) string {
 // for the provided instanceID XLSX file that is going to be written
 func generateS3FilenameXLSX(instanceID string) string {
 	return fmt.Sprintf("instances/%s.xlsx", instanceID)
+}
+
+func generateS3FilenameXLSXnonStream(instanceID string) string {
+	return fmt.Sprintf("instances/%s-non-stream.xlsx", instanceID)
+}
+
+//-=-=-
+
+func (h *CsvComplete) AddMetaData(excelFile *excelize.File) error {
+
+	// !!! get the metadata
+
+	//!!! add in the metadata to sheet 2, and deal with any errors
+	// -=-=- : example test code for demo, using the excelize API calls ONLY (no more streaming) ...
+	excelFile.NewSheet("Metadata")
+	// Set value of a cell.
+	excelFile.SetCellValue("Metadata", "A1", "Place")
+	excelFile.SetCellValue("Metadata", "B1", "iiiiiiii")
+	excelFile.SetCellValue("Metadata", "C1", "here ...")
+
+	excelFile.SetCellValue("Metadata", "B9", "Hello")
+	excelFile.SetCellValue("Metadata", "C10", "world")
+
+	err := excelFile.SetColWidth("Metadata", "A", "B", 8) // !!! the max can be 255, so clamp in code at some point !!!
+	// NOTE: the above sets the widt to 8 times the max width of a character in a font and does not do proportionality for different width characters in a font
+	// ... so, it would be best if we used a fixed width font !!! ... not Aerial as in the dp-dataset-exporter-xlsx
+	//!!! also if the max number of characters in a column is say 10, then set the coumn width to 10+1 => 11
+	if err != nil {
+		return fmt.Errorf("SetColWidth failed: %w", err)
+	}
+	return nil
 }
