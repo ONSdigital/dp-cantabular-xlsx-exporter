@@ -150,17 +150,60 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 				logData: logData,
 			}
 		}
-
 	}
 
+	if err = h.StreamGetCSVtoExcel(ctx, excelFile, e, doStreaming, streamWriter, sheet1); err != nil {
+		if err != nil {
+			return &Error{err: fmt.Errorf("StreamGetCSVtoExcel"),
+				logData: logData,
+			}
+		}
+	}
+
+	if err = h.AddMetaData(excelFile); err != nil {
+		return &Error{err: fmt.Errorf("AddMetaData failed: %w", err),
+			logData: logData,
+		}
+	}
+
+	// Rename the main sheet to 'Dataset'
+	dataset := "Dataset"
+	excelFile.SetSheetName(sheet1, dataset)
+
+	// Set active sheet of the workbook.
+	excelFile.SetActiveSheet(excelFile.GetSheetIndex(dataset))
+
+	if err = h.StreamSaveExcel(ctx, excelFile, e.InstanceID); err != nil {
+		return &Error{err: fmt.Errorf("StreamSaveExcel failed: %w", err),
+			logData: logData,
+		}
+	}
+
+	//!!! hmm, may need dataset stuff to go updating instance ??? - ask others about this
+	// Update instance with link to file
+	/*	if err := h.UpdateInstance(ctx, e.InstanceID, numBytes); err != nil {
+		return fmt.Errorf("failed to update instance: %w", err)
+	}*/
+
+	//!!! fix following for xlsx
+	log.Event(ctx, "producing common output created event", log.INFO, log.Data{})
+
+	//!!! fix following for xlsx output
+	//!!! need to figure out what to produce ... or do whatever the dp-dataset-exporter-xlsx does ...
+	// Generate output kafka message
+	if err := h.ProduceExportCompleteEvent(e.InstanceID); err != nil {
+		return fmt.Errorf("failed to produce export complete kafka message: %w", err)
+	}
+	return nil
+}
+
+func (h *CsvComplete) StreamGetCSVtoExcel(ctx context.Context, excelFile *excelize.File, e *event.CantabularCsvCreated, doStreaming bool, streamWriter *excelize.StreamWriter, sheet1 string) error {
 	bucketName := h.s3.BucketName()
 
 	// !!! need to figure out what to do about not yet published files ... (that is encrypted incoming CSV)
 	downloader, err := GetS3Downloader(&h.cfg)
 	if err != nil {
-		return &Error{err: fmt.Errorf("downloader client problem"),
-			logData: logData,
-		}
+		return err
 	}
 
 	// Set concurrency to one so the download will be sequential (which is essential to stream reading file in order)
@@ -210,9 +253,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 
 	styleID14, err := excelFile.NewStyle(`{"font":{"size":14}}`)
 	if err != nil {
-		return &Error{err: fmt.Errorf("NewStyle size 14 %w", err),
-			logData: logData,
-		}
+		return &Error{err: fmt.Errorf("NewStyle size 14 %w", err)}
 	}
 	var incomingCsvRow = 0
 	scanner := bufio.NewScanner(csvReader)
@@ -266,9 +307,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		} else {
 			addr, err := excelize.JoinCellName("A", outputRow)
 			if err != nil {
-				return &Error{err: fmt.Errorf("JoinCellName %w", err),
-					logData: logData,
-				}
+				return &Error{err: fmt.Errorf("JoinCellName %w", err)}
 			}
 			if err := excelFile.SetSheetRow(sheet1, addr, &rowItemsWithStyle); err != nil {
 				return &Error{err: fmt.Errorf("SetSheetRow 2 %w", err),
@@ -299,40 +338,27 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	} else {
 		// set font style for range of cells written
 		if err = ApplySmallSheetCellStyle(excelFile, startRow, maxCol, outputRow, sheet1, styleID14); err != nil {
-			return &Error{err: fmt.Errorf("ApplySmallSheetCellStyle %w", err),
-				logData: logData,
-			}
+			return &Error{err: fmt.Errorf("ApplySmallSheetCellStyle %w", err)}
 		}
 
 		err = excelFile.SetColWidth(sheet1, "A", "B", 24) //!!! this is for test and needs further work to apply desired widths for all columns
 		if err != nil {
-			return &Error{err: err,
-				logData: logData,
-			}
+			return &Error{err: err}
 		}
 		err = excelFile.SetColWidth(sheet1, "C", "C", 40) //!!! this is for test and needs further work to apply desired widths for all columns
 		if err != nil {
-			return &Error{err: err,
-				logData: logData,
-			}
+			return &Error{err: err}
 		}
 	}
 
-	if err = h.AddMetaData(excelFile); err != nil {
-		return &Error{err: fmt.Errorf("AddMetaData failed: %w", err),
-			logData: logData,
-		}
-	}
+	return nil
+}
 
-	// Rename the main sheet to 'Dataset'
-	dataset := "Dataset"
-	excelFile.SetSheetName(sheet1, dataset)
-
-	// Set active sheet of the workbook.
-	excelFile.SetActiveSheet(excelFile.GetSheetIndex(dataset))
-
+func (h *CsvComplete) StreamSaveExcel(ctx context.Context, excelFile *excelize.File, instanceID string) error {
 	// Save by streaming out the excel memory image to file in S3 bucket
-	filenameXlsx := generateS3FilenameXLSX(e.InstanceID)
+	bucketName := h.s3.BucketName()
+
+	filenameXlsx := generateS3FilenameXLSX(instanceID)
 	xlsxReader, xlsxWriter := io.Pipe()
 
 	wgUpload := sync.WaitGroup{}
@@ -361,7 +387,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	isPublished := true //!!! this line will need some work
 
 	// Use the Upload function to read from the io.Pipe() Writer:
-	_, err = h.UploadXLSXFile(ctx, e.InstanceID, xlsxReader, isPublished, filenameXlsx)
+	_, err := h.UploadXLSXFile(ctx, instanceID, xlsxReader, isPublished, filenameXlsx)
 	if err != nil {
 		if closeErr := xlsxWriter.Close(); closeErr != nil {
 			log.Error(ctx, "error closing upload writer", closeErr)
@@ -369,8 +395,8 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 
 		return &Error{err: fmt.Errorf("failed to upload .xlsx file to S3 bucket: %w", err),
 			logData: log.Data{
-				"bucket":      h.s3.BucketName(),
-				"instance_id": e.InstanceID,
+				"bucket":      bucketName,
+				"instance_id": instanceID,
 			},
 		}
 	}
@@ -380,21 +406,6 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	// else to ensure the logs appear in the log file in the correct order.
 	wgUpload.Wait()
 
-	//!!! hmm, may need dataset stuff to go updating instance ??? - ask others about this
-	// Update instance with link to file
-	/*	if err := h.UpdateInstance(ctx, e.InstanceID, numBytes); err != nil {
-		return fmt.Errorf("failed to update instance: %w", err)
-	}*/
-
-	//!!! fix following for xlsx
-	log.Event(ctx, "producing common output created event", log.INFO, log.Data{})
-
-	//!!! fix following for xlsx output
-	//!!! need to figure out what to produce ... or do whatever the dp-dataset-exporter-xlsx does ...
-	// Generate output kafka message
-	if err := h.ProduceExportCompleteEvent(e.InstanceID); err != nil {
-		return fmt.Errorf("failed to produce export complete kafka message: %w", err)
-	}
 	return nil
 }
 
