@@ -127,7 +127,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		doStreaming = false
 	}
 
-	// start creating the excel file
+	// start creating the excel file in its "in memory structure"
 	excelInMemoryStructure := excelize.NewFile()
 	sheet1 := "Sheet1"
 	var streamWriter *excelize.StreamWriter
@@ -152,16 +152,16 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}
 
-	if err = h.StreamGetCSVtoExcel(ctx, excelInMemoryStructure, e, doStreaming, streamWriter, sheet1); err != nil {
+	if err = h.StreamGetCSVtoExcelStructure(ctx, excelInMemoryStructure, e, doStreaming, streamWriter, sheet1); err != nil {
 		if err != nil {
-			return &Error{err: fmt.Errorf("StreamGetCSVtoExcel"),
+			return &Error{err: fmt.Errorf("StreamGetCSVtoExcelStructure"),
 				logData: logData,
 			}
 		}
 	}
 
-	if err = h.AddMetaData(excelInMemoryStructure); err != nil {
-		return &Error{err: fmt.Errorf("AddMetaData failed: %w", err),
+	if err = h.AddMetaDataToExcelStructure(excelInMemoryStructure); err != nil {
+		return &Error{err: fmt.Errorf("AddMetaDataToExcelStructure failed: %w", err),
 			logData: logData,
 		}
 	}
@@ -173,8 +173,8 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	// Set active sheet of the workbook.
 	excelInMemoryStructure.SetActiveSheet(excelInMemoryStructure.GetSheetIndex(dataset))
 
-	if err = h.StreamSaveExcel(ctx, excelInMemoryStructure, e.InstanceID); err != nil {
-		return &Error{err: fmt.Errorf("StreamSaveExcel failed: %w", err),
+	if err = h.StreamSaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, e.InstanceID); err != nil {
+		return &Error{err: fmt.Errorf("StreamSaveExcelStructureToExcelFile failed: %w", err),
 			logData: logData,
 		}
 	}
@@ -197,7 +197,9 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	return nil
 }
 
-func (h *CsvComplete) StreamGetCSVtoExcel(ctx context.Context, excelInMemoryStructure *excelize.File, e *event.CantabularCsvCreated, doStreaming bool, streamWriter *excelize.StreamWriter, sheet1 string) error {
+// StreamGetCSVtoExcelStructure streams in a line at a time from csv file from S3 bucket and
+// inserts it into the excel "in memory structure"
+func (h *CsvComplete) StreamGetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, e *event.CantabularCsvCreated, doStreaming bool, streamWriter *excelize.StreamWriter, sheet1 string) error {
 	bucketName := h.s3.BucketName()
 
 	// !!! need to figure out what to do about not yet published files ... (that is encrypted incoming CSV)
@@ -354,7 +356,9 @@ func (h *CsvComplete) StreamGetCSVtoExcel(ctx context.Context, excelInMemoryStru
 	return nil
 }
 
-func (h *CsvComplete) StreamSaveExcel(ctx context.Context, excelInMemoryStructure *excelize.File, instanceID string) error {
+// StreamSaveExcelStructureToExcelFile uses the excelize library Write function to effectively write out the excel
+// "in memory structure" to a stream that is then streamed directly into a file in S3 bucket.
+func (h *CsvComplete) StreamSaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, instanceID string) error {
 	// Save by streaming out the excel memory image to file in S3 bucket
 	bucketName := h.s3.BucketName()
 

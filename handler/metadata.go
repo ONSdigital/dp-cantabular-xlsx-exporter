@@ -6,7 +6,11 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-func (h *CsvComplete) AddMetaData(excelFile *excelize.File) error {
+// AddMetaDataToExcelStructure streams in a line at a time from .txt or .csvw file from S3 bucket and
+// inserts it into the excel "in memory structure"
+// !!! OR it might read the whole .txt or .csvw file into memory first (as its possibly less than 1 mega byte)
+// and then inserts it into the excel "in memory structure"
+func (h *CsvComplete) AddMetaDataToExcelStructure(excelFile *excelize.File) error {
 
 	// !!! get the metadata
 
