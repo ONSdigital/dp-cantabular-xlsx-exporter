@@ -128,12 +128,12 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	}
 
 	// start creating the excel file
-	excelFile := excelize.NewFile()
+	excelInMemoryStructure := excelize.NewFile()
 	sheet1 := "Sheet1"
 	var streamWriter *excelize.StreamWriter
 	var err error
 	if doStreaming {
-		streamWriter, err = excelFile.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
+		streamWriter, err = excelInMemoryStructure.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
 		if err != nil {
 			return &Error{err: fmt.Errorf("excel stream writer creation problem"),
 				logData: logData,
@@ -141,10 +141,10 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}
 
-	excelFile.SetDefaultFont("Aerial")
+	excelInMemoryStructure.SetDefaultFont("Aerial")
 
 	// !!! write header on first sheet, just to demonstrate ... this may not be needed - TBD
-	if err = ApplyMainSheetHeader(excelFile, doStreaming, streamWriter, sheet1); err != nil {
+	if err = ApplyMainSheetHeader(excelInMemoryStructure, doStreaming, streamWriter, sheet1); err != nil {
 		if err != nil {
 			return &Error{err: err,
 				logData: logData,
@@ -152,7 +152,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}
 
-	if err = h.StreamGetCSVtoExcel(ctx, excelFile, e, doStreaming, streamWriter, sheet1); err != nil {
+	if err = h.StreamGetCSVtoExcel(ctx, excelInMemoryStructure, e, doStreaming, streamWriter, sheet1); err != nil {
 		if err != nil {
 			return &Error{err: fmt.Errorf("StreamGetCSVtoExcel"),
 				logData: logData,
@@ -160,7 +160,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}
 
-	if err = h.AddMetaData(excelFile); err != nil {
+	if err = h.AddMetaData(excelInMemoryStructure); err != nil {
 		return &Error{err: fmt.Errorf("AddMetaData failed: %w", err),
 			logData: logData,
 		}
@@ -168,12 +168,12 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 
 	// Rename the main sheet to 'Dataset'
 	dataset := "Dataset"
-	excelFile.SetSheetName(sheet1, dataset)
+	excelInMemoryStructure.SetSheetName(sheet1, dataset)
 
 	// Set active sheet of the workbook.
-	excelFile.SetActiveSheet(excelFile.GetSheetIndex(dataset))
+	excelInMemoryStructure.SetActiveSheet(excelInMemoryStructure.GetSheetIndex(dataset))
 
-	if err = h.StreamSaveExcel(ctx, excelFile, e.InstanceID); err != nil {
+	if err = h.StreamSaveExcel(ctx, excelInMemoryStructure, e.InstanceID); err != nil {
 		return &Error{err: fmt.Errorf("StreamSaveExcel failed: %w", err),
 			logData: logData,
 		}
@@ -197,7 +197,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	return nil
 }
 
-func (h *CsvComplete) StreamGetCSVtoExcel(ctx context.Context, excelFile *excelize.File, e *event.CantabularCsvCreated, doStreaming bool, streamWriter *excelize.StreamWriter, sheet1 string) error {
+func (h *CsvComplete) StreamGetCSVtoExcel(ctx context.Context, excelInMemoryStructure *excelize.File, e *event.CantabularCsvCreated, doStreaming bool, streamWriter *excelize.StreamWriter, sheet1 string) error {
 	bucketName := h.s3.BucketName()
 
 	// !!! need to figure out what to do about not yet published files ... (that is encrypted incoming CSV)
@@ -251,7 +251,7 @@ func (h *CsvComplete) StreamGetCSVtoExcel(ctx context.Context, excelFile *exceli
 
 	var maxCol = 1
 
-	styleID14, err := excelFile.NewStyle(`{"font":{"size":14}}`)
+	styleID14, err := excelInMemoryStructure.NewStyle(`{"font":{"size":14}}`)
 	if err != nil {
 		return &Error{err: fmt.Errorf("NewStyle size 14 %w", err)}
 	}
@@ -309,7 +309,7 @@ func (h *CsvComplete) StreamGetCSVtoExcel(ctx context.Context, excelFile *exceli
 			if err != nil {
 				return &Error{err: fmt.Errorf("JoinCellName %w", err)}
 			}
-			if err := excelFile.SetSheetRow(sheet1, addr, &rowItemsWithStyle); err != nil {
+			if err := excelInMemoryStructure.SetSheetRow(sheet1, addr, &rowItemsWithStyle); err != nil {
 				return &Error{err: fmt.Errorf("SetSheetRow 2 %w", err),
 					logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
 				}
@@ -337,15 +337,15 @@ func (h *CsvComplete) StreamGetCSVtoExcel(ctx context.Context, excelFile *exceli
 		}
 	} else {
 		// set font style for range of cells written
-		if err = ApplySmallSheetCellStyle(excelFile, startRow, maxCol, outputRow, sheet1, styleID14); err != nil {
+		if err = ApplySmallSheetCellStyle(excelInMemoryStructure, startRow, maxCol, outputRow, sheet1, styleID14); err != nil {
 			return &Error{err: fmt.Errorf("ApplySmallSheetCellStyle %w", err)}
 		}
 
-		err = excelFile.SetColWidth(sheet1, "A", "B", 24) //!!! this is for test and needs further work to apply desired widths for all columns
+		err = excelInMemoryStructure.SetColWidth(sheet1, "A", "B", 24) //!!! this is for test and needs further work to apply desired widths for all columns
 		if err != nil {
 			return &Error{err: err}
 		}
-		err = excelFile.SetColWidth(sheet1, "C", "C", 40) //!!! this is for test and needs further work to apply desired widths for all columns
+		err = excelInMemoryStructure.SetColWidth(sheet1, "C", "C", 40) //!!! this is for test and needs further work to apply desired widths for all columns
 		if err != nil {
 			return &Error{err: err}
 		}
@@ -354,7 +354,7 @@ func (h *CsvComplete) StreamGetCSVtoExcel(ctx context.Context, excelFile *exceli
 	return nil
 }
 
-func (h *CsvComplete) StreamSaveExcel(ctx context.Context, excelFile *excelize.File, instanceID string) error {
+func (h *CsvComplete) StreamSaveExcel(ctx context.Context, excelInMemoryStructure *excelize.File, instanceID string) error {
 	// Save by streaming out the excel memory image to file in S3 bucket
 	bucketName := h.s3.BucketName()
 
@@ -367,7 +367,7 @@ func (h *CsvComplete) StreamSaveExcel(ctx context.Context, excelFile *excelize.F
 		defer wgUpload.Done()
 
 		// Write the 'in memory' spreadsheet to the given io.writer
-		if err := excelFile.Write(xlsxWriter); err != nil {
+		if err := excelInMemoryStructure.Write(xlsxWriter); err != nil {
 			report := &Error{err: err,
 				logData: log.Data{"err": err, "bucketName": bucketName, "filenameXlsx": filenameXlsx},
 			}
@@ -582,10 +582,10 @@ func generateS3FilenameXLSX(instanceID string) string {
 	return fmt.Sprintf("instances/%s.xlsx", instanceID)
 }
 
-func ApplyMainSheetHeader(excelFile *excelize.File, doStreaming bool, streamWriter *excelize.StreamWriter, sheet1 string) error {
+func ApplyMainSheetHeader(excelInMemoryStructure *excelize.File, doStreaming bool, streamWriter *excelize.StreamWriter, sheet1 string) error {
 
 	if doStreaming {
-		styleID, err := excelFile.NewStyle(`{"font":{"color":"#EE2277"}}`)
+		styleID, err := excelInMemoryStructure.NewStyle(`{"font":{"color":"#EE2277"}}`)
 		if err != nil {
 			return err
 		}
@@ -594,14 +594,14 @@ func ApplyMainSheetHeader(excelFile *excelize.File, doStreaming bool, streamWrit
 			return err
 		}
 	} else {
-		styleID, err := excelFile.NewStyle(`{"font":{"color":"#EE2277"}}`)
+		styleID, err := excelInMemoryStructure.NewStyle(`{"font":{"color":"#EE2277"}}`)
 		if err != nil {
 			return err
 		}
-		if err = excelFile.SetCellStyle(sheet1, "A1", "C3", styleID); err != nil {
+		if err = excelInMemoryStructure.SetCellStyle(sheet1, "A1", "C3", styleID); err != nil {
 			return &Error{err: fmt.Errorf("SetCellStyle 1 %w", err)}
 		}
-		if err := excelFile.SetSheetRow(sheet1, "A1", &[]interface{}{"Data, <=10K lines (API)"}); err != nil {
+		if err := excelInMemoryStructure.SetSheetRow(sheet1, "A1", &[]interface{}{"Data, <=10K lines (API)"}); err != nil {
 			return &Error{err: fmt.Errorf("SetSheetRow 1 %w", err)}
 		}
 	}
@@ -609,7 +609,7 @@ func ApplyMainSheetHeader(excelFile *excelize.File, doStreaming bool, streamWrit
 	return nil
 }
 
-func ApplySmallSheetCellStyle(excelFile *excelize.File, startRow, maxCol, outputRow int, sheet1 string, styleID14 int) error {
+func ApplySmallSheetCellStyle(excelInMemoryStructure *excelize.File, startRow, maxCol, outputRow int, sheet1 string, styleID14 int) error {
 	// set font style for range of cells written
 
 	cellTopLeft, err := excelize.CoordinatesToCellName(1, startRow)
@@ -622,12 +622,12 @@ func ApplySmallSheetCellStyle(excelFile *excelize.File, startRow, maxCol, output
 		return &Error{err: fmt.Errorf("CoordinatesToCellName 2 %w", err)}
 	}
 
-	if err = excelFile.SetCellStyle(sheet1, cellTopLeft, cellBottomRight, styleID14); err != nil {
+	if err = excelInMemoryStructure.SetCellStyle(sheet1, cellTopLeft, cellBottomRight, styleID14); err != nil {
 		return &Error{err: fmt.Errorf("SetCellStyle 2 %w", err)}
 	}
 
 	for i := startRow; i < outputRow; i++ { //!!! this may not be needed ?
-		if err = excelFile.SetRowHeight(sheet1, i, 14); err != nil {
+		if err = excelInMemoryStructure.SetRowHeight(sheet1, i, 14); err != nil {
 			return &Error{err: fmt.Errorf("SetRowHeight %w", err)}
 		}
 	}
