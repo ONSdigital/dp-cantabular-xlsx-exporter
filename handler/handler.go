@@ -143,39 +143,15 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 
 	excelFile.SetDefaultFont("Aerial")
 
-	// !!! write header on first sheet, just to demonstrate ...
-	if doStreaming {
-		styleID, err := excelFile.NewStyle(`{"font":{"color":"#EE2277"}}`)
+	// !!! write header on first sheet, just to demonstrate ... this may not be needed - TBD
+	if err = ApplyMainSheetHeader(excelFile, doStreaming, streamWriter, sheet1); err != nil {
 		if err != nil {
 			return &Error{err: err,
 				logData: logData,
 			}
 		}
-		if err := streamWriter.SetRow("A1", []interface{}{
-			excelize.Cell{StyleID: styleID, Value: "Data"}}); err != nil {
-			return &Error{err: err,
-				logData: logData,
-			}
-		}
-	} else {
-		styleID, err := excelFile.NewStyle(`{"font":{"color":"#EE2277"}}`)
-		if err != nil {
-			return &Error{err: err,
-				logData: logData,
-			}
-		}
-		if err = excelFile.SetCellStyle(sheet1, "A1", "C3", styleID); err != nil {
-			return &Error{err: fmt.Errorf("SetCellStyle %w", err),
-				logData: logData,
-			}
-		}
-		if err := excelFile.SetSheetRow(sheet1, "A1", &[]interface{}{"Data"}); err != nil {
-			return &Error{err: fmt.Errorf("SetSheetRow 1 %w", err),
-				logData: logData,
-			}
-		}
+
 	}
-	// !!! above section for test & demonstration only
 
 	bucketName := h.s3.BucketName()
 
@@ -322,36 +298,19 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	} else {
 		// set font style for range of cells written
+		if err = ApplySmallSheetCellStyle(excelFile, startRow, maxCol, outputRow, sheet1, styleID14); err != nil {
+			return &Error{err: fmt.Errorf("ApplySmallSheetCellStyle %w", err),
+				logData: logData,
+			}
+		}
 
-		cellTopLeft, err := excelize.CoordinatesToCellName(1, startRow)
+		err = excelFile.SetColWidth(sheet1, "A", "B", 24) //!!! this is for test and needs further work to apply desired widths for all columns
 		if err != nil {
-			return &Error{err: fmt.Errorf("SetCellStyle 1 %w", err),
+			return &Error{err: err,
 				logData: logData,
 			}
 		}
-
-		cellBottomRight, err := excelize.CoordinatesToCellName(maxCol, outputRow)
-		if err != nil {
-			return &Error{err: fmt.Errorf("SetCellStyle 1 %w", err),
-				logData: logData,
-			}
-		}
-
-		if err = excelFile.SetCellStyle(sheet1, cellTopLeft, cellBottomRight, styleID14); err != nil {
-			return &Error{err: fmt.Errorf("SetCellStyle %w", err),
-				logData: logData,
-			}
-		}
-
-		for i := startRow; i < outputRow; i++ { //!!! this may not be needed ?
-			if err = excelFile.SetRowHeight(sheet1, i, 14); err != nil {
-				return &Error{err: fmt.Errorf("SetRowHeight %w", err),
-					logData: logData,
-				}
-			}
-		}
-
-		err = excelFile.SetColWidth(sheet1, "A", "B", 20) //!!! this is for test and needs further work to apply desired widths for all columns
+		err = excelFile.SetColWidth(sheet1, "C", "C", 40) //!!! this is for test and needs further work to apply desired widths for all columns
 		if err != nil {
 			return &Error{err: err,
 				logData: logData,
@@ -610,4 +569,57 @@ func generateVaultPathForFile(vaultPathRoot, instanceID string) string {
 // for the provided instanceID XLSX file that is going to be written
 func generateS3FilenameXLSX(instanceID string) string {
 	return fmt.Sprintf("instances/%s.xlsx", instanceID)
+}
+
+func ApplyMainSheetHeader(excelFile *excelize.File, doStreaming bool, streamWriter *excelize.StreamWriter, sheet1 string) error {
+
+	if doStreaming {
+		styleID, err := excelFile.NewStyle(`{"font":{"color":"#EE2277"}}`)
+		if err != nil {
+			return err
+		}
+		if err := streamWriter.SetRow("A1", []interface{}{
+			excelize.Cell{StyleID: styleID, Value: "Data, > 10K lines (streamed)"}}); err != nil {
+			return err
+		}
+	} else {
+		styleID, err := excelFile.NewStyle(`{"font":{"color":"#EE2277"}}`)
+		if err != nil {
+			return err
+		}
+		if err = excelFile.SetCellStyle(sheet1, "A1", "C3", styleID); err != nil {
+			return &Error{err: fmt.Errorf("SetCellStyle 1 %w", err)}
+		}
+		if err := excelFile.SetSheetRow(sheet1, "A1", &[]interface{}{"Data, <=10K lines (API)"}); err != nil {
+			return &Error{err: fmt.Errorf("SetSheetRow 1 %w", err)}
+		}
+	}
+
+	return nil
+}
+
+func ApplySmallSheetCellStyle(excelFile *excelize.File, startRow, maxCol, outputRow int, sheet1 string, styleID14 int) error {
+	// set font style for range of cells written
+
+	cellTopLeft, err := excelize.CoordinatesToCellName(1, startRow)
+	if err != nil {
+		return &Error{err: fmt.Errorf("CoordinatesToCellName 1 %w", err)}
+	}
+
+	cellBottomRight, err := excelize.CoordinatesToCellName(maxCol, outputRow)
+	if err != nil {
+		return &Error{err: fmt.Errorf("CoordinatesToCellName 2 %w", err)}
+	}
+
+	if err = excelFile.SetCellStyle(sheet1, cellTopLeft, cellBottomRight, styleID14); err != nil {
+		return &Error{err: fmt.Errorf("SetCellStyle 2 %w", err)}
+	}
+
+	for i := startRow; i < outputRow; i++ { //!!! this may not be needed ?
+		if err = excelFile.SetRowHeight(sheet1, i, 14); err != nil {
+			return &Error{err: fmt.Errorf("SetRowHeight %w", err)}
+		}
+	}
+
+	return nil
 }
