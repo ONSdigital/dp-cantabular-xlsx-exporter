@@ -155,9 +155,9 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}
 
-	if err = h.StreamGetCSVtoExcelStructure(ctx, excelInMemoryStructure, e, doLargeSheet, efficientExcelAPIWriter, sheet1); err != nil {
+	if err = h.GetCSVtoExcelStructure(ctx, excelInMemoryStructure, e, doLargeSheet, efficientExcelAPIWriter, sheet1); err != nil {
 		if err != nil {
-			return &Error{err: fmt.Errorf("StreamGetCSVtoExcelStructure failed: %w", err),
+			return &Error{err: fmt.Errorf("GetCSVtoExcelStructure failed: %w", err),
 				logData: logData,
 			}
 		}
@@ -176,8 +176,8 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	// Set active sheet of the workbook.
 	excelInMemoryStructure.SetActiveSheet(excelInMemoryStructure.GetSheetIndex(dataset))
 
-	if err = h.StreamSaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, e.InstanceID); err != nil {
-		return &Error{err: fmt.Errorf("StreamSaveExcelStructureToExcelFile failed: %w", err),
+	if err = h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, e.InstanceID); err != nil {
+		return &Error{err: fmt.Errorf("SaveExcelStructureToExcelFile failed: %w", err),
 			logData: logData,
 		}
 	}
@@ -200,9 +200,9 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	return nil
 }
 
-// StreamGetCSVtoExcelStructure streams in a line at a time from csv file from S3 bucket and
+// GetCSVtoExcelStructure streams in a line at a time from csv file from S3 bucket and
 // inserts it into the excel "in memory structure"
-func (h *CsvComplete) StreamGetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, e *event.CantabularCsvCreated, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string) error {
+func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, e *event.CantabularCsvCreated, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string) error {
 	bucketName := h.s3.BucketName()
 
 	// !!! need to figure out what to do about not yet published files ... (that is encrypted incoming CSV)
@@ -252,7 +252,8 @@ func (h *CsvComplete) StreamGetCSVtoExcelStructure(ctx context.Context, excelInM
 	}(downloadCtx)
 
 	var startRow = 3
-	var outputRow = startRow // !!! this value choosen for test to visually see effect in excel spreadsheet AND most importantly to NOT touch any cells previously streamed to above in test code
+	var outputRow = startRow // !!! this value choosen for test to visually see effect in excel spreadsheet
+	// AND most importantly to NOT touch any cells previously created with the excelize streamWriter mechanism
 
 	var maxCol = 1
 
@@ -266,7 +267,7 @@ func (h *CsvComplete) StreamGetCSVtoExcelStructure(ctx context.Context, excelInM
 		incomingCsvRow++
 		line := scanner.Text()
 
-		// split 'line' and do the excel stream write at 'row' & deal with any errors
+		// split 'line' and do the excel write at 'row' & deal with any errors
 		columns := strings.Split(line, ",")
 		nofColumns := len(columns)
 		if nofColumns == 0 {
@@ -334,7 +335,7 @@ func (h *CsvComplete) StreamGetCSVtoExcelStructure(ctx context.Context, excelInM
 	wgDownload.Wait()
 
 	if doLargeSheet {
-		// Must now finish up the CSV excelize streamWriter before doing excelize API calls in building up metadata sheet:
+		// Must now finish up the CSV excelize streamWriter calls before doing excelize API calls in building up metadata sheet:
 		if err := efficientExcelAPIWriter.Flush(); err != nil {
 			return &Error{err: err,
 				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv},
@@ -359,9 +360,9 @@ func (h *CsvComplete) StreamGetCSVtoExcelStructure(ctx context.Context, excelInM
 	return nil
 }
 
-// StreamSaveExcelStructureToExcelFile uses the excelize library Write function to effectively write out the excel
+// SaveExcelStructureToExcelFile uses the excelize library Write function to effectively write out the excel
 // "in memory structure" to a stream that is then streamed directly into a file in S3 bucket.
-func (h *CsvComplete) StreamSaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, instanceID string) error {
+func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, instanceID string) error {
 	bucketName := h.s3.BucketName()
 
 	filenameXlsx := generateS3FilenameXLSX(instanceID)
