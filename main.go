@@ -15,18 +15,18 @@ const serviceName = "dp-cantabular-xlsx-exporter"
 
 var (
 	// BuildTime represents the time in which the service was built
-	//BuildTime string
+	BuildTime string
 	// GitCommit represents the commit (SHA-1) hash of the service that is running
-	//GitCommit string
+	GitCommit string
 	// Version represents the version of the service that is running
-	//Version string
+	Version string
 
-	/* NOTE: replace the above with the below to run code with for example vscode debugger.*/
+	/* NOTE: replace the above with the below to run code with for example vscode debugger.
 	BuildTime string = "1601119818"
 	GitCommit string = "6584b786caac36b6214ffe04bf62f058d4021538"
 	Version   string = "v0.1.0"
 
-	/**/
+	*/
 )
 
 func main() {
@@ -49,6 +49,7 @@ func run(ctx context.Context) error {
 	// Read config
 	cfg, err := config.Get()
 	if err != nil {
+		cancelService()
 		return fmt.Errorf("unable to retrieve service configuration: %w", err)
 	}
 	log.Event(ctx, "config on startup", log.INFO, log.Data{"config": cfg, "build_time": BuildTime, "git-commit": GitCommit})
@@ -56,6 +57,7 @@ func run(ctx context.Context) error {
 	// Run the service
 	svc := service.New()
 	if err := svc.Init(serviceCtx, cfg, BuildTime, GitCommit, Version); err != nil {
+		cancelService()
 		return fmt.Errorf("running service failed with error: %w", err)
 	}
 	svc.Start(serviceCtx, svcErrors)
@@ -67,6 +69,7 @@ func run(ctx context.Context) error {
 		if errClose := svc.Close(serviceCtx); errClose != nil {
 			log.Error(serviceCtx, "service close error during error handling", errClose)
 		}
+		cancelService()
 		return err
 	case sig := <-signals:
 		log.Info(serviceCtx, "os signal received", log.Data{"signal": sig})
