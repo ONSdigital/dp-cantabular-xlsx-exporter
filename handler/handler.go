@@ -588,8 +588,8 @@ func generateS3FilenameXLSX(instanceID string) string {
 	return fmt.Sprintf("instances/%s.xlsx", instanceID)
 }
 
+// ApplyMainSheetHeader puts relevant header information in first rows of sheet
 func ApplyMainSheetHeader(excelInMemoryStructure *excelize.File, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string) error {
-
 	if doLargeSheet {
 		styleID, err := excelInMemoryStructure.NewStyle(`{"font":{"color":"#EE2277"}}`)
 		if err != nil {
