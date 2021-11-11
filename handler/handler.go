@@ -115,7 +115,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}
 
-	doStreaming := true
+	doLargeSheet := true
 
 	if e.RowCount <= smallEnoughForFullFormat {
 		// The number of lines in the CSV file is small enough to use the excelize API calls to create
@@ -124,16 +124,19 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		// (As of Nov 2021 the excelize streaming library code does not allow setting of column widths,
 		//  but we use the stream API calls for its speed and memory allocation efficiency for larger
 		//  CSV files).
-		doStreaming = false
+		// NOTE: the excelize libraries use of the word 'stream' is misleading as its actually the
+		// excelize libraries efficient mechanism of storring large sheets in memory and has nothing
+		// to do with the meaning of the word 'streaming'.
+		doLargeSheet = false
 	}
 
 	// start creating the excel file in its "in memory structure"
 	excelInMemoryStructure := excelize.NewFile()
 	sheet1 := "Sheet1"
-	var streamWriter *excelize.StreamWriter
+	var efficientExcelAPIWriter *excelize.StreamWriter
 	var err error
-	if doStreaming {
-		streamWriter, err = excelInMemoryStructure.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
+	if doLargeSheet {
+		efficientExcelAPIWriter, err = excelInMemoryStructure.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
 		if err != nil {
 			return &Error{err: fmt.Errorf("excel stream writer creation problem"),
 				logData: logData,
@@ -144,17 +147,17 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	excelInMemoryStructure.SetDefaultFont("Aerial")
 
 	// !!! write header on first sheet, just to demonstrate ... this may not be needed - TBD
-	if err = ApplyMainSheetHeader(excelInMemoryStructure, doStreaming, streamWriter, sheet1); err != nil {
+	if err = ApplyMainSheetHeader(excelInMemoryStructure, doLargeSheet, efficientExcelAPIWriter, sheet1); err != nil {
 		if err != nil {
-			return &Error{err: err,
+			return &Error{err: fmt.Errorf("ApplyMainSheetHeader failed: %w", err),
 				logData: logData,
 			}
 		}
 	}
 
-	if err = h.StreamGetCSVtoExcelStructure(ctx, excelInMemoryStructure, e, doStreaming, streamWriter, sheet1); err != nil {
+	if err = h.StreamGetCSVtoExcelStructure(ctx, excelInMemoryStructure, e, doLargeSheet, efficientExcelAPIWriter, sheet1); err != nil {
 		if err != nil {
-			return &Error{err: fmt.Errorf("StreamGetCSVtoExcelStructure"),
+			return &Error{err: fmt.Errorf("StreamGetCSVtoExcelStructure failed: %w", err),
 				logData: logData,
 			}
 		}
@@ -199,7 +202,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 
 // StreamGetCSVtoExcelStructure streams in a line at a time from csv file from S3 bucket and
 // inserts it into the excel "in memory structure"
-func (h *CsvComplete) StreamGetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, e *event.CantabularCsvCreated, doStreaming bool, streamWriter *excelize.StreamWriter, sheet1 string) error {
+func (h *CsvComplete) StreamGetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, e *event.CantabularCsvCreated, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string) error {
 	bucketName := h.s3.BucketName()
 
 	// !!! need to figure out what to do about not yet published files ... (that is encrypted incoming CSV)
@@ -278,7 +281,7 @@ func (h *CsvComplete) StreamGetCSVtoExcelStructure(ctx context.Context, excelInM
 		for colID := 0; colID < nofColumns; colID++ {
 			value := columns[colID]
 			valueFloat, err := strconv.ParseFloat(value, 64)
-			if doStreaming {
+			if doLargeSheet {
 				if err == nil {
 					rowItemsWithStyle = append(rowItemsWithStyle, excelize.Cell{StyleID: styleID14, Value: valueFloat})
 				} else {
@@ -294,14 +297,14 @@ func (h *CsvComplete) StreamGetCSVtoExcelStructure(ctx context.Context, excelInM
 			}
 		}
 
-		if doStreaming {
+		if doLargeSheet {
 			cell, err := excelize.CoordinatesToCellName(1, outputRow)
 			if err != nil {
 				return &Error{err: err,
 					logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
 				}
 			}
-			if err := streamWriter.SetRow(cell, rowItemsWithStyle); err != nil {
+			if err := efficientExcelAPIWriter.SetRow(cell, rowItemsWithStyle); err != nil {
 				return &Error{err: err,
 					logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
 				}
@@ -330,9 +333,9 @@ func (h *CsvComplete) StreamGetCSVtoExcelStructure(ctx context.Context, excelInM
 	// else to ensure the logs appear in the log file in the correct order.
 	wgDownload.Wait()
 
-	if doStreaming {
+	if doLargeSheet {
 		// Must now finish up the CSV excelize streamWriter before doing excelize API calls in building up metadata sheet:
-		if err := streamWriter.Flush(); err != nil {
+		if err := efficientExcelAPIWriter.Flush(); err != nil {
 			return &Error{err: err,
 				logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv},
 			}
@@ -359,7 +362,6 @@ func (h *CsvComplete) StreamGetCSVtoExcelStructure(ctx context.Context, excelInM
 // StreamSaveExcelStructureToExcelFile uses the excelize library Write function to effectively write out the excel
 // "in memory structure" to a stream that is then streamed directly into a file in S3 bucket.
 func (h *CsvComplete) StreamSaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, instanceID string) error {
-	// Save by streaming out the excel memory image to file in S3 bucket
 	bucketName := h.s3.BucketName()
 
 	filenameXlsx := generateS3FilenameXLSX(instanceID)
@@ -567,7 +569,7 @@ func generateURL(downloadServiceURL, instanceID string) string {
 func generateS3FilenameCSV(instanceID string) string {
 	return fmt.Sprintf("instances/%s.csv", instanceID)
 	// return fmt.Sprintf("instances/1000Kx50.csv")//!!! for non stram code this crashes using 13GB RAM in docker
-	// return fmt.Sprintf("instances/50Kx50.csv") //!!! this uses 1.7GB for non stream code
+	// return fmt.Sprintf("instances/50Kx50.csv") //!!! this uses 1.7GB for non large excel code
 	// return fmt.Sprintf("instances/10Kx7.csv")
 	// return fmt.Sprintf("instances/25Kx7.csv")
 	// return fmt.Sprintf("instances/50Kx7.csv")
@@ -586,15 +588,15 @@ func generateS3FilenameXLSX(instanceID string) string {
 	return fmt.Sprintf("instances/%s.xlsx", instanceID)
 }
 
-func ApplyMainSheetHeader(excelInMemoryStructure *excelize.File, doStreaming bool, streamWriter *excelize.StreamWriter, sheet1 string) error {
+func ApplyMainSheetHeader(excelInMemoryStructure *excelize.File, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string) error {
 
-	if doStreaming {
+	if doLargeSheet {
 		styleID, err := excelInMemoryStructure.NewStyle(`{"font":{"color":"#EE2277"}}`)
 		if err != nil {
 			return err
 		}
-		if err := streamWriter.SetRow("A1", []interface{}{
-			excelize.Cell{StyleID: styleID, Value: "Data, > 10K lines (streamed)"}}); err != nil {
+		if err := efficientExcelAPIWriter.SetRow("A1", []interface{}{
+			excelize.Cell{StyleID: styleID, Value: "Data, > 10K lines (efficient)"}}); err != nil {
 			return err
 		}
 	} else {
