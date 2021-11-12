@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
@@ -15,6 +16,7 @@ import (
 
 //go:generate moq -out mock/server.go -pkg mock . HTTPServer
 //go:generate moq -out mock/health_check.go -pkg mock . HealthChecker
+//go:generate moq -out mock/dataset_api_client.go -pkg mock . DatasetAPIClient
 //go:generate moq -out mock/s3_uploader.go -pkg mock . S3Uploader
 //go:generate moq -out mock/vault.go -pkg mock . VaultClient
 //go:generate moq -out mock/processor.go -pkg mock . Processor
@@ -42,6 +44,11 @@ type HealthChecker interface {
 	AddCheck(name string, checker healthcheck.Checker) (err error)
 }
 
+type DatasetAPIClient interface {
+	GetInstance(ctx context.Context, userAuthToken, serviceAuthToken, collectionID, instanceID, ifMatch string) (m dataset.Instance, eTag string, err error)
+	//	PutInstance(ctx context.Context, userAuthToken, serviceAuthToken, collectionID, instanceID string, instanceUpdate dataset.UpdateInstance, ifMatch string) (eTag string, err error)
+	Checker(context.Context, *healthcheck.CheckState) error
+}
 type S3Uploader interface {
 	Get(key string) (io.ReadCloser, *int64, error)
 	Upload(input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error)

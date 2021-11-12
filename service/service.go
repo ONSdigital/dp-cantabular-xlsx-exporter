@@ -15,15 +15,16 @@ import (
 
 // Service contains all the configs, server and clients to run the event handler service
 type Service struct {
-	Cfg         *config.Config
-	Server      HTTPServer
-	HealthCheck HealthChecker
-	Consumer    kafka.IConsumerGroup
-	Producer    kafka.IProducer
-	Processor   Processor
-	S3Uploader  S3Uploader //!!! does this service need an S3 downloader, or can it use this for download as well and maybe rename this to 'S3access' ?
-	VaultClient VaultClient
-	generator   Generator
+	Cfg              *config.Config
+	Server           HTTPServer
+	HealthCheck      HealthChecker
+	Consumer         kafka.IConsumerGroup
+	Producer         kafka.IProducer
+	DatasetAPIClient DatasetAPIClient
+	Processor        Processor
+	S3Uploader       S3Uploader //!!! does this service need an S3 downloader, or can it use this for download as well and maybe rename this to 'S3access' ?
+	VaultClient      VaultClient
+	generator        Generator
 }
 
 func New() *Service {
@@ -58,6 +59,8 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 	// Kafka error logging go-routine
 	//	consumer.Channels().LogErrors(ctx, "kafka consumer") !!! does the stuff above have this, or need something like this ?
 
+	svc.DatasetAPIClient = GetDatasetAPIClient(cfg)
+
 	svc.Processor = GetProcessor(cfg)
 	svc.generator = GetGenerator()
 
@@ -91,7 +94,7 @@ func (svc *Service) Start(ctx context.Context, svcErrors chan error) {
 		handler.NewCsvComplete(
 			*svc.Cfg,
 			//			svc.cantabularClient,
-			//			svc.datasetAPIClient,
+			svc.DatasetAPIClient,
 			svc.S3Uploader,
 			svc.VaultClient,
 			svc.Producer,
@@ -180,6 +183,10 @@ func (svc *Service) registerCheckers() error {
 
 	if err := svc.HealthCheck.AddCheck("Kafka producer", svc.Producer.Checker); err != nil {
 		return fmt.Errorf("error adding check for Kafka producer: %w", err)
+	}
+
+	if err := svc.HealthCheck.AddCheck("Dataset API client", svc.DatasetAPIClient.Checker); err != nil {
+		return fmt.Errorf("error adding check for dataset API client: %w", err)
 	}
 
 	if err := svc.HealthCheck.AddCheck("S3 uploader", svc.S3Uploader.Checker); err != nil {

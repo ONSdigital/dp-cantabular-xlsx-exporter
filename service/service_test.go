@@ -4,17 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/service"
 	"net/http"
 	"sync"
 	"testing"
+
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/service"
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	serviceMock "github.com/ONSdigital/dp-cantabular-xlsx-exporter/service/mock"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 
-	//	dpkafka "github.com/ONSdigital/dp-kafka/v2"
 	kafka "github.com/ONSdigital/dp-kafka/v2"
 	"github.com/ONSdigital/dp-kafka/v2/kafkatest"
 
@@ -36,7 +36,6 @@ var (
 )
 
 func TestInit(t *testing.T) {
-
 	Convey("Having a set of mocked dependencies", t, func() {
 
 		cfg, err := config.Get()
@@ -62,6 +61,17 @@ func TestInit(t *testing.T) {
 		serverMock := &serviceMock.HTTPServerMock{}
 		service.GetHTTPServer = func(bindAddr string, router http.Handler) service.HTTPServer {
 			return serverMock
+		}
+
+		datasetApiMock := &serviceMock.DatasetAPIClientMock{
+			CheckerFunc: func(context.Context, *healthcheck.CheckState) error {
+				return nil
+			},
+		}
+
+		// replace global function
+		service.GetDatasetAPIClient = func(cfg *config.Config) service.DatasetAPIClient {
+			return datasetApiMock
 		}
 
 		s3UploaderMock := &serviceMock.S3UploaderMock{
@@ -151,19 +161,19 @@ func TestInit(t *testing.T) {
 				So(svc.Consumer, ShouldResemble, consumerMock)
 				//!!!				So(svc.cantabularClient, ShouldResemble, cantabularMock)
 				So(svc.Producer, ShouldResemble, producerMock)
-				//!!!				So(svc.datasetAPIClient, ShouldResemble, datasetApiMock)
+				So(svc.DatasetAPIClient, ShouldResemble, datasetApiMock)
 				//!!!				So(svc.cantabularClient, ShouldResemble, cantabularMock)
 				So(svc.S3Uploader, ShouldResemble, s3UploaderMock)
 				So(svc.VaultClient, ShouldResemble, vaultMock)
 
 				Convey("And all checks are registered", func() {
-					So(hcMock.AddCheckCalls(), ShouldHaveLength, 4)
+					So(hcMock.AddCheckCalls(), ShouldHaveLength, 5)
 					So(hcMock.AddCheckCalls()[0].Name, ShouldResemble, "Kafka consumer")
 					So(hcMock.AddCheckCalls()[1].Name, ShouldResemble, "Kafka producer")
 					//					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "Cantabular client")
-					//					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "Dataset API client")
-					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "S3 uploader")
-					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "Vault")
+					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "Dataset API client")
+					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "S3 uploader")
+					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "Vault")
 				})
 			})
 		})
@@ -180,17 +190,17 @@ func TestInit(t *testing.T) {
 				So(svc.Consumer, ShouldResemble, consumerMock)
 				//				So(svc.cantabularClient, ShouldResemble, cantabularMock)
 				So(svc.Producer, ShouldResemble, producerMock)
-				//				So(svc.datasetAPIClient, ShouldResemble, datasetApiMock)
+				So(svc.DatasetAPIClient, ShouldResemble, datasetApiMock)
 				//				So(svc.cantabularClient, ShouldResemble, cantabularMock)
 				So(svc.S3Uploader, ShouldResemble, s3UploaderMock)
 
 				Convey("And all checks are registered, except Vault", func() {
-					So(hcMock.AddCheckCalls(), ShouldHaveLength, 3)
+					So(hcMock.AddCheckCalls(), ShouldHaveLength, 4)
 					So(hcMock.AddCheckCalls()[0].Name, ShouldResemble, "Kafka consumer")
 					So(hcMock.AddCheckCalls()[1].Name, ShouldResemble, "Kafka producer")
 					//					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "Cantabular client")
-					//					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "Dataset API client")
-					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "S3 uploader")
+					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "Dataset API client")
+					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "S3 uploader")
 				})
 			})
 		})

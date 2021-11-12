@@ -3,9 +3,11 @@ package handler
 import (
 	"context"
 
+	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
+//go:generate moq -out mock/dataset-api-client.go -pkg mock . DatasetAPIClient
 //go:generate moq -out mock/s3-client.go -pkg mock . S3Uploader
 //go:generate moq -out mock/vault.go -pkg mock . VaultClient
 //go:generate moq -out mock/generator.go -pkg mock . Generator
@@ -19,10 +21,10 @@ type S3Uploader interface {
 }
 
 // DatasetAPIClient contains the required method for the Dataset API Client
-/*type DatasetAPIClient interface {
+type DatasetAPIClient interface {
 	GetInstance(ctx context.Context, userAuthToken, serviceAuthToken, collectionID, instanceID, ifMatch string) (i dataset.Instance, eTag string, err error)
-	PutInstance(ctx context.Context, userAuthToken, serviceAuthToken, collectionID, instanceID string, instanceUpdate dataset.UpdateInstance, ifMatch string) (eTag string, err error)
-}*/ //!!! trash if not needed
+	//	PutInstance(ctx context.Context, userAuthToken, serviceAuthToken, collectionID, instanceID string, instanceUpdate dataset.UpdateInstance, ifMatch string) (eTag string, err error)
+}
 
 // VaultClient contains the required methods for the Vault Client
 type VaultClient interface {

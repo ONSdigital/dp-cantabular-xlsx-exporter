@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ONSdigital/dp-api-clients-go/headers"
+	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
@@ -35,7 +37,7 @@ const (
 type CsvComplete struct {
 	cfg config.Config
 	//	ctblr       CantabularClient
-	//	datasets    DatasetAPIClient
+	datasets    DatasetAPIClient
 	s3          S3Uploader
 	vaultClient VaultClient
 	producer    kafka.IProducer
@@ -43,11 +45,11 @@ type CsvComplete struct {
 }
 
 // NewCsvComplete creates a new CsvHandler
-func NewCsvComplete(cfg config.Config /*c CantabularClient, d DatasetAPIClient,*/, s S3Uploader, v VaultClient, p kafka.IProducer, g Generator) *CsvComplete {
+func NewCsvComplete(cfg config.Config /*c CantabularClient*/, d DatasetAPIClient, s S3Uploader, v VaultClient, p kafka.IProducer, g Generator) *CsvComplete {
 	return &CsvComplete{
 		cfg: cfg,
 		//		ctblr:       c,
-		//		datasets:    d,
+		datasets:    d,
 		s3:          s,
 		vaultClient: v,
 		producer:    p,
@@ -115,6 +117,23 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}
 
+	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", e.InstanceID, headers.IfMatchAnyETag)
+	if err != nil {
+		return &Error{
+			err:     fmt.Errorf("failed to get instance: %w", err),
+			logData: logData,
+		}
+	}
+
+	log.Info(ctx, "instance obtained from dataset API", log.Data{
+		"instance_id": instance.ID,
+	})
+
+	isPublished, err := h.ValidateInstance(instance)
+	if err != nil {
+		return fmt.Errorf("failed to validate instance: %w", err)
+	}
+
 	doLargeSheet := true
 
 	if e.RowCount <= smallEnoughForFullFormat {
@@ -134,7 +153,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	excelInMemoryStructure := excelize.NewFile()
 	sheet1 := "Sheet1"
 	var efficientExcelAPIWriter *excelize.StreamWriter
-	var err error
+	//var err error
 	if doLargeSheet {
 		efficientExcelAPIWriter, err = excelInMemoryStructure.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
 		if err != nil {
@@ -155,7 +174,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}
 
-	if err = h.GetCSVtoExcelStructure(ctx, excelInMemoryStructure, e, doLargeSheet, efficientExcelAPIWriter, sheet1); err != nil {
+	if err = h.GetCSVtoExcelStructure(ctx, excelInMemoryStructure, e, doLargeSheet, efficientExcelAPIWriter, sheet1, isPublished); err != nil {
 		if err != nil {
 			return &Error{err: fmt.Errorf("GetCSVtoExcelStructure failed: %w", err),
 				logData: logData,
@@ -176,7 +195,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	// Set active sheet of the workbook.
 	excelInMemoryStructure.SetActiveSheet(excelInMemoryStructure.GetSheetIndex(dataset))
 
-	if err = h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, e.InstanceID); err != nil {
+	if err = h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, e.InstanceID, isPublished); err != nil {
 		return &Error{err: fmt.Errorf("SaveExcelStructureToExcelFile failed: %w", err),
 			logData: logData,
 		}
@@ -202,7 +221,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 
 // GetCSVtoExcelStructure streams in a line at a time from csv file from S3 bucket and
 // inserts it into the excel "in memory structure"
-func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, e *event.CantabularCsvCreated, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string) error {
+func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, e *event.CantabularCsvCreated, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string, isPublished bool) error {
 	bucketName := h.s3.BucketName()
 
 	// !!! need to figure out what to do about not yet published files ... (that is encrypted incoming CSV)
@@ -219,6 +238,7 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 	// Create an io.Pipe to have the ability to read what is written to a writer
 	csvReader, csvWriter := io.Pipe()
 
+	// !!! need to use 'isPublished' to determine if to get encrypted file ...
 	downloadCtx, cancelDownload := context.WithCancel(ctx)
 	defer cancelDownload()
 
@@ -362,7 +382,7 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 
 // SaveExcelStructureToExcelFile uses the excelize library Write function to effectively write out the excel
 // "in memory structure" to a stream that is then streamed directly into a file in S3 bucket.
-func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, instanceID string) error {
+func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, instanceID string, isPublished bool) error {
 	bucketName := h.s3.BucketName()
 
 	filenameXlsx := generateS3FilenameXLSX(instanceID)
@@ -390,8 +410,6 @@ func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelIn
 			}
 		}
 	}()
-
-	isPublished := true //!!! this line will need some work
 
 	// Use the Upload function to read from the io.Pipe() Writer:
 	_, err := h.UploadXLSXFile(ctx, instanceID, xlsxReader, isPublished, filenameXlsx)
@@ -640,4 +658,18 @@ func ApplySmallSheetCellStyle(excelInMemoryStructure *excelize.File, startRow, m
 	}
 
 	return nil
+}
+
+// ValidateInstance validates the instance returned from dp-dataset-api
+// Returns isPublished bool value and any validation error
+func (h *CsvComplete) ValidateInstance(i dataset.Instance) (bool, error) {
+	if len(i.CSVHeader) < 2 { //!!! does the logic in this need adjusting from what is ok for csv exporter to better suit xlsx exporter ?
+		return false, &Error{
+			err: errors.New("no dimensions in headers"),
+			logData: log.Data{
+				"headers": i.CSVHeader,
+			},
+		}
+	}
+	return i.State == dataset.StatePublished.String(), nil
 }
