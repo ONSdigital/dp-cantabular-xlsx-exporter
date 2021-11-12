@@ -17,6 +17,8 @@ type Config struct {
 	GracefulShutdownTimeout    time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
 	HealthCheckInterval        time.Duration `envconfig:"HEALTHCHECK_INTERVAL"`
 	HealthCheckCriticalTimeout time.Duration `envconfig:"HEALTHCHECK_CRITICAL_TIMEOUT"`
+	ServiceAuthToken           string        `envconfig:"SERVICE_AUTH_TOKEN"         json:"-"`
+	DatasetAPIURL              string        `envconfig:"DATASET_API_URL"`
 	DownloadServiceURL         string        `envconfig:"DOWNLOAD_SERVICE_URL"` // needed to create url for file downloads, but this service is not actually called - TODO - remove if not needed
 	AWSRegion                  string        `envconfig:"AWS_REGION"`
 	UploadBucketName           string        `envconfig:"UPLOAD_BUCKET_NAME"`
@@ -62,6 +64,8 @@ func Get() (*Config, error) {
 		GracefulShutdownTimeout:    5 * time.Second,
 		HealthCheckInterval:        30 * time.Second,
 		HealthCheckCriticalTimeout: 90 * time.Second,
+		ServiceAuthToken:           "",
+		DatasetAPIURL:              "http://localhost:22000",
 		DownloadServiceURL:         "http://localhost:23600",
 		AWSRegion:                  "eu-west-1",
 		UploadBucketName:           "dp-cantabular-csv-exporter", // where to place the created .xlsx

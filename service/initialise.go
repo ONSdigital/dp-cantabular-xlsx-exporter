@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/generator"
@@ -81,6 +82,11 @@ var GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (kafka.IPro
 		pChannels,
 		pConfig,
 	)
+}
+
+// GetDatasetAPIClient gets and initialises the DatasetAPI Client
+var GetDatasetAPIClient = func(cfg *config.Config) DatasetAPIClient {
+	return dataset.NewAPIClient(cfg.DatasetAPIURL)
 }
 
 // GetS3Uploader creates an S3 Uploader, or a local storage client if a non-empty LocalObjectStore is provided

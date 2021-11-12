@@ -24,6 +24,8 @@ func TestConfig(t *testing.T) {
 				So(cfg.GracefulShutdownTimeout, ShouldEqual, 5*time.Second)
 				So(cfg.HealthCheckInterval, ShouldEqual, 30*time.Second)
 				So(cfg.HealthCheckCriticalTimeout, ShouldEqual, 90*time.Second)
+				So(cfg.ServiceAuthToken, ShouldEqual, "")
+				So(cfg.DatasetAPIURL, ShouldEqual, "http://localhost:22000")
 				So(cfg.DownloadServiceURL, ShouldEqual, "http://localhost:23600")
 				So(cfg.AWSRegion, ShouldEqual, "eu-west-1")
 				So(cfg.UploadBucketName, ShouldEqual, "dp-cantabular-csv-exporter")
