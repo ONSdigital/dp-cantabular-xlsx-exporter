@@ -4,7 +4,7 @@ import (
 	"github.com/ONSdigital/dp-kafka/v2/avro"
 )
 
-//!!! TODO, adjust these as needed fo xlsx exporter
+//!!! TODO, adjust these as needed for xlsx exporter
 var instanceComplete = `{
   "type": "record",
   "name": "cantabular-dataset-instance-complete",

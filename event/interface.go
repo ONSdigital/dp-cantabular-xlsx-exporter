@@ -10,7 +10,7 @@ type Handler interface {
 	Handle(ctx context.Context, csvComplete *CantabularCsvCreated) error
 }
 
-type dataLogger interface { //!!! figure out where and how this is used
+type dataLogger interface {
 	LogData() map[string]interface{}
 }
 
