@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	maxObservationCount      = 999900 //!!! the name of this might be wrong ?
-	smallEnoughForFullFormat = 10000  // Not too large to achieve full formatting in memory
+	maxAllowedRowCount       = 999900
+	smallEnoughForFullFormat = 10000 // Not too large to achieve full formatting in memory
 )
 
 // !!! the below needs renaming to suit this service - see what dp-dataset-exporter-xlsx names things and copy
@@ -104,7 +104,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		"event": e,
 	}
 
-	if e.RowCount > maxObservationCount {
+	if e.RowCount > maxAllowedRowCount {
 		// !!! change this to a log info and also report that job complete with no result due to too large an CSV file
 		return &Error{err: fmt.Errorf("full download too large to export to .xlsx file"),
 			logData: logData,
