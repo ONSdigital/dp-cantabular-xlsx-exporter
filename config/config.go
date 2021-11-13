@@ -22,6 +22,7 @@ type Config struct {
 	DownloadServiceURL         string        `envconfig:"DOWNLOAD_SERVICE_URL"` // needed to create url for file downloads, but this service is not actually called - TODO - remove if not needed
 	AWSRegion                  string        `envconfig:"AWS_REGION"`
 	UploadBucketName           string        `envconfig:"UPLOAD_BUCKET_NAME"`
+	PrivateUploadBucketName    string        `envconfig:"PRIVATE_UPLOAD_BUCKET_NAME"`
 	LocalObjectStore           string        `envconfig:"LOCAL_OBJECT_STORE"`
 	MinioAccessKey             string        `envconfig:"MINIO_ACCESS_KEY"`
 	MinioSecretKey             string        `envconfig:"MINIO_SECRET_KEY"`
@@ -68,15 +69,17 @@ func Get() (*Config, error) {
 		DatasetAPIURL:              "http://localhost:22000",
 		DownloadServiceURL:         "http://localhost:23600",
 		AWSRegion:                  "eu-west-1",
-		UploadBucketName:           "dp-cantabular-csv-exporter", // where to place the created .xlsx
-		LocalObjectStore:           "",
-		MinioAccessKey:             "",
-		MinioSecretKey:             "",
-		VaultPath:                  "secret/shared/psk",
-		VaultAddress:               "http://localhost:8200",
-		VaultToken:                 "",
-		ComponentTestUseLogFile:    false,
-		EncryptionDisabled:         false, // needed for local development to skip needing vault - TODO - remove if not needed
+		UploadBucketName:           "public-bucket", // where to place the created .xlsx
+		PrivateUploadBucketName:    "private-bucket",
+		//		UploadBucketName:           "dp-cantabular-csv-exporter", // where to place the created .xlsx
+		LocalObjectStore:        "",
+		MinioAccessKey:          "",
+		MinioSecretKey:          "",
+		VaultPath:               "secret/shared/psk",
+		VaultAddress:            "http://localhost:8200",
+		VaultToken:              "",
+		ComponentTestUseLogFile: false,
+		EncryptionDisabled:      false, // needed for local development to skip needing vault - TODO - remove if not needed
 		KafkaConfig: KafkaConfig{
 			Addr:                         []string{"localhost:9092"},
 			Version:                      "1.0.2",
