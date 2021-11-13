@@ -126,13 +126,11 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	}
 
 	log.Info(ctx, "instance obtained from dataset API", log.Data{
-		"instance_id": instance.ID,
+		"instance_id":    instance.ID,
+		"instance_state": instance.State,
 	})
 
-	isPublished, err := h.ValidateInstance(instance)
-	if err != nil {
-		return fmt.Errorf("failed to validate instance: %w", err)
-	}
+	isPublished := instance.State == dataset.StatePublished.String()
 
 	doLargeSheet := true
 
@@ -654,18 +652,4 @@ func ApplySmallSheetCellStyle(excelInMemoryStructure *excelize.File, startRow, m
 	}
 
 	return nil
-}
-
-// ValidateInstance validates the instance returned from dp-dataset-api
-// Returns isPublished bool value and any validation error
-func (h *CsvComplete) ValidateInstance(i dataset.Instance) (bool, error) {
-	if len(i.CSVHeader) < 2 { //!!! does the logic in this need adjusting from what is ok for csv exporter to better suit xlsx exporter ?
-		return false, &Error{
-			err: errors.New("no dimensions in headers"),
-			logData: log.Data{
-				"headers": i.CSVHeader,
-			},
-		}
-	}
-	return i.State == dataset.StatePublished.String(), nil
 }
