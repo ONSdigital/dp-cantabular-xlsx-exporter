@@ -15,16 +15,17 @@ import (
 
 // Service contains all the configs, server and clients to run the event handler service
 type Service struct {
-	Cfg              *config.Config
-	Server           HTTPServer
-	HealthCheck      HealthChecker
-	Consumer         kafka.IConsumerGroup
-	Producer         kafka.IProducer
-	DatasetAPIClient DatasetAPIClient
-	Processor        Processor
-	S3Uploader       S3Uploader //!!! does this service need an S3 downloader, or can it use this for download as well and maybe rename this to 'S3access' ?
-	VaultClient      VaultClient
-	generator        Generator
+	Cfg               *config.Config
+	Server            HTTPServer
+	HealthCheck       HealthChecker
+	Consumer          kafka.IConsumerGroup
+	Producer          kafka.IProducer
+	DatasetAPIClient  DatasetAPIClient
+	Processor         Processor
+	S3PrivateUploader S3Uploader // !!! how can this be the same type as the 'public' ?
+	S3PublicUploader  S3Uploader //!!! does this service need an S3 downloader, or can it use this for download as well and maybe rename this to 'S3access' ?
+	VaultClient       VaultClient
+	generator         Generator
 }
 
 func New() *Service {
@@ -47,7 +48,7 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 	if svc.Producer, err = GetKafkaProducer(ctx, cfg); err != nil {
 		return fmt.Errorf("failed to create kafka producer: %w", err)
 	}
-	if svc.S3Uploader, err = GetS3Uploader(cfg); err != nil {
+	if svc.S3PrivateUploader, svc.S3PublicUploader, err = GetS3Uploaders(cfg); err != nil {
 		return fmt.Errorf("failed to initialise s3 uploader: %w", err)
 	}
 	if !cfg.EncryptionDisabled {
@@ -93,9 +94,9 @@ func (svc *Service) Start(ctx context.Context, svcErrors chan error) {
 		svc.Consumer,
 		handler.NewCsvComplete(
 			*svc.Cfg,
-			//			svc.cantabularClient,
 			svc.DatasetAPIClient,
-			svc.S3Uploader,
+			svc.S3PrivateUploader,
+			svc.S3PublicUploader,
 			svc.VaultClient,
 			svc.Producer,
 			svc.generator,
@@ -189,8 +190,12 @@ func (svc *Service) registerCheckers() error {
 		return fmt.Errorf("error adding check for dataset API client: %w", err)
 	}
 
-	if err := svc.HealthCheck.AddCheck("S3 uploader", svc.S3Uploader.Checker); err != nil {
-		return fmt.Errorf("error adding check for s3 uploader: %w", err)
+	if err := svc.HealthCheck.AddCheck("S3 private uploader", svc.S3PrivateUploader.Checker); err != nil {
+		return fmt.Errorf("error adding check for s3 private uploader: %w", err)
+	}
+
+	if err := svc.HealthCheck.AddCheck("S3 public uploader", svc.S3PublicUploader.Checker); err != nil {
+		return fmt.Errorf("error adding check for s3 public uploader: %w", err)
 	}
 
 	if !svc.Cfg.EncryptionDisabled {

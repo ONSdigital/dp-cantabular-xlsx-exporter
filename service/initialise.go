@@ -89,8 +89,8 @@ var GetDatasetAPIClient = func(cfg *config.Config) DatasetAPIClient {
 	return dataset.NewAPIClient(cfg.DatasetAPIURL)
 }
 
-// GetS3Uploader creates an S3 Uploader, or a local storage client if a non-empty LocalObjectStore is provided
-var GetS3Uploader = func(cfg *config.Config) (S3Uploader, error) {
+// GetS3Uploaders creates the private and public S3 Uploaders using the same AWS session, or a local storage client if a non-empty LocalObjectStore is provided
+var GetS3Uploaders = func(cfg *config.Config) (private, public S3Uploader, err error) {
 	if cfg.LocalObjectStore != "" {
 		s3Config := &aws.Config{
 			Credentials:      credentials.NewStaticCredentials(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
@@ -102,22 +102,31 @@ var GetS3Uploader = func(cfg *config.Config) (S3Uploader, error) {
 
 		s, err := session.NewSession(s3Config)
 		if err != nil {
-			//!!! should the following actually say (as in download-service): "could not create the local-object-store s3 client: %w", err   ???
-			return nil, fmt.Errorf("failed to create aws session (local): %w", err)
+			return nil, nil, fmt.Errorf("failed to create aws session (local): %w", err)
 		}
-		return dps3.NewUploaderWithSession(cfg.UploadBucketName, s), nil //!!! should this be using 'private' bucket name ???
+		if cfg.EncryptionDisabled { //!!! this may well not be needed and we just set up both private and public
+			return dps3.NewUploaderWithSession(cfg.UploadBucketName, s),
+				dps3.NewUploaderWithSession(cfg.UploadBucketName, s),
+				nil
+		} else {
+			return dps3.NewUploaderWithSession(cfg.PrivateUploadBucketName, s),
+				dps3.NewUploaderWithSession(cfg.UploadBucketName, s),
+				nil
+		}
 		// !!! as in:
 		// cryptoUploader := s3client.NewUploaderWithSession(privateBucket, true, uploader.Session())
 		// from dp-dataset-exporter, where it sets up a public and a private crypto uploader ??? !!!
 		//!!! `david suggests: We should have 2 S3 Uploaders, one with the private bucket and one with the public bucket - and they can use the same AWS session.`
 	}
 
-	uploader, err := dps3.NewUploader(cfg.AWSRegion, cfg.UploadBucketName)
+	private, err = dps3.NewUploader(cfg.AWSRegion, cfg.PrivateUploadBucketName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create S3 Client: %w", err)
+		return nil, nil, fmt.Errorf("failed to create S3 Client: %w", err)
 	}
 
-	return uploader, nil
+	// !!! is seems odd that the following function does not return an error, like the previous one
+	public = dps3.NewUploaderWithSession(cfg.UploadBucketName, private.Session())
+	return private, public, nil
 }
 
 // GetVault creates a VaultClient
