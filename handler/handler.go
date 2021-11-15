@@ -223,8 +223,6 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 	var bucketName string
 	if isPublished {
 		bucketName = h.s3Public.BucketName()
-	} else if h.cfg.EncryptionDisabled {
-		bucketName = h.s3Public.BucketName()
 	} else {
 		bucketName = h.s3Private.BucketName()
 	}
@@ -391,8 +389,6 @@ func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelIn
 	var bucketName string
 	if isPublished {
 		bucketName = h.s3Public.BucketName()
-	} else if h.cfg.EncryptionDisabled {
-		bucketName = h.s3Public.BucketName()
 	} else {
 		bucketName = h.s3Private.BucketName()
 	}
@@ -415,7 +411,7 @@ func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelIn
 				log.Error(ctx, "error closing upload writerWithError", closeErr)
 			}
 		} else {
-			log.Info(ctx, fmt.Sprintf(".xlsx file: %s, finished writing to pipe for bucket: %s", filenameXlsx, bucketName)) // !!! do we want this log line or the one "XLSX file uploaded to" further on ?
+			log.Info(ctx, fmt.Sprintf("finished writing file: %s, to pipe for bucket: %s", filenameXlsx, bucketName)) // !!! do we want this log line or the one "XLSX file uploaded to" further on ?
 
 			if closeErr := xlsxWriter.Close(); closeErr != nil {
 				log.Error(ctx, "error closing upload writer", closeErr)
@@ -438,7 +434,7 @@ func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelIn
 		}
 	}
 
-	// All of the CSV file has now been uploaded OK
+	// All of the XLSX file has now been uploaded OK
 	// We wait until any logs coming from the go routine have completed before doing anything
 	// else to ensure the logs appear in the log file in the correct order.
 	wgUpload.Wait()
@@ -476,7 +472,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 			Key:    &filename,
 		})
 		if err != nil {
-			return "", NewError(fmt.Errorf("failed to upload published file to S3: %w", err),
+			return "", NewError(fmt.Errorf("UploadWithContext failed to upload published file to S3: %w", err),
 				logData,
 			)
 		}
@@ -488,13 +484,13 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 		if h.cfg.EncryptionDisabled {
 			log.Info(ctx, "uploading unencrypted file to S3", logData)
 
-			result, err := h.s3Public.UploadWithContext(ctx, &s3manager.UploadInput{
+			result, err := h.s3Private.UploadWithContext(ctx, &s3manager.UploadInput{
 				Body:   file,
 				Bucket: &bucketName,
 				Key:    &filename,
 			})
 			if err != nil {
-				return "", NewError(fmt.Errorf("failed to upload unencrypted file to S3: %w", err),
+				return "", NewError(fmt.Errorf("UploadWithContext failed to upload unencrypted file to S3: %w", err),
 					logData,
 				)
 			}
@@ -504,7 +500,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 
 			psk, err := h.generator.NewPSK()
 			if err != nil {
-				return "", NewError(fmt.Errorf("failed to generate a PSK for encryption: %w", err),
+				return "", NewError(fmt.Errorf("NewPSK failed to generate a PSK for encryption: %w", err),
 					logData,
 				)
 			}
@@ -515,7 +511,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 			log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
 
 			if err := h.vaultClient.WriteKey(vaultPath, vaultKey, hex.EncodeToString(psk)); err != nil {
-				return "", NewError(fmt.Errorf("failed to write key to vault: %w", err),
+				return "", NewError(fmt.Errorf("WriteKey failed to write key to vault: %w", err),
 					logData,
 				)
 			}
@@ -529,7 +525,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 				Key:    &filename,
 			}, psk)
 			if err != nil {
-				return "", NewError(fmt.Errorf("failed to upload encrypted file to S3: %w", err),
+				return "", NewError(fmt.Errorf("UploadWithPSK failed to upload encrypted file to S3: %w", err),
 					logData,
 				)
 			}

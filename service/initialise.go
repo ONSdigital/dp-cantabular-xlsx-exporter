@@ -104,19 +104,9 @@ var GetS3Uploaders = func(cfg *config.Config) (private, public S3Uploader, err e
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create aws session (local): %w", err)
 		}
-		if cfg.EncryptionDisabled { //!!! this may well not be needed and we just set up both private and public
-			return dps3.NewUploaderWithSession(cfg.UploadBucketName, s),
-				dps3.NewUploaderWithSession(cfg.UploadBucketName, s),
-				nil
-		} else {
-			return dps3.NewUploaderWithSession(cfg.PrivateUploadBucketName, s),
-				dps3.NewUploaderWithSession(cfg.UploadBucketName, s),
-				nil
-		}
-		// !!! as in:
-		// cryptoUploader := s3client.NewUploaderWithSession(privateBucket, true, uploader.Session())
-		// from dp-dataset-exporter, where it sets up a public and a private crypto uploader ??? !!!
-		//!!! `david suggests: We should have 2 S3 Uploaders, one with the private bucket and one with the public bucket - and they can use the same AWS session.`
+		return dps3.NewUploaderWithSession(cfg.PrivateUploadBucketName, s),
+			dps3.NewUploaderWithSession(cfg.UploadBucketName, s),
+			nil
 	}
 
 	private, err = dps3.NewUploader(cfg.AWSRegion, cfg.PrivateUploadBucketName)

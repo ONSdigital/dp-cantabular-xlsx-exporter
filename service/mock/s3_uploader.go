@@ -7,6 +7,7 @@ import (
 	"context"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/service"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"io"
 	"sync"
@@ -30,6 +31,9 @@ var _ service.S3Uploader = &S3UploaderMock{}
 // 			},
 // 			GetFunc: func(key string) (io.ReadCloser, *int64, error) {
 // 				panic("mock out the Get method")
+// 			},
+// 			SessionFunc: func() *session.Session {
+// 				panic("mock out the Session method")
 // 			},
 // 			UploadFunc: func(input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
 // 				panic("mock out the Upload method")
@@ -56,6 +60,9 @@ type S3UploaderMock struct {
 	// GetFunc mocks the Get method.
 	GetFunc func(key string) (io.ReadCloser, *int64, error)
 
+	// SessionFunc mocks the Session method.
+	SessionFunc func() *session.Session
+
 	// UploadFunc mocks the Upload method.
 	UploadFunc func(input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error)
 
@@ -81,6 +88,9 @@ type S3UploaderMock struct {
 		Get []struct {
 			// Key is the key argument value.
 			Key string
+		}
+		// Session holds details about calls to the Session method.
+		Session []struct {
 		}
 		// Upload holds details about calls to the Upload method.
 		Upload []struct {
@@ -109,6 +119,7 @@ type S3UploaderMock struct {
 	lockBucketName        sync.RWMutex
 	lockChecker           sync.RWMutex
 	lockGet               sync.RWMutex
+	lockSession           sync.RWMutex
 	lockUpload            sync.RWMutex
 	lockUploadWithContext sync.RWMutex
 	lockUploadWithPSK     sync.RWMutex
@@ -203,6 +214,32 @@ func (mock *S3UploaderMock) GetCalls() []struct {
 	mock.lockGet.RLock()
 	calls = mock.calls.Get
 	mock.lockGet.RUnlock()
+	return calls
+}
+
+// Session calls SessionFunc.
+func (mock *S3UploaderMock) Session() *session.Session {
+	if mock.SessionFunc == nil {
+		panic("S3UploaderMock.SessionFunc: method is nil but S3Uploader.Session was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockSession.Lock()
+	mock.calls.Session = append(mock.calls.Session, callInfo)
+	mock.lockSession.Unlock()
+	return mock.SessionFunc()
+}
+
+// SessionCalls gets all the calls that were made to Session.
+// Check the length with:
+//     len(mockedS3Uploader.SessionCalls())
+func (mock *S3UploaderMock) SessionCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockSession.RLock()
+	calls = mock.calls.Session
+	mock.lockSession.RUnlock()
 	return calls
 }
 
