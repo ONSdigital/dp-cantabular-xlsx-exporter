@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	maxObservationCount      = 999900 //!!! the name of this might be wrong ?
-	smallEnoughForFullFormat = 10000  // Not too large to achieve full formatting in memory
+	maxAllowedRowCount       = 999900
+	smallEnoughForFullFormat = 10000 // Not too large to achieve full formatting in memory
 )
 
 // !!! the below needs renaming to suit this service - see what dp-dataset-exporter-xlsx names things and copy
@@ -104,7 +104,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		"event": e,
 	}
 
-	if e.RowCount > maxObservationCount {
+	if e.RowCount > maxAllowedRowCount {
 		// !!! change this to a log info and also report that job complete with no result due to too large an CSV file
 		return &Error{err: fmt.Errorf("full download too large to export to .xlsx file"),
 			logData: logData,
@@ -126,13 +126,11 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	}
 
 	log.Info(ctx, "instance obtained from dataset API", log.Data{
-		"instance_id": instance.ID,
+		"instance_id":    instance.ID,
+		"instance_state": instance.State,
 	})
 
-	isPublished, err := h.ValidateInstance(instance)
-	if err != nil {
-		return fmt.Errorf("failed to validate instance: %w", err)
-	}
+	isPublished := instance.State == dataset.StatePublished.String()
 
 	doLargeSheet := true
 
@@ -224,7 +222,6 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, e *event.CantabularCsvCreated, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string, isPublished bool) error {
 	bucketName := h.s3.BucketName()
 
-	// !!! need to figure out what to do about not yet published files ... (that is encrypted incoming CSV)
 	downloader, err := GetS3Downloader(&h.cfg)
 	if err != nil {
 		return err
@@ -456,7 +453,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 
 		log.Info(ctx, "uploading published file to S3", logData)
 
-		// !!! this code needs to use 'UploadWithContext' ???, because when processing an excel file that is
+		// We use UploadWithContext because when processing an excel file that is
 		// nearly 1million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 		// to shut down gracefully before installing a new version of this app, then this could cause problems.
 		result, err := h.s3.UploadWithContext(ctx, &s3manager.UploadInput{
@@ -483,9 +480,6 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 	if h.cfg.EncryptionDisabled {
 		log.Info(ctx, "uploading unencrypted file to S3", logData)
 
-		// !!! this code needs to use 'UploadWithContext' ???, because when processing an excel file that is
-		// nearly 1million lines it has been seen to take over 45 seconds and if nomad has instructed a service
-		// to shut down gracefully before installing a new version of this app, then this could cause problems.
 		result, err := h.s3.UploadWithContext(ctx, &s3manager.UploadInput{
 			Body:   file,
 			Bucket: &bucketName,
@@ -520,7 +514,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 		)
 	}
 
-	// !!! this code needs to use 'UploadWithContext' ???, because when processing an excel file that is
+	// !!! this code needs to use 'UploadWithContextPSK' ???, because when processing an excel file that is
 	// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 	// to shut down gracefully before installing a new version of this app, then this could cause problems.
 	result, err := h.s3.UploadWithPSK(&s3manager.UploadInput{
@@ -587,7 +581,7 @@ func generateURL(downloadServiceURL, instanceID string) string {
 // for the provided instanceID CSV file that is going to be read
 func generateS3FilenameCSV(instanceID string) string {
 	return fmt.Sprintf("instances/%s.csv", instanceID)
-	// return fmt.Sprintf("instances/1000Kx50.csv")//!!! for non stram code this crashes using 13GB RAM in docker
+	// return fmt.Sprintf("instances/1000Kx50.csv")//!!! for non stream code this crashes using 13GB RAM in docker
 	// return fmt.Sprintf("instances/50Kx50.csv") //!!! this uses 1.7GB for non large excel code
 	// return fmt.Sprintf("instances/10Kx7.csv")
 	// return fmt.Sprintf("instances/25Kx7.csv")
@@ -658,18 +652,4 @@ func ApplySmallSheetCellStyle(excelInMemoryStructure *excelize.File, startRow, m
 	}
 
 	return nil
-}
-
-// ValidateInstance validates the instance returned from dp-dataset-api
-// Returns isPublished bool value and any validation error
-func (h *CsvComplete) ValidateInstance(i dataset.Instance) (bool, error) {
-	if len(i.CSVHeader) < 2 { //!!! does the logic in this need adjusting from what is ok for csv exporter to better suit xlsx exporter ?
-		return false, &Error{
-			err: errors.New("no dimensions in headers"),
-			logData: log.Data{
-				"headers": i.CSVHeader,
-			},
-		}
-	}
-	return i.State == dataset.StatePublished.String(), nil
 }
