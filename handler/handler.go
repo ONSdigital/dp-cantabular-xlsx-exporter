@@ -35,22 +35,22 @@ const (
 // !!! the below needs renaming to suit this service - see what dp-dataset-exporter-xlsx names things and copy
 // CsvComplete is the handle for the CsvHandler event
 type CsvComplete struct {
-	cfg config.Config
-	//	ctblr       CantabularClient
+	cfg         config.Config
 	datasets    DatasetAPIClient
-	s3          S3Uploader
+	s3Private   S3Uploader
+	s3Public    S3Uploader
 	vaultClient VaultClient
 	producer    kafka.IProducer
 	generator   Generator
 }
 
 // NewCsvComplete creates a new CsvHandler
-func NewCsvComplete(cfg config.Config /*c CantabularClient*/, d DatasetAPIClient, s S3Uploader, v VaultClient, p kafka.IProducer, g Generator) *CsvComplete {
+func NewCsvComplete(cfg config.Config, d DatasetAPIClient, sPrivate S3Uploader, sPublic S3Uploader, v VaultClient, p kafka.IProducer, g Generator) *CsvComplete {
 	return &CsvComplete{
-		cfg: cfg,
-		//		ctblr:       c,
+		cfg:         cfg,
 		datasets:    d,
-		s3:          s,
+		s3Private:   sPrivate,
+		s3Public:    sPublic,
 		vaultClient: v,
 		producer:    p,
 		generator:   g,
@@ -220,7 +220,12 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 // GetCSVtoExcelStructure streams in a line at a time from csv file from S3 bucket and
 // inserts it into the excel "in memory structure"
 func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, e *event.CantabularCsvCreated, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string, isPublished bool) error {
-	bucketName := h.s3.BucketName()
+	var bucketName string
+	if isPublished {
+		bucketName = h.s3Public.BucketName()
+	} else {
+		bucketName = h.s3Private.BucketName()
+	}
 
 	downloader, err := GetS3Downloader(&h.cfg)
 	if err != nil {
@@ -252,7 +257,7 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 				Key:    aws.String(filenameCsv),
 			})
 		if err != nil {
-			report := &Error{err: err,
+			report := &Error{err: fmt.Errorf("DownloadWithContext failed, %w", err),
 				logData: log.Data{"err": err, "bucketName": bucketName, "filenameCsv": filenameCsv},
 			}
 
@@ -342,6 +347,7 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 	}
 	if err := scanner.Err(); err != nil {
 		return &Error{err: err,
+			// !!! remove Bingo at some point
 			logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow, "Bingo": "*** wow ***"},
 		}
 	}
@@ -380,7 +386,12 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 // SaveExcelStructureToExcelFile uses the excelize library Write function to effectively write out the excel
 // "in memory structure" to a stream that is then streamed directly into a file in S3 bucket.
 func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, instanceID string, isPublished bool) error {
-	bucketName := h.s3.BucketName()
+	var bucketName string
+	if isPublished {
+		bucketName = h.s3Public.BucketName()
+	} else {
+		bucketName = h.s3Private.BucketName()
+	}
 
 	filenameXlsx := generateS3FilenameXLSX(instanceID)
 	xlsxReader, xlsxWriter := io.Pipe()
@@ -400,7 +411,7 @@ func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelIn
 				log.Error(ctx, "error closing upload writerWithError", closeErr)
 			}
 		} else {
-			log.Info(ctx, fmt.Sprintf(".xlsx file: %s, finished writing to pipe for bucket: %s", filenameXlsx, bucketName)) // !!! do we want this log line or the one "XLSX file uploaded to" further on ?
+			log.Info(ctx, fmt.Sprintf("finished writing file: %s, to pipe for bucket: %s", filenameXlsx, bucketName)) // !!! do we want this log line or the one "XLSX file uploaded to" further on ?
 
 			if closeErr := xlsxWriter.Close(); closeErr != nil {
 				log.Error(ctx, "error closing upload writer", closeErr)
@@ -409,7 +420,7 @@ func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelIn
 	}()
 
 	// Use the Upload function to read from the io.Pipe() Writer:
-	_, err := h.UploadXLSXFile(ctx, instanceID, xlsxReader, isPublished, filenameXlsx)
+	_, err := h.UploadXLSXFile(ctx, instanceID, xlsxReader, isPublished, bucketName, filenameXlsx)
 	if err != nil {
 		if closeErr := xlsxWriter.Close(); closeErr != nil {
 			log.Error(ctx, "error closing upload writer", closeErr)
@@ -423,7 +434,7 @@ func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelIn
 		}
 	}
 
-	// All of the CSV file has now been uploaded OK
+	// All of the XLSX file has now been uploaded OK
 	// We wait until any logs coming from the go routine have completed before doing anything
 	// else to ensure the logs appear in the log file in the correct order.
 	wgUpload.Wait()
@@ -432,7 +443,7 @@ func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelIn
 }
 
 // UploadXLSXFile uploads the provided file content to AWS S3
-func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, file io.Reader, isPublished bool, filename string) (string, error) {
+func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, file io.Reader, isPublished bool, bucketName string, filename string) (string, error) {
 	if instanceID == "" {
 		return "", errors.New("empty instance id not allowed")
 	}
@@ -440,95 +451,96 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 		return "", errors.New("no file content has been provided")
 	}
 
-	bucketName := h.s3.BucketName() //!!! this is flawed as there should be seperate 'S3PrivateBucketName' and 'S3BucketName'
+	resultPath := ""
+	logData := log.Data{
+		"bucket":              bucketName,
+		"filename":            filename,
+		"encryption_disabled": h.cfg.EncryptionDisabled,
+		"is_published":        isPublished,
+	}
 
 	// As the code is now it is assumed that the file is always published - TODO, this function needs rationalising once full system is in place
 	if isPublished {
-
-		logData := log.Data{
-			"bucket":       bucketName,
-			"filename":     filename,
-			"is_published": true,
-		}
-
 		log.Info(ctx, "uploading published file to S3", logData)
 
 		// We use UploadWithContext because when processing an excel file that is
 		// nearly 1million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 		// to shut down gracefully before installing a new version of this app, then this could cause problems.
-		result, err := h.s3.UploadWithContext(ctx, &s3manager.UploadInput{
+		result, err := h.s3Public.UploadWithContext(ctx, &s3manager.UploadInput{
 			Body:   file,
 			Bucket: &bucketName,
 			Key:    &filename,
 		})
 		if err != nil {
-			return "", NewError(fmt.Errorf("failed to upload published file to S3: %w", err),
+			return "", NewError(fmt.Errorf("UploadWithContext failed to upload published file to S3: %w", err),
 				logData,
 			)
 		}
-
-		return url.PathUnescape(result.Location)
-	}
-
-	logData := log.Data{
-		"bucket":              bucketName,
-		"filename":            filename,
-		"encryption_disabled": h.cfg.EncryptionDisabled,
-		"is_published":        false,
-	}
-
-	if h.cfg.EncryptionDisabled {
-		log.Info(ctx, "uploading unencrypted file to S3", logData)
-
-		result, err := h.s3.UploadWithContext(ctx, &s3manager.UploadInput{
-			Body:   file,
-			Bucket: &bucketName,
-			Key:    &filename,
-		})
-		if err != nil {
-			return "", NewError(fmt.Errorf("failed to upload unencrypted file to S3: %w", err),
-				logData,
-			)
+		resultPath = result.Location
+	} else {
+		logData := log.Data{
+			"encryption_disabled": h.cfg.EncryptionDisabled,
 		}
+		if h.cfg.EncryptionDisabled {
+			log.Info(ctx, "uploading unencrypted file to S3", logData)
 
-		return url.PathUnescape(result.Location)
+			result, err := h.s3Private.UploadWithContext(ctx, &s3manager.UploadInput{
+				Body:   file,
+				Bucket: &bucketName,
+				Key:    &filename,
+			})
+			if err != nil {
+				return "", NewError(fmt.Errorf("UploadWithContext failed to upload unencrypted file to S3: %w", err),
+					logData,
+				)
+			}
+			resultPath = result.Location
+		} else {
+			log.Info(ctx, "uploading encrypted file to S3", logData)
+
+			psk, err := h.generator.NewPSK()
+			if err != nil {
+				return "", NewError(fmt.Errorf("NewPSK failed to generate a PSK for encryption: %w", err),
+					logData,
+				)
+			}
+
+			vaultPath := generateVaultPathForFile(h.cfg.VaultPath, instanceID)
+			vaultKey := "key"
+
+			log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
+
+			if err := h.vaultClient.WriteKey(vaultPath, vaultKey, hex.EncodeToString(psk)); err != nil {
+				return "", NewError(fmt.Errorf("WriteKey failed to write key to vault: %w", err),
+					logData,
+				)
+			}
+
+			// !!! this code needs to use 'UploadWithContextPSK' ???, because when processing an excel file that is
+			// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
+			// to shut down gracefully before installing a new version of this app, then this could cause problems.
+			result, err := h.s3Private.UploadWithPSK(&s3manager.UploadInput{
+				Body:   file,
+				Bucket: &bucketName,
+				Key:    &filename,
+			}, psk)
+			if err != nil {
+				return "", NewError(fmt.Errorf("UploadWithPSK failed to upload encrypted file to S3: %w", err),
+					logData,
+				)
+			}
+			resultPath = result.Location
+		}
 	}
 
-	log.Info(ctx, "uploading encrypted file to S3", logData)
-
-	psk, err := h.generator.NewPSK()
+	s3Location, err := url.PathUnescape(resultPath)
 	if err != nil {
-		return "", NewError(fmt.Errorf("failed to generate a PSK for encryption: %w", err),
+		logData["location"] = resultPath
+		return "", NewError(fmt.Errorf("failed to unescape S3 path location: %w", err),
 			logData,
 		)
 	}
-
-	vaultPath := generateVaultPathForFile(h.cfg.VaultPath, instanceID)
-	vaultKey := "key"
-
-	log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
-
-	if err := h.vaultClient.WriteKey(vaultPath, vaultKey, hex.EncodeToString(psk)); err != nil {
-		return "", NewError(fmt.Errorf("failed to write key to vault: %w", err),
-			logData,
-		)
-	}
-
-	// !!! this code needs to use 'UploadWithContextPSK' ???, because when processing an excel file that is
-	// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
-	// to shut down gracefully before installing a new version of this app, then this could cause problems.
-	result, err := h.s3.UploadWithPSK(&s3manager.UploadInput{
-		Body:   file,
-		Bucket: &bucketName,
-		Key:    &filename,
-	}, psk)
-	if err != nil {
-		return "", NewError(fmt.Errorf("failed to upload encrypted file to S3: %w", err),
-			logData,
-		)
-	}
-
-	return url.PathUnescape(result.Location)
+	return s3Location, nil
 }
 
 // UpdateInstance updates the instance downlad CSV link using dataset API PUT /instances/{id} endpoint

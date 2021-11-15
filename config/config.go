@@ -22,6 +22,7 @@ type Config struct {
 	DownloadServiceURL         string        `envconfig:"DOWNLOAD_SERVICE_URL"` // needed to create url for file downloads, but this service is not actually called - TODO - remove if not needed
 	AWSRegion                  string        `envconfig:"AWS_REGION"`
 	UploadBucketName           string        `envconfig:"UPLOAD_BUCKET_NAME"`
+	PrivateUploadBucketName    string        `envconfig:"PRIVATE_UPLOAD_BUCKET_NAME"`
 	LocalObjectStore           string        `envconfig:"LOCAL_OBJECT_STORE"`
 	MinioAccessKey             string        `envconfig:"MINIO_ACCESS_KEY"`
 	MinioSecretKey             string        `envconfig:"MINIO_SECRET_KEY"`
@@ -35,19 +36,20 @@ type Config struct {
 
 // KafkaConfig contains the config required to connect to Kafka
 type KafkaConfig struct {
-	Addr                         []string `envconfig:"KAFKA_ADDR"                            json:"-"`
-	Version                      string   `envconfig:"KAFKA_VERSION"`
-	OffsetOldest                 bool     `envconfig:"KAFKA_OFFSET_OLDEST"`
-	NumWorkers                   int      `envconfig:"KAFKA_NUM_WORKERS"`
-	MaxBytes                     int      `envconfig:"KAFKA_MAX_BYTES"`
-	SecProtocol                  string   `envconfig:"KAFKA_SEC_PROTO"`
-	SecCACerts                   string   `envconfig:"KAFKA_SEC_CA_CERTS"`
-	SecClientKey                 string   `envconfig:"KAFKA_SEC_CLIENT_KEY"                  json:"-"`
-	SecClientCert                string   `envconfig:"KAFKA_SEC_CLIENT_CERT"`
-	SecSkipVerify                bool     `envconfig:"KAFKA_SEC_SKIP_VERIFY"`
-	CsvCreatedGroup              string   `envconfig:"CSV_CREATED_GROUP"`               // this is the consumed group, and is only defined for the consumer(s)
-	CsvCreatedTopic              string   `envconfig:"CSV_CREATED_TOPIC"`               // this is the consumed topic
-	CantabularOutputCreatedTopic string   `envconfig:"CANTABULAR_OUTPUT_CREATED_TOPIC"` // this is produced
+	Addr          []string `envconfig:"KAFKA_ADDR"                            json:"-"`
+	Version       string   `envconfig:"KAFKA_VERSION"`
+	OffsetOldest  bool     `envconfig:"KAFKA_OFFSET_OLDEST"`
+	NumWorkers    int      `envconfig:"KAFKA_NUM_WORKERS"`
+	MaxBytes      int      `envconfig:"KAFKA_MAX_BYTES"`
+	SecProtocol   string   `envconfig:"KAFKA_SEC_PROTO"`
+	SecCACerts    string   `envconfig:"KAFKA_SEC_CA_CERTS"`
+	SecClientKey  string   `envconfig:"KAFKA_SEC_CLIENT_KEY"                  json:"-"`
+	SecClientCert string   `envconfig:"KAFKA_SEC_CLIENT_CERT"`
+	SecSkipVerify bool     `envconfig:"KAFKA_SEC_SKIP_VERIFY"`
+	//!!! the following 3 need appropriate renaming
+	CsvCreatedGroup              string `envconfig:"CSV_CREATED_GROUP"`               // this is the consumed group, and is only defined for the consumer(s)
+	CsvCreatedTopic              string `envconfig:"CSV_CREATED_TOPIC"`               // this is the consumed topic
+	CantabularOutputCreatedTopic string `envconfig:"CANTABULAR_OUTPUT_CREATED_TOPIC"` // this is produced
 }
 
 var cfg *Config
@@ -68,7 +70,8 @@ func Get() (*Config, error) {
 		DatasetAPIURL:              "http://localhost:22000",
 		DownloadServiceURL:         "http://localhost:23600",
 		AWSRegion:                  "eu-west-1",
-		UploadBucketName:           "dp-cantabular-csv-exporter", // where to place the created .xlsx
+		UploadBucketName:           "public-bucket", // where to place the created .xlsx
+		PrivateUploadBucketName:    "private-bucket",
 		LocalObjectStore:           "",
 		MinioAccessKey:             "",
 		MinioSecretKey:             "",
