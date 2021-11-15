@@ -187,18 +187,41 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	}
 
 	// Rename the main sheet to 'Dataset'
-	dataset := "Dataset"
-	excelInMemoryStructure.SetSheetName(sheet1, dataset)
+	sheetDataset := "Dataset"
+	excelInMemoryStructure.SetSheetName(sheet1, sheetDataset)
 
 	// Set active sheet of the workbook.
-	excelInMemoryStructure.SetActiveSheet(excelInMemoryStructure.GetSheetIndex(dataset))
+	excelInMemoryStructure.SetActiveSheet(excelInMemoryStructure.GetSheetIndex(sheetDataset))
 
-	if err = h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, e.InstanceID, isPublished); err != nil {
+	s3Path, err := h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, e.InstanceID, isPublished)
+	if err != nil {
 		return &Error{err: fmt.Errorf("SaveExcelStructureToExcelFile failed: %w", err),
 			logData: logData,
 		}
 	}
 
+	// !!! probably need to get size of created file from S3
+	var r int = 10000 // !!! temp, for test ... get actual file size
+	xlsxDownload := &dataset.Download{
+		Size: strconv.Itoa(r),
+	}
+
+	if isPublished {
+		xlsxDownload.Public = s3Path
+	} else {
+		xlsxDownload.Private = s3Path
+	}
+
+	downloadURL := fmt.Sprintf("%s/downloads/datasets/%s/editions/%s/versions/%s.csv",
+		h.cfg.DownloadServiceURL,
+		e.DatasetID,
+		e.Edition,
+		e.Version,
+	)
+
+	if err := h.updateVersionLinks(ctx, e, isPublished, xlsxDownload, downloadURL); err != nil {
+		return err
+	}
 	//!!! hmm, may need dataset stuff to go updating instance ??? - ask others about this
 	// Update instance with link to file
 	/*	if err := h.UpdateInstance(ctx, e.InstanceID, numBytes); err != nil {
@@ -206,7 +229,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	}*/
 
 	//!!! fix following for xlsx
-	log.Event(ctx, "producing common output created event", log.INFO, log.Data{})
+	log.Event(ctx, "producing common output created event", log.INFO, log.Data{"s3Path": s3Path})
 
 	//!!! fix following for xlsx output
 	//!!! need to figure out what to produce ... or do whatever the dp-dataset-exporter-xlsx does ...
@@ -385,7 +408,8 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 
 // SaveExcelStructureToExcelFile uses the excelize library Write function to effectively write out the excel
 // "in memory structure" to a stream that is then streamed directly into a file in S3 bucket.
-func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, instanceID string, isPublished bool) error {
+// returns s3Location (path) or Error
+func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, instanceID string, isPublished bool) (string, error) {
 	var bucketName string
 	if isPublished {
 		bucketName = h.s3Public.BucketName()
@@ -420,13 +444,13 @@ func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelIn
 	}()
 
 	// Use the Upload function to read from the io.Pipe() Writer:
-	_, err := h.UploadXLSXFile(ctx, instanceID, xlsxReader, isPublished, bucketName, filenameXlsx)
+	s3Path, err := h.UploadXLSXFile(ctx, instanceID, xlsxReader, isPublished, bucketName, filenameXlsx)
 	if err != nil {
 		if closeErr := xlsxWriter.Close(); closeErr != nil {
 			log.Error(ctx, "error closing upload writer", closeErr)
 		}
 
-		return &Error{err: fmt.Errorf("failed to upload .xlsx file to S3 bucket: %w", err),
+		return "", &Error{err: fmt.Errorf("failed to upload .xlsx file to S3 bucket: %w", err),
 			logData: log.Data{
 				"bucket":      bucketName,
 				"instance_id": instanceID,
@@ -439,10 +463,11 @@ func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelIn
 	// else to ensure the logs appear in the log file in the correct order.
 	wgUpload.Wait()
 
-	return nil
+	return s3Path, nil
 }
 
 // UploadXLSXFile uploads the provided file content to AWS S3
+// returns s3Location (path) or Error
 func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, file io.Reader, isPublished bool, bucketName string, filename string) (string, error) {
 	if instanceID == "" {
 		return "", errors.New("empty instance id not allowed")
@@ -560,6 +585,29 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 	}
 	return nil
 }*/
+
+func (h *CsvComplete) updateVersionLinks(ctx context.Context, event *event.CantabularCsvCreated, isPublished bool, xlsx *dataset.Download, downloadURL string) error {
+	xlsx.URL = downloadURL // + metadataExtension !!! sus whth this needs to be if anything
+
+	log.Info(ctx, "updating dataset api with download link", log.Data{
+		"isPublished":  isPublished,
+		"xlsxDownload": xlsx,
+	})
+
+	v := dataset.Version{
+		Downloads: map[string]dataset.Download{
+			"XLSX": *xlsx,
+		},
+	}
+
+	err := h.datasets.PutVersion(
+		ctx, "", h.cfg.ServiceAuthToken, "", event.DatasetID, event.Edition, event.Version, v)
+	if err != nil {
+		return &Error{err: fmt.Errorf("error while attempting update version downloads: %w", err)}
+	}
+
+	return nil
+}
 
 //!!! need to have discussion to determine what the output of this service should be
 // ProduceExportCompleteEvent sends the final kafka message signifying the export complete
