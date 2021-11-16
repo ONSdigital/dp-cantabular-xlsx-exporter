@@ -304,7 +304,7 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 
 	styleID14, err := excelInMemoryStructure.NewStyle(`{"font":{"size":14}}`)
 	if err != nil {
-		return &Error{err: fmt.Errorf("NewStyle size 14 %w", err)}
+		return fmt.Errorf("NewStyle size 14 %w", err)
 	}
 	var incomingCsvRow = 0
 	scanner := bufio.NewScanner(csvReader)
@@ -358,7 +358,9 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 		} else {
 			addr, err := excelize.JoinCellName("A", outputRow)
 			if err != nil {
-				return &Error{err: fmt.Errorf("JoinCellName %w", err)}
+				return &Error{err: fmt.Errorf("JoinCellName %w", err),
+					logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
+				}
 			}
 			if err := excelInMemoryStructure.SetSheetRow(sheet1, addr, &rowItemsWithStyle); err != nil {
 				return &Error{err: fmt.Errorf("SetSheetRow 2 %w", err),
@@ -369,9 +371,8 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 		outputRow++
 	}
 	if err := scanner.Err(); err != nil {
-		return &Error{err: err,
-			// !!! remove Bingo at some point
-			logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow, "Bingo": "*** wow ***"},
+		return &Error{err: fmt.Errorf("Error whilst getting CSV row %w", err),
+			logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
 		}
 	}
 
@@ -390,7 +391,7 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 	} else {
 		// set font style for range of cells written
 		if err = ApplySmallSheetCellStyle(excelInMemoryStructure, startRow, maxCol, outputRow, sheet1, styleID14); err != nil {
-			return &Error{err: fmt.Errorf("ApplySmallSheetCellStyle %w", err)}
+			return fmt.Errorf("ApplySmallSheetCellStyle %w", err)
 		}
 
 		err = excelInMemoryStructure.SetColWidth(sheet1, "A", "B", 24) //!!! this is for test and needs further work to apply desired widths for all columns
@@ -603,7 +604,7 @@ func (h *CsvComplete) updateVersionLinks(ctx context.Context, event *event.Canta
 	err := h.datasets.PutVersion(
 		ctx, "", h.cfg.ServiceAuthToken, "", event.DatasetID, event.Edition, event.Version, v)
 	if err != nil {
-		return &Error{err: fmt.Errorf("error while attempting update version downloads: %w", err)}
+		return fmt.Errorf("error while attempting update version downloads: %w", err)
 	}
 
 	return nil
@@ -678,10 +679,10 @@ func ApplyMainSheetHeader(excelInMemoryStructure *excelize.File, doLargeSheet bo
 			return err
 		}
 		if err = excelInMemoryStructure.SetCellStyle(sheet1, "A1", "C3", styleID); err != nil {
-			return &Error{err: fmt.Errorf("SetCellStyle 1 %w", err)}
+			return fmt.Errorf("SetCellStyle 1 %w", err)
 		}
 		if err := excelInMemoryStructure.SetSheetRow(sheet1, "A1", &[]interface{}{"Data, <=10K lines (API)"}); err != nil {
-			return &Error{err: fmt.Errorf("SetSheetRow 1 %w", err)}
+			return fmt.Errorf("SetSheetRow 1 %w", err)
 		}
 	}
 
@@ -693,21 +694,21 @@ func ApplySmallSheetCellStyle(excelInMemoryStructure *excelize.File, startRow, m
 
 	cellTopLeft, err := excelize.CoordinatesToCellName(1, startRow)
 	if err != nil {
-		return &Error{err: fmt.Errorf("CoordinatesToCellName 1 %w", err)}
+		return fmt.Errorf("CoordinatesToCellName 1 %w", err)
 	}
 
 	cellBottomRight, err := excelize.CoordinatesToCellName(maxCol, outputRow)
 	if err != nil {
-		return &Error{err: fmt.Errorf("CoordinatesToCellName 2 %w", err)}
+		return fmt.Errorf("CoordinatesToCellName 2 %w", err)
 	}
 
 	if err = excelInMemoryStructure.SetCellStyle(sheet1, cellTopLeft, cellBottomRight, styleID14); err != nil {
-		return &Error{err: fmt.Errorf("SetCellStyle 2 %w", err)}
+		return fmt.Errorf("SetCellStyle 2 %w", err)
 	}
 
 	for i := startRow; i < outputRow; i++ { //!!! this may not be needed ?
 		if err = excelInMemoryStructure.SetRowHeight(sheet1, i, 14); err != nil {
-			return &Error{err: fmt.Errorf("SetRowHeight %w", err)}
+			return fmt.Errorf("SetRowHeight %w", err)
 		}
 	}
 
