@@ -30,7 +30,7 @@ const (
 	testVaultPath          = "vault-root"
 	testInstanceID         = "test-instance-id"
 	testS3Location         = "s3://myBucket/my-file.csv"
-	testDownloadServiceURL = "http://test-download-service:8200" //!!! is this the vault port number ?, and if so why is it in this line
+	testDownloadServiceURL = "http://test-download-service:8500" // this port number is a random value for testing
 	testETag               = "testETag"
 )
 
