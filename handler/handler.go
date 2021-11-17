@@ -151,7 +151,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 	excelInMemoryStructure := excelize.NewFile()
 	sheet1 := "Sheet1"
 	var efficientExcelAPIWriter *excelize.StreamWriter
-	//var err error
+
 	if doLargeSheet {
 		efficientExcelAPIWriter, err = excelInMemoryStructure.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
 		if err != nil {
@@ -200,10 +200,16 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}
 
-	// !!! probably need to get size of created file from S3
-	var r int = 10000 // !!! temp, for test ... get actual file size
+	numBytes, err := h.GetS3ContentLength(ctx, e.InstanceID, isPublished)
+	if err != nil {
+		return &Error{
+			err:     fmt.Errorf("failed to get S3 content length: %w", err),
+			logData: logData,
+		}
+	}
+
 	xlsxDownload := &dataset.Download{
-		Size: strconv.Itoa(r),
+		Size: strconv.Itoa(numBytes),
 	}
 
 	if isPublished {
@@ -567,6 +573,23 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, instanceID string, fil
 		)
 	}
 	return s3Location, nil
+}
+
+// GetS3ContentLength obtains an S3 file size (in number of bytes) by calling Head Object
+func (h *CsvComplete) GetS3ContentLength(ctx context.Context, instanceID string, isPublished bool) (int, error) {
+	filename := generateS3FilenameXLSX(instanceID)
+	if isPublished {
+		headOutput, err := h.s3Public.Head(filename)
+		if err != nil {
+			return 0, fmt.Errorf("public s3 head object error: %w", err)
+		}
+		return int(*headOutput.ContentLength), nil
+	}
+	headOutput, err := h.s3Private.Head(filename)
+	if err != nil {
+		return 0, fmt.Errorf("private s3 head object error: %w", err)
+	}
+	return int(*headOutput.ContentLength), nil
 }
 
 // UpdateInstance updates the instance downlad CSV link using dataset API PUT /instances/{id} endpoint

@@ -304,6 +304,60 @@ func TestUploadPublishedCSVFile(t *testing.T) {
 	})
 }
 
+func TestGetS3ContentLength(t *testing.T) {
+	var ContentLength int64 = testNumBytes
+	headOk := func(key string) (*s3.HeadObjectOutput, error) {
+		return &s3.HeadObjectOutput{
+			ContentLength: &ContentLength,
+		}, nil
+	}
+	headErr := func(key string) (*s3.HeadObjectOutput, error) {
+		return nil, errS3
+	}
+
+	Convey("Given an event handler with a successful s3 private uploader", t, func() {
+		sPrivate := mock.S3UploaderMock{HeadFunc: headOk}
+		eventHandler := handler.NewInstanceComplete(testCfg(), nil, nil, &sPrivate, nil, nil, nil, nil)
+
+		Convey("Then GetS3ContentLength returns the expected size with no error", func() {
+			numBytes, err := eventHandler.GetS3ContentLength(ctx, testInstanceID, false)
+			So(err, ShouldBeNil)
+			So(numBytes, ShouldEqual, testNumBytes)
+		})
+	})
+
+	Convey("Given an event handler with a failing s3 private uploader", t, func() {
+		sPrivate := mock.S3UploaderMock{HeadFunc: headErr}
+		eventHandler := handler.NewInstanceComplete(testCfg(), nil, nil, &sPrivate, nil, nil, nil, nil)
+
+		Convey("Then GetS3ContentLength returns the expected error", func() {
+			_, err := eventHandler.GetS3ContentLength(ctx, testInstanceID, false)
+			So(err, ShouldResemble, fmt.Errorf("private s3 head object error: %w", errS3))
+		})
+	})
+
+	Convey("Given an event handler with a successful s3 public uploader", t, func() {
+		sPublic := mock.S3UploaderMock{HeadFunc: headOk}
+		eventHandler := handler.NewInstanceComplete(testCfg(), nil, nil, nil, &sPublic, nil, nil, nil)
+
+		Convey("Then GetS3ContentLength returns the expected size with no error", func() {
+			numBytes, err := eventHandler.GetS3ContentLength(ctx, testInstanceID, true)
+			So(err, ShouldBeNil)
+			So(numBytes, ShouldEqual, testNumBytes)
+		})
+	})
+
+	Convey("Given an event handler with a failing s3 public uploader", t, func() {
+		sPublic := mock.S3UploaderMock{HeadFunc: headErr}
+		eventHandler := handler.NewInstanceComplete(testCfg(), nil, nil, nil, &sPublic, nil, nil, nil)
+
+		Convey("Then GetS3ContentLength returns the expected error", func() {
+			_, err := eventHandler.GetS3ContentLength(ctx, testInstanceID, true)
+			So(err, ShouldResemble, fmt.Errorf("public s3 head object error: %w", errS3))
+		})
+	})
+}
+
 func TestUpdateInstance(t *testing.T) {
 	testSize := testCsvBody.Size()
 

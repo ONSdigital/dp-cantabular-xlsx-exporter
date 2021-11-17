@@ -39,8 +39,8 @@ github.com/ONSdigital/dp-net v1.0.7/go.mod h1:1QFzx32FwPKD2lgZI6MtcsUXritsBdJihl
 github.com/ONSdigital/dp-net v1.0.12/go.mod h1:2lvIKOlD4T3BjWQwjHhBUO2UNWDk82u/+mHRn0R3C9A=
 github.com/ONSdigital/dp-net v1.2.0 h1:gP9pBt/J8gktYeKsb7hq6uOC2xx1tfvTorUBNXp6pX0=
 github.com/ONSdigital/dp-net v1.2.0/go.mod h1:NinlaqcsPbIR+X7j5PXCl3UI5G2zCL041SDF6WIiiO4=
-github.com/ONSdigital/dp-s3 v1.8.0 h1:8iWi494emOk1Ri0AaQCndMZ39gYfbMBxAb2aX79nbvE=
-github.com/ONSdigital/dp-s3 v1.8.0/go.mod h1:kFntfUWr58JGHI8vTNCFvDbgnueoFq+eVUlMqJD/TLU=
+github.com/ONSdigital/dp-s3 v1.9.0 h1:1Ma0pgH5ZuDdoCDjqj/nSP36epIfs9JXt3RCdYbtWQI=
+github.com/ONSdigital/dp-s3 v1.9.0/go.mod h1:kFntfUWr58JGHI8vTNCFvDbgnueoFq+eVUlMqJD/TLU=
 github.com/ONSdigital/dp-vault v1.2.0 h1:oRXzVlI11ShMLFu+OnPvpJrpJXi2uGaoysvXwScQZKo=
 github.com/ONSdigital/dp-vault v1.2.0/go.mod h1:GIXMJ6y7OSWN6ayamvAMKqV1/nKdbR5DyEfm6EfiOpU=
 github.com/ONSdigital/go-ns v0.0.0-20191104121206-f144c4ec2e58/go.mod h1:iWos35il+NjbvDEqwtB736pyHru0MPFE/LqcwkV1wDc=
