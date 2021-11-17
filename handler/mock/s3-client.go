@@ -6,6 +6,7 @@ package mock
 import (
 	"context"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/handler"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"sync"
 )
@@ -23,8 +24,8 @@ var _ handler.S3Uploader = &S3UploaderMock{}
 // 			BucketNameFunc: func() string {
 // 				panic("mock out the BucketName method")
 // 			},
-// 			UploadFunc: func(input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
-// 				panic("mock out the Upload method")
+// 			HeadFunc: func(key string) (*s3.HeadObjectOutput, error) {
+// 				panic("mock out the Head method")
 // 			},
 // 			UploadWithContextFunc: func(ctx context.Context, input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
 // 				panic("mock out the UploadWithContext method")
@@ -42,8 +43,8 @@ type S3UploaderMock struct {
 	// BucketNameFunc mocks the BucketName method.
 	BucketNameFunc func() string
 
-	// UploadFunc mocks the Upload method.
-	UploadFunc func(input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error)
+	// HeadFunc mocks the Head method.
+	HeadFunc func(key string) (*s3.HeadObjectOutput, error)
 
 	// UploadWithContextFunc mocks the UploadWithContext method.
 	UploadWithContextFunc func(ctx context.Context, input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error)
@@ -56,12 +57,10 @@ type S3UploaderMock struct {
 		// BucketName holds details about calls to the BucketName method.
 		BucketName []struct {
 		}
-		// Upload holds details about calls to the Upload method.
-		Upload []struct {
-			// Input is the input argument value.
-			Input *s3manager.UploadInput
-			// Options is the options argument value.
-			Options []func(*s3manager.Uploader)
+		// Head holds details about calls to the Head method.
+		Head []struct {
+			// Key is the key argument value.
+			Key string
 		}
 		// UploadWithContext holds details about calls to the UploadWithContext method.
 		UploadWithContext []struct {
@@ -81,7 +80,7 @@ type S3UploaderMock struct {
 		}
 	}
 	lockBucketName        sync.RWMutex
-	lockUpload            sync.RWMutex
+	lockHead              sync.RWMutex
 	lockUploadWithContext sync.RWMutex
 	lockUploadWithPSK     sync.RWMutex
 }
@@ -112,38 +111,34 @@ func (mock *S3UploaderMock) BucketNameCalls() []struct {
 	return calls
 }
 
-// Upload calls UploadFunc.
-func (mock *S3UploaderMock) Upload(input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
-	if mock.UploadFunc == nil {
-		panic("S3UploaderMock.UploadFunc: method is nil but S3Uploader.Upload was just called")
+// Head calls HeadFunc.
+func (mock *S3UploaderMock) Head(key string) (*s3.HeadObjectOutput, error) {
+	if mock.HeadFunc == nil {
+		panic("S3UploaderMock.HeadFunc: method is nil but S3Uploader.Head was just called")
 	}
 	callInfo := struct {
-		Input   *s3manager.UploadInput
-		Options []func(*s3manager.Uploader)
+		Key string
 	}{
-		Input:   input,
-		Options: options,
+		Key: key,
 	}
-	mock.lockUpload.Lock()
-	mock.calls.Upload = append(mock.calls.Upload, callInfo)
-	mock.lockUpload.Unlock()
-	return mock.UploadFunc(input, options...)
+	mock.lockHead.Lock()
+	mock.calls.Head = append(mock.calls.Head, callInfo)
+	mock.lockHead.Unlock()
+	return mock.HeadFunc(key)
 }
 
-// UploadCalls gets all the calls that were made to Upload.
+// HeadCalls gets all the calls that were made to Head.
 // Check the length with:
-//     len(mockedS3Uploader.UploadCalls())
-func (mock *S3UploaderMock) UploadCalls() []struct {
-	Input   *s3manager.UploadInput
-	Options []func(*s3manager.Uploader)
+//     len(mockedS3Uploader.HeadCalls())
+func (mock *S3UploaderMock) HeadCalls() []struct {
+	Key string
 } {
 	var calls []struct {
-		Input   *s3manager.UploadInput
-		Options []func(*s3manager.Uploader)
+		Key string
 	}
-	mock.lockUpload.RLock()
-	calls = mock.calls.Upload
-	mock.lockUpload.RUnlock()
+	mock.lockHead.RLock()
+	calls = mock.calls.Head
+	mock.lockHead.RUnlock()
 	return calls
 }
 
