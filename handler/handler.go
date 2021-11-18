@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -146,6 +147,8 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		// to do with the meaning of the word 'streaming'.
 		doLargeSheet = false
 	}
+
+	defer runtime.GC()
 
 	// start creating the excel file in its "in memory structure"
 	excelInMemoryStructure := excelize.NewFile()
