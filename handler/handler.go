@@ -132,7 +132,7 @@ func /*(s *S3StreamWriter)*/ (h *CsvComplete) getVaultKeyForCSVFile(fileName str
 		return nil, errors.New("vault filename required but was empty")
 	}
 
-	vaultPath := generateVaultPathForCSVFile(h.cfg.VaultPath, fileName)
+	vaultPath := fmt.Sprintf("%s/%s.csv", h.cfg.VaultPath, fileName)
 	vaultKey := "key"
 
 	log.Info(context.Background(), fmt.Sprintf("Doing ReadKey with vaultPath : %s", vaultPath)) //!!! trash when done
@@ -597,7 +597,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, e *event.CantabularCsv
 				)
 			}
 
-			vaultPath := generateVaultPathForXLSXFile(h.cfg.VaultPath, e)
+			vaultPath := fmt.Sprintf("%s/%s.xlsx", h.cfg.VaultPath, e.InstanceID)
 			vaultKey := "key"
 
 			log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
@@ -730,9 +730,9 @@ func generateURL(downloadServiceURL, instanceID string) string {
 // generateS3FilenameCSV generates the S3 key (filename including `subpaths` after the bucket)
 // for the provided instanceID CSV file that is going to be read
 func generateS3FilenameCSV(e *event.CantabularCsvCreated) string {
-	//return fmt.Sprintf("instances/%s.csv", e.InstanceID)
+	return fmt.Sprintf("instances/%s.csv", e.InstanceID)
 
-	return fmt.Sprint("instances/cantabular-example-1-2021-2.csv") //!!! this is an encrypted file for test
+	//return fmt.Sprint("instances/cantabular-example-1-2021-2.csv") //!!! this is an encrypted file for test
 	// return fmt.Sprintf("instances/1000Kx50.csv")//!!! for non stream code this crashes using 13GB RAM in docker
 	// return fmt.Sprintf("instances/50Kx50.csv") //!!! this uses 1.7GB for non large excel code
 	// return fmt.Sprintf("instances/10Kx7.csv")
@@ -740,16 +740,6 @@ func generateS3FilenameCSV(e *event.CantabularCsvCreated) string {
 	// return fmt.Sprintf("instances/50Kx7.csv")
 	// return fmt.Sprintf("instances/100Kx7.csv")
 	// return fmt.Sprintf("instances/1000Kx7.csv")
-}
-
-// generateVaultPathForCSVFile generates the vault path for the provided root and filename
-func generateVaultPathForCSVFile(vaultPathRoot, fileName string) string {
-	return fmt.Sprintf("%s/%s.csv", vaultPathRoot, fileName)
-}
-
-// generateVaultPathForXLSXFile generates the vault path for the provided root and filename
-func generateVaultPathForXLSXFile(vaultPathRoot string, e *event.CantabularCsvCreated) string {
-	return fmt.Sprintf("%s/%s.xlsx", vaultPathRoot, e.InstanceID)
 }
 
 // generateS3FilenameXLSX generates the S3 key (filename including `subpaths` after the bucket)
