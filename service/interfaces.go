@@ -67,6 +67,7 @@ type Processor interface {
 }
 
 type VaultClient interface {
+	ReadKey(path, key string) (string, error)
 	WriteKey(path, key, value string) error
 	Checker(context.Context, *healthcheck.CheckState) error
 }

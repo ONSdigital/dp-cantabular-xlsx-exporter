@@ -18,12 +18,14 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
+
 	kafka "github.com/ONSdigital/dp-kafka/v2"
+	dps3 "github.com/ONSdigital/dp-s3"
+
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/xuri/excelize/v2"
 )
@@ -59,7 +61,7 @@ func NewCsvComplete(cfg config.Config, d DatasetAPIClient, sPrivate S3Uploader, 
 }
 
 // GetS3Downloader creates an S3 Downloader, or a local storage client if a non-empty LocalObjectStore is provided
-var GetS3Downloader = func(cfg *config.Config) (*s3manager.Downloader, error) {
+var GetS3Downloader = func(cfg *config.Config) (*dps3.S3, error) {
 	if cfg.LocalObjectStore != "" {
 		// configure things for development utilising minio
 		s3Config := &aws.Config{
@@ -73,37 +75,54 @@ var GetS3Downloader = func(cfg *config.Config) (*s3manager.Downloader, error) {
 		// !!! may need to save the session from 'GetS3Uploader' and re-use it here
 		sess, err := session.NewSession(s3Config)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create aws session (local): %w", err)
+			return nil, fmt.Errorf("could not create the local-object-store s3 client: %w", err)
 		}
-		return s3manager.NewDownloader(sess), nil //!!! ultimatley this needs to be more like the csv-exporter's GetS3Uploader
+		//!!! need to do private and public in following
+		return dps3.NewClientWithSession(cfg.PrivateUploadBucketName, sess), nil
 	}
 
-	//!!! ultimatley this needs to be more like the csv-exporter's GetS3Uploader, for rest of this function
-	//!!! and process any error return
 	sess, _ := session.NewSession(&aws.Config{
 		Region: aws.String(cfg.AWSRegion),
 	})
 
-	return s3manager.NewDownloader(sess), nil
+	//!!! need to do private and public in following
+	return dps3.NewClientWithSession(cfg.PrivateUploadBucketName, sess), nil
 }
 
 // StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
-/*func (s S3StreamWriter) StreamAndWrite(ctx context.Context, s3Path string, vaultPath string, w io.Writer) (err error) {
+func /*(s *dps3.S3)*/ (h *CsvComplete) StreamAndWrite(s *dps3.S3, ctx context.Context, s3Path string, vaultPath string, w io.Writer, isPublished bool, fileName string) (err error) {
 	var s3ReadCloser io.ReadCloser
-	if s.EncryptionDisabled {
-		s3ReadCloser, _, err = s.S3Client.Get(s3Path)
+
+	if isPublished {
+		s3ReadCloser, _, err = s.Get(s3Path)
 		if err != nil {
 			return err
 		}
 	} else {
-		psk, err := s.getVaultKeyForFile(vaultPath)
-		if err != nil {
-			return err
-		}
+		if h.cfg.EncryptionDisabled {
+			s3ReadCloser, _, err = s.Get(s3Path)
+			if err != nil {
+				return err
+			}
+		} else {
+			// !!! following line is frig for test
+			vaultPath = h.cfg.VaultPath + "/" + "instances/cantabular-example-1-2021-2.csv"
 
-		s3ReadCloser, _, err = s.S3Client.GetWithPSK(s3Path, psk)
-		if err != nil {
-			return err
+			log.Info(ctx, fmt.Sprintf("Doing WriteKey with vaultPath : %s", vaultPath))
+
+			if err := h.vaultClient.WriteKey(vaultPath, "key", "bbabf1fbbeac8092ad1ccc3d0da8e595"); err != nil {
+				return err
+			}
+
+			psk, err := h.getVaultKeyForCSVFile(fileName)
+			if err != nil {
+				return err
+			}
+
+			s3ReadCloser, _, err = s.GetWithPSK(s3Path, psk)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -117,11 +136,37 @@ var GetS3Downloader = func(cfg *config.Config) (*s3manager.Downloader, error) {
 	return nil
 }
 
+func /*(s *S3StreamWriter)*/ (h *CsvComplete) getVaultKeyForCSVFile(fileName string) ([]byte, error) {
+	if len(fileName) == 0 {
+		return nil, errors.New("vault filename required but was empty")
+	}
+
+	//!!!vaultPath := generateVaultPathForCSVFile(h.cfg.VaultPath, e)
+	vaultKey := "key"
+
+	vaultPath := h.cfg.VaultPath + "/" + "instances/cantabular-example-1-2021-2.csv"
+	log.Info(context.Background(), fmt.Sprintf("Doing ReadKey with vaultPath : %s", vaultPath))
+
+	pskStr, err := h.vaultClient.ReadKey(vaultPath, vaultKey)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info(context.Background(), fmt.Sprintf("pskStr : %s", pskStr))
+
+	psk, err := hex.DecodeString(pskStr)
+	if err != nil {
+		return nil, err
+	}
+
+	return psk, nil
+}
+
 func closeAndLogError(ctx context.Context, closer io.Closer) {
 	if err := closer.Close(); err != nil {
 		log.Error(ctx, "error closing io.Closer", err)
 	}
-}*/
+}
 
 // FakeWriterAt is a fake WriterAt to wrap a Writer
 // from: https://stackoverflow.com/questions/60034007/is-there-an-aws-s3-go-api-for-reading-file-instead-of-download-file
@@ -276,15 +321,16 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 		bucketName = h.s3Private.BucketName()
 	}
 
+	//!!! getting the following needs to be done once during service init
 	downloader, err := GetS3Downloader(&h.cfg)
 	if err != nil {
 		return err
 	}
 
 	// Set concurrency to one so the download will be sequential (which is essential to stream reading file in order)
-	downloader.Concurrency = 1
+	//	downloader.Concurrency = 1
 
-	filenameCsv := generateS3FilenameCSV(e)
+	filenameCsv := generateS3FilenameCSV(e) //!!! may need different things for different private/public buckets
 
 	// Create an io.Pipe to have the ability to read what is written to a writer
 	csvReader, csvWriter := io.Pipe()
@@ -298,13 +344,16 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 	go func(ctx context.Context) {
 		defer wgDownload.Done()
 
+		err := h.StreamAndWrite(downloader, ctx, filenameCsv, h.cfg.VaultPath, csvWriter, false /* for testisPublished*/, e.InstanceID)
+
 		// Wrap the writer created with io.Pipe() with the FakeWriterAt created in the first step.
 		// Use the DownloadWithContext function to write to the wrapped Writer:
-		numberOfBytesRead, err := downloader.DownloadWithContext(ctx, FakeWriterAt{csvWriter},
+		/*	numberOfBytesRead, err := downloader.DownloadWithContext(ctx, FakeWriterAt{csvWriter},
 			&s3.GetObjectInput{
 				Bucket: aws.String(bucketName),
 				Key:    aws.String(filenameCsv),
-			})
+			})*/
+		//!!! fix following errors messages
 		if err != nil {
 			report := &Error{err: fmt.Errorf("DownloadWithContext failed, %w", err),
 				logData: log.Data{"err": err, "bucketName": bucketName, "filenameCsv": filenameCsv},
@@ -314,7 +363,7 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 				log.Error(ctx, "error closing download writerWithError", closeErr)
 			}
 		} else {
-			log.Info(ctx, fmt.Sprintf(".csv file: %s, downloaded from bucket: %s, length: %d bytes", filenameCsv, bucketName, numberOfBytesRead))
+			log.Info(ctx, fmt.Sprintf(".csv file: %s, downloaded from bucket: %s", filenameCsv, bucketName))
 
 			if closeErr := csvWriter.Close(); closeErr != nil {
 				log.Error(ctx, "error closing download writer", closeErr)
@@ -335,6 +384,7 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 	var incomingCsvRow = 0
 	scanner := bufio.NewScanner(csvReader)
 	for scanner.Scan() {
+		//!!! monitor ctx Done and if it happens, close csvWriter, do 'wgDownload.Wait()' and return with error saying context done or similar
 		incomingCsvRow++
 		line := scanner.Text()
 
@@ -557,7 +607,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, e *event.CantabularCsv
 				)
 			}
 
-			vaultPath := generateVaultPathForFile(h.cfg.VaultPath, e)
+			vaultPath := generateVaultPathForXLSXFile(h.cfg.VaultPath, e)
 			vaultKey := "key"
 
 			log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
@@ -690,7 +740,9 @@ func generateURL(downloadServiceURL, instanceID string) string {
 // generateS3FilenameCSV generates the S3 key (filename including `subpaths` after the bucket)
 // for the provided instanceID CSV file that is going to be read
 func generateS3FilenameCSV(e *event.CantabularCsvCreated) string {
-	return fmt.Sprintf("instances/%s.csv", e.InstanceID)
+	//return fmt.Sprintf("instances/%s.csv", e.InstanceID)
+
+	return fmt.Sprint("instances/cantabular-example-1-2021-2.csv") //!!! this is an encrypted file for test
 	// return fmt.Sprintf("instances/1000Kx50.csv")//!!! for non stream code this crashes using 13GB RAM in docker
 	// return fmt.Sprintf("instances/50Kx50.csv") //!!! this uses 1.7GB for non large excel code
 	// return fmt.Sprintf("instances/10Kx7.csv")
@@ -700,9 +752,14 @@ func generateS3FilenameCSV(e *event.CantabularCsvCreated) string {
 	// return fmt.Sprintf("instances/1000Kx7.csv")
 }
 
-// generateVaultPathForFile generates the vault path for the provided root and filename
-func generateVaultPathForFile(vaultPathRoot string, e *event.CantabularCsvCreated) string {
+// generateVaultPathForCSVFile generates the vault path for the provided root and filename
+func generateVaultPathForCSVFile(vaultPathRoot string, e *event.CantabularCsvCreated) string {
 	return fmt.Sprintf("%s/%s.csv", vaultPathRoot, e.InstanceID)
+}
+
+// generateVaultPathForXLSXFile generates the vault path for the provided root and filename
+func generateVaultPathForXLSXFile(vaultPathRoot string, e *event.CantabularCsvCreated) string {
+	return fmt.Sprintf("%s/%s.xlsx", vaultPathRoot, e.InstanceID)
 }
 
 // generateS3FilenameXLSX generates the S3 key (filename including `subpaths` after the bucket)
