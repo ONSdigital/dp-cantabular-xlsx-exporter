@@ -105,15 +105,6 @@ func /*(s *dps3.S3)*/ (h *CsvComplete) StreamAndWrite(s *dps3.S3, ctx context.Co
 				return err
 			}
 		} else {
-			// !!! following line is frig for test
-			vaultPath = h.cfg.VaultPath + "/" + "instances/cantabular-example-1-2021-2.csv"
-
-			log.Info(ctx, fmt.Sprintf("Doing WriteKey with vaultPath : %s", vaultPath))
-
-			if err := h.vaultClient.WriteKey(vaultPath, "key", "bbabf1fbbeac8092ad1ccc3d0da8e595"); err != nil {
-				return err
-			}
-
 			psk, err := h.getVaultKeyForCSVFile(fileName)
 			if err != nil {
 				return err
@@ -141,18 +132,17 @@ func /*(s *S3StreamWriter)*/ (h *CsvComplete) getVaultKeyForCSVFile(fileName str
 		return nil, errors.New("vault filename required but was empty")
 	}
 
-	//!!!vaultPath := generateVaultPathForCSVFile(h.cfg.VaultPath, e)
+	vaultPath := generateVaultPathForCSVFile(h.cfg.VaultPath, fileName)
 	vaultKey := "key"
 
-	vaultPath := h.cfg.VaultPath + "/" + "instances/cantabular-example-1-2021-2.csv"
-	log.Info(context.Background(), fmt.Sprintf("Doing ReadKey with vaultPath : %s", vaultPath))
+	log.Info(context.Background(), fmt.Sprintf("Doing ReadKey with vaultPath : %s", vaultPath)) //!!! trash when done
 
 	pskStr, err := h.vaultClient.ReadKey(vaultPath, vaultKey)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Info(context.Background(), fmt.Sprintf("pskStr : %s", pskStr))
+	log.Info(context.Background(), fmt.Sprintf("pskStr : %s", pskStr)) //!!! trash when done
 
 	psk, err := hex.DecodeString(pskStr)
 	if err != nil {
@@ -583,21 +573,21 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, e *event.CantabularCsv
 		logData := log.Data{
 			"encryption_disabled": h.cfg.EncryptionDisabled,
 		}
-		if h.cfg.EncryptionDisabled {
-			log.Info(ctx, "uploading unencrypted file to S3", logData)
+		//if h.cfg.EncryptionDisabled {
+		log.Info(ctx, "uploading unencrypted file to S3", logData)
 
-			result, err := h.s3Private.UploadWithContext(ctx, &s3manager.UploadInput{
-				Body:   file,
-				Bucket: &bucketName,
-				Key:    &filename,
-			})
-			if err != nil {
-				return "", NewError(fmt.Errorf("UploadWithContext failed to upload unencrypted file to S3: %w", err),
-					logData,
-				)
-			}
-			resultPath = result.Location
-		} else {
+		result, err := h.s3Private.UploadWithContext(ctx, &s3manager.UploadInput{
+			Body:   file,
+			Bucket: &bucketName,
+			Key:    &filename,
+		})
+		if err != nil {
+			return "", NewError(fmt.Errorf("UploadWithContext failed to upload unencrypted file to S3: %w", err),
+				logData,
+			)
+		}
+		resultPath = result.Location
+		/*} else {
 			log.Info(ctx, "uploading encrypted file to S3", logData)
 
 			psk, err := h.generator.NewPSK()
@@ -632,7 +622,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, e *event.CantabularCsv
 				)
 			}
 			resultPath = result.Location
-		}
+		}*/
 	}
 
 	s3Location, err := url.PathUnescape(resultPath)
@@ -753,8 +743,8 @@ func generateS3FilenameCSV(e *event.CantabularCsvCreated) string {
 }
 
 // generateVaultPathForCSVFile generates the vault path for the provided root and filename
-func generateVaultPathForCSVFile(vaultPathRoot string, e *event.CantabularCsvCreated) string {
-	return fmt.Sprintf("%s/%s.csv", vaultPathRoot, e.InstanceID)
+func generateVaultPathForCSVFile(vaultPathRoot, fileName string) string {
+	return fmt.Sprintf("%s/%s.csv", vaultPathRoot, fileName)
 }
 
 // generateVaultPathForXLSXFile generates the vault path for the provided root and filename
