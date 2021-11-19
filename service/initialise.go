@@ -90,7 +90,7 @@ var GetDatasetAPIClient = func(cfg *config.Config) DatasetAPIClient {
 }
 
 // GetS3Uploaders creates the private and public S3 Uploaders using the same AWS session, or a local storage client if a non-empty LocalObjectStore is provided
-var GetS3Uploaders = func(cfg *config.Config) (private, public S3Uploader, err error) {
+var GetS3Uploaders = func(cfg *config.Config) (privateUploader, publicUploader S3Client, err error) {
 	if cfg.LocalObjectStore != "" {
 		s3Config := &aws.Config{
 			Credentials:      credentials.NewStaticCredentials(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
@@ -105,18 +105,17 @@ var GetS3Uploaders = func(cfg *config.Config) (private, public S3Uploader, err e
 			return nil, nil, fmt.Errorf("failed to create aws session (local): %w", err)
 		}
 		return dps3.NewUploaderWithSession(cfg.PrivateUploadBucketName, s),
-			dps3.NewUploaderWithSession(cfg.UploadBucketName, s),
+			dps3.NewUploaderWithSession(cfg.PublicUploadBucketName, s),
 			nil
 	}
 
-	private, err = dps3.NewUploader(cfg.AWSRegion, cfg.PrivateUploadBucketName)
+	privateUploader, err = dps3.NewUploader(cfg.AWSRegion, cfg.PrivateUploadBucketName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create S3 Client: %w", err)
 	}
 
-	// !!! is seems odd that the following function does not return an error, like the previous one
-	public = dps3.NewUploaderWithSession(cfg.UploadBucketName, private.Session())
-	return private, public, nil
+	publicUploader = dps3.NewUploaderWithSession(cfg.PublicUploadBucketName, privateUploader.Session())
+	return privateUploader, publicUploader, nil
 }
 
 // GetVault creates a VaultClient

@@ -22,8 +22,8 @@ type Service struct {
 	Producer          kafka.IProducer
 	DatasetAPIClient  DatasetAPIClient
 	Processor         Processor
-	S3PrivateUploader S3Uploader
-	S3PublicUploader  S3Uploader //!!! does this service need an S3 downloader, or can it use this for download as well and maybe rename this to 'S3access' ?
+	S3PrivateUploader S3Client
+	S3PublicUploader  S3Client //!!! does this service need an S3 downloader, or can it use this for download as well and maybe rename this to 'S3access' ?
 	VaultClient       VaultClient
 	generator         Generator
 }

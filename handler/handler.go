@@ -58,9 +58,10 @@ func NewCsvComplete(cfg config.Config, d DatasetAPIClient, sPrivate S3Uploader, 
 	}
 }
 
-// GetS3Downloader creates an S3 Uploader, or a local storage client if a non-empty LocalObjectStore is provided
+// GetS3Downloader creates an S3 Downloader, or a local storage client if a non-empty LocalObjectStore is provided
 var GetS3Downloader = func(cfg *config.Config) (*s3manager.Downloader, error) {
 	if cfg.LocalObjectStore != "" {
+		// configure things for development utilising minio
 		s3Config := &aws.Config{
 			Credentials:      credentials.NewStaticCredentials(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
 			Endpoint:         aws.String(cfg.LocalObjectStore),
@@ -85,6 +86,42 @@ var GetS3Downloader = func(cfg *config.Config) (*s3manager.Downloader, error) {
 
 	return s3manager.NewDownloader(sess), nil
 }
+
+// StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
+/*func (s S3StreamWriter) StreamAndWrite(ctx context.Context, s3Path string, vaultPath string, w io.Writer) (err error) {
+	var s3ReadCloser io.ReadCloser
+	if s.EncryptionDisabled {
+		s3ReadCloser, _, err = s.S3Client.Get(s3Path)
+		if err != nil {
+			return err
+		}
+	} else {
+		psk, err := s.getVaultKeyForFile(vaultPath)
+		if err != nil {
+			return err
+		}
+
+		s3ReadCloser, _, err = s.S3Client.GetWithPSK(s3Path, psk)
+		if err != nil {
+			return err
+		}
+	}
+
+	defer closeAndLogError(ctx, s3ReadCloser)
+
+	_, err = io.Copy(w, s3ReadCloser)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func closeAndLogError(ctx context.Context, closer io.Closer) {
+	if err := closer.Close(); err != nil {
+		log.Error(ctx, "error closing io.Closer", err)
+	}
+}*/
 
 // FakeWriterAt is a fake WriterAt to wrap a Writer
 // from: https://stackoverflow.com/questions/60034007/is-there-an-aws-s3-go-api-for-reading-file-instead-of-download-file

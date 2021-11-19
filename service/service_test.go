@@ -74,17 +74,17 @@ func TestInit(t *testing.T) {
 			return datasetApiMock
 		}
 
-		s3PrivateUploaderMock := &serviceMock.S3UploaderMock{
+		s3PrivateUploaderMock := &serviceMock.S3ClientMock{
 			CheckerFunc: func(context.Context, *healthcheck.CheckState) error {
 				return nil
 			},
 		}
-		s3PublicUploaderMock := &serviceMock.S3UploaderMock{
+		s3PublicUploaderMock := &serviceMock.S3ClientMock{
 			CheckerFunc: func(context.Context, *healthcheck.CheckState) error {
 				return nil
 			},
 		}
-		service.GetS3Uploaders = func(cfg *config.Config) (service.S3Uploader, service.S3Uploader, error) {
+		service.GetS3Uploaders = func(cfg *config.Config) (service.S3Client, service.S3Client, error) {
 			return s3PrivateUploaderMock, s3PublicUploaderMock, nil
 		}
 
