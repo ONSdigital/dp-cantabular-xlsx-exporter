@@ -352,7 +352,18 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 	var incomingCsvRow = 0
 	scanner := bufio.NewScanner(csvReader)
 	for scanner.Scan() {
-		//!!! monitor ctx Done and if it happens, close csvWriter, do 'wgDownload.Wait()' and return with error saying context done or similar
+		select {
+		case <-ctx.Done():
+			log.Info(ctx, "parent context closed - closing csv scanner loop ")
+			if closeErr := csvWriter.Close(); closeErr != nil {
+				log.Error(ctx, "error closing StreamAndWrite writer during context done signal", closeErr)
+			}
+			wgDownload.Wait()
+			return fmt.Errorf("parent context closed in GetCSVtoExcelStructure")
+		default:
+			break
+		}
+
 		incomingCsvRow++
 		line := scanner.Text()
 
