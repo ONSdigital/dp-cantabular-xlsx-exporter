@@ -136,9 +136,8 @@ func /*(s *S3StreamWriter)*/ (h *CsvComplete) getVaultKeyForCSVFile(fileName str
 	}
 
 	vaultPath := fmt.Sprintf("%s/%s.csv", h.cfg.VaultPath, fileName)
-	vaultKey := "key"
 
-	pskStr, err := h.vaultClient.ReadKey(vaultPath, vaultKey)
+	pskStr, err := h.vaultClient.ReadKey(vaultPath, "key")
 	if err != nil {
 		return nil, err
 	}
