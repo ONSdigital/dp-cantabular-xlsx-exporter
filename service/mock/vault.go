@@ -23,6 +23,9 @@ var _ service.VaultClient = &VaultClientMock{}
 // 			CheckerFunc: func(contextMoqParam context.Context, checkState *healthcheck.CheckState) error {
 // 				panic("mock out the Checker method")
 // 			},
+// 			ReadKeyFunc: func(path string, key string) (string, error) {
+// 				panic("mock out the ReadKey method")
+// 			},
 // 			WriteKeyFunc: func(path string, key string, value string) error {
 // 				panic("mock out the WriteKey method")
 // 			},
@@ -36,6 +39,9 @@ type VaultClientMock struct {
 	// CheckerFunc mocks the Checker method.
 	CheckerFunc func(contextMoqParam context.Context, checkState *healthcheck.CheckState) error
 
+	// ReadKeyFunc mocks the ReadKey method.
+	ReadKeyFunc func(path string, key string) (string, error)
+
 	// WriteKeyFunc mocks the WriteKey method.
 	WriteKeyFunc func(path string, key string, value string) error
 
@@ -48,6 +54,13 @@ type VaultClientMock struct {
 			// CheckState is the checkState argument value.
 			CheckState *healthcheck.CheckState
 		}
+		// ReadKey holds details about calls to the ReadKey method.
+		ReadKey []struct {
+			// Path is the path argument value.
+			Path string
+			// Key is the key argument value.
+			Key string
+		}
 		// WriteKey holds details about calls to the WriteKey method.
 		WriteKey []struct {
 			// Path is the path argument value.
@@ -59,6 +72,7 @@ type VaultClientMock struct {
 		}
 	}
 	lockChecker  sync.RWMutex
+	lockReadKey  sync.RWMutex
 	lockWriteKey sync.RWMutex
 }
 
@@ -94,6 +108,41 @@ func (mock *VaultClientMock) CheckerCalls() []struct {
 	mock.lockChecker.RLock()
 	calls = mock.calls.Checker
 	mock.lockChecker.RUnlock()
+	return calls
+}
+
+// ReadKey calls ReadKeyFunc.
+func (mock *VaultClientMock) ReadKey(path string, key string) (string, error) {
+	if mock.ReadKeyFunc == nil {
+		panic("VaultClientMock.ReadKeyFunc: method is nil but VaultClient.ReadKey was just called")
+	}
+	callInfo := struct {
+		Path string
+		Key  string
+	}{
+		Path: path,
+		Key:  key,
+	}
+	mock.lockReadKey.Lock()
+	mock.calls.ReadKey = append(mock.calls.ReadKey, callInfo)
+	mock.lockReadKey.Unlock()
+	return mock.ReadKeyFunc(path, key)
+}
+
+// ReadKeyCalls gets all the calls that were made to ReadKey.
+// Check the length with:
+//     len(mockedVaultClient.ReadKeyCalls())
+func (mock *VaultClientMock) ReadKeyCalls() []struct {
+	Path string
+	Key  string
+} {
+	var calls []struct {
+		Path string
+		Key  string
+	}
+	mock.lockReadKey.RLock()
+	calls = mock.calls.ReadKey
+	mock.lockReadKey.RUnlock()
 	return calls
 }
 

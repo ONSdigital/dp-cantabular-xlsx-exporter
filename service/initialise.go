@@ -23,7 +23,7 @@ import (
 
 const VaultRetries = 3
 
-// GetHTTPServer creates an http server and sets the Server
+// GetHTTPServer creates a http server and sets the Server
 var GetHTTPServer = func(bindAddr string, router http.Handler) HTTPServer {
 	s := dphttp.NewServer(bindAddr, router)
 	s.HandleOSSignals = false

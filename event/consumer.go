@@ -30,7 +30,7 @@ func (p *Processor) Consume(ctx context.Context, cg kafka.IConsumerGroup, h Hand
 						//!!! David's observation about the above todo marker:
 						/*
 						   When we migrate the code to use the latest dp-kafka we could register the handler instead
-						    of creating the consume go-routines in the services. In that case, the following error message would be logged:
+						    of creating consume go-routines in the services. In that case, the following error message would be logged:
 						   https://github.com/ONSdigital/dp-kafka/blob/main/consumer_handler.go#L49 - it shows
 						    commit_message = true or false in log.Data
 						*/
@@ -59,7 +59,7 @@ func (p *Processor) Consume(ctx context.Context, cg kafka.IConsumerGroup, h Hand
 	}
 }
 
-// processMessage unmarshals the provided kafka message into an event and calls the handler.
+// processMessage unmarshal the provided kafka message into an event and calls the handler.
 // After the message is handled, it is committed.
 func (p *Processor) processMessage(ctx context.Context, msg kafka.Message, h Handler) error {
 	defer msg.Commit()

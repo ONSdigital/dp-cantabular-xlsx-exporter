@@ -88,7 +88,7 @@ var GetS3Downloaders = func(cfg *config.Config) (privateDownloader, publicDownlo
 }
 
 // StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
-func /*(s *dps3.S3)*/ (h *CsvComplete) StreamAndWrite(privateDownloader, publicDownloader *dps3.S3, ctx context.Context, s3Path string, vaultPath string, w io.Writer, isPublished bool, fileName string) (length int64, err error) {
+func /*(s *dps3.S3)*/ (h *CsvComplete) StreamAndWrite(privateDownloader, publicDownloader *dps3.S3, ctx context.Context, s3Path string, w io.Writer, isPublished bool, fileName string) (length int64, err error) {
 	var s3ReadCloser io.ReadCloser
 	var lengthPtr *int64
 
@@ -260,7 +260,7 @@ func (h *CsvComplete) Handle(ctx context.Context, e *event.CantabularCsvCreated)
 		}
 	}
 
-	numBytes, err := h.GetS3ContentLength(ctx, e, isPublished)
+	numBytes, err := h.GetS3ContentLength(e, isPublished)
 	if err != nil {
 		return &Error{
 			err:     fmt.Errorf("failed to get S3 content length: %w", err),
@@ -315,7 +315,7 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 	go func(ctx context.Context) {
 		defer wgDownload.Done()
 
-		numberOfBytesRead, err := h.StreamAndWrite(privateDownloader, publicDownloader, ctx, filenameCsv, h.cfg.VaultPath, csvWriter, isPublished, e.InstanceID)
+		numberOfBytesRead, err := h.StreamAndWrite(privateDownloader, publicDownloader, ctx, filenameCsv, csvWriter, isPublished, e.InstanceID)
 
 		if err != nil {
 			report := &Error{err: fmt.Errorf("StreamAndWrite failed, %w", err),
@@ -421,7 +421,7 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 		outputRow++
 	}
 	if err := scanner.Err(); err != nil {
-		return &Error{err: fmt.Errorf("Error whilst getting CSV row %w", err),
+		return &Error{err: fmt.Errorf("error whilst getting CSV row %w", err),
 			logData: log.Data{"event": e, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
 		}
 	}
@@ -620,7 +620,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, e *event.CantabularCsv
 }
 
 // GetS3ContentLength obtains an S3 file size (in number of bytes) by calling Head Object
-func (h *CsvComplete) GetS3ContentLength(ctx context.Context, e *event.CantabularCsvCreated, isPublished bool) (int, error) {
+func (h *CsvComplete) GetS3ContentLength(e *event.CantabularCsvCreated, isPublished bool) (int, error) {
 	filename := generateS3FilenameXLSX(e)
 	if isPublished {
 		headOutput, err := h.s3Public.Head(filename)
