@@ -10,7 +10,7 @@ import (
 // inserts it into the excel "in memory structure"
 // !!! OR it might read the whole .txt or .csvw file into memory first (as its possibly less than 1 mega byte)
 // and then inserts it into the excel "in memory structure"
-func (h *CsvComplete) AddMetaDataToExcelStructure(excelFile *excelize.File) error {
+func (h *XlsxCreate) AddMetaDataToExcelStructure(excelFile *excelize.File) error {
 
 	// !!! get the metadata
 

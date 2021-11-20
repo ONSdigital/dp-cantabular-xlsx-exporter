@@ -52,8 +52,8 @@ type DatasetAPIClient interface {
 	Checker(context.Context, *healthcheck.CheckState) error
 }
 type S3Client interface {
-	Get(key string) (io.ReadCloser, *int64, error)                    //!!! try using this
-	GetWithPSK(key string, psk []byte) (io.ReadCloser, *int64, error) //!!! try using this
+	Get(key string) (io.ReadCloser, *int64, error)
+	GetWithPSK(key string, psk []byte) (io.ReadCloser, *int64, error)
 	Head(key string) (*s3.HeadObjectOutput, error)
 	UploadWithContext(ctx context.Context, input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error)
 	UploadWithPSK(input *s3manager.UploadInput, psk []byte) (*s3manager.UploadOutput, error)
