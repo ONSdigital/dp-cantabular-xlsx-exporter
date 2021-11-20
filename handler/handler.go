@@ -138,14 +138,10 @@ func /*(s *S3StreamWriter)*/ (h *CsvComplete) getVaultKeyForCSVFile(fileName str
 	vaultPath := fmt.Sprintf("%s/%s.csv", h.cfg.VaultPath, fileName)
 	vaultKey := "key"
 
-	log.Info(context.Background(), fmt.Sprintf("Doing ReadKey with vaultPath : %s", vaultPath)) //!!! trash when done
-
 	pskStr, err := h.vaultClient.ReadKey(vaultPath, vaultKey)
 	if err != nil {
 		return nil, err
 	}
-
-	log.Info(context.Background(), fmt.Sprintf("pskStr : %s", pskStr)) //!!! trash when done
 
 	psk, err := hex.DecodeString(pskStr)
 	if err != nil {
@@ -320,7 +316,7 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 	go func(ctx context.Context) {
 		defer wgDownload.Done()
 
-		numberOfBytesRead, err := h.StreamAndWrite(privateDownloader, publicDownloader, ctx, filenameCsv, h.cfg.VaultPath, csvWriter, false /* for test isPublished*/, e.InstanceID)
+		numberOfBytesRead, err := h.StreamAndWrite(privateDownloader, publicDownloader, ctx, filenameCsv, h.cfg.VaultPath, csvWriter, isPublished, e.InstanceID)
 
 		if err != nil {
 			report := &Error{err: fmt.Errorf("StreamAndWrite failed, %w", err),
@@ -562,21 +558,21 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, e *event.CantabularCsv
 		logData := log.Data{
 			"encryption_disabled": h.cfg.EncryptionDisabled,
 		}
-		//if h.cfg.EncryptionDisabled {
-		log.Info(ctx, "uploading unencrypted file to S3", logData)
+		if h.cfg.EncryptionDisabled {
+			log.Info(ctx, "uploading unencrypted file to S3", logData)
 
-		result, err := h.s3Private.UploadWithContext(ctx, &s3manager.UploadInput{
-			Body:   file,
-			Bucket: &bucketName,
-			Key:    &filename,
-		})
-		if err != nil {
-			return "", NewError(fmt.Errorf("UploadWithContext failed to upload unencrypted file to S3: %w", err),
-				logData,
-			)
-		}
-		resultPath = result.Location
-		/*} else {
+			result, err := h.s3Private.UploadWithContext(ctx, &s3manager.UploadInput{
+				Body:   file,
+				Bucket: &bucketName,
+				Key:    &filename,
+			})
+			if err != nil {
+				return "", NewError(fmt.Errorf("UploadWithContext failed to upload unencrypted file to S3: %w", err),
+					logData,
+				)
+			}
+			resultPath = result.Location
+		} else {
 			log.Info(ctx, "uploading encrypted file to S3", logData)
 
 			psk, err := h.generator.NewPSK()
@@ -611,7 +607,7 @@ func (h *CsvComplete) UploadXLSXFile(ctx context.Context, e *event.CantabularCsv
 				)
 			}
 			resultPath = result.Location
-		}*/
+		}
 	}
 
 	s3Location, err := url.PathUnescape(resultPath)
@@ -718,6 +714,7 @@ func generateURL(downloadServiceURL, instanceID string) string {
 
 // generateS3FilenameCSV generates the S3 key (filename including `subpaths` after the bucket)
 // for the provided instanceID CSV file that is going to be read
+// !!! TODO filename should be datasets/<dataset_name>_<version>.csv to match CMD naming ???
 func generateS3FilenameCSV(e *event.CantabularCsvCreated) string {
 	return fmt.Sprintf("instances/%s.csv", e.InstanceID)
 
