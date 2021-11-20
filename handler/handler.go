@@ -60,8 +60,8 @@ func NewCsvComplete(cfg config.Config, d DatasetAPIClient, sPrivate S3Uploader, 
 	}
 }
 
-// GetS3Downloader creates an S3 Downloader, or a local storage client if a non-empty LocalObjectStore is provided
-var GetS3Downloader = func(cfg *config.Config) (*dps3.S3, error) {
+// GetS3Downloaders creates an S3 Downloaders, or a local storage client if a non-empty LocalObjectStore is provided
+var GetS3Downloaders = func(cfg *config.Config) (privateDownloader, publicDownloader *dps3.S3, err error) {
 	if cfg.LocalObjectStore != "" {
 		// configure things for development utilising minio
 		s3Config := &aws.Config{
@@ -72,59 +72,62 @@ var GetS3Downloader = func(cfg *config.Config) (*dps3.S3, error) {
 			S3ForcePathStyle: aws.Bool(true),
 		}
 
-		// !!! may need to save the session from 'GetS3Uploader' and re-use it here
 		sess, err := session.NewSession(s3Config)
 		if err != nil {
-			return nil, fmt.Errorf("could not create the local-object-store s3 client: %w", err)
+			return nil, nil, fmt.Errorf("could not create the local-object-store s3 client: %w", err)
 		}
-		//!!! need to do private and public in following
-		return dps3.NewClientWithSession(cfg.PrivateBucketName, sess), nil
+		return dps3.NewClientWithSession(cfg.PrivateBucketName, sess), dps3.NewClientWithSession(cfg.PublicBucketName, sess), nil
 	}
 
-	sess, _ := session.NewSession(&aws.Config{
-		Region: aws.String(cfg.AWSRegion),
-	})
+	sess, err := session.NewSession(&aws.Config{Region: aws.String(cfg.AWSRegion)})
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create the s3 client: %w", err)
+	}
 
-	//!!! need to do private and public in following
-	return dps3.NewClientWithSession(cfg.PrivateBucketName, sess), nil
+	return dps3.NewClientWithSession(cfg.PrivateBucketName, sess), dps3.NewClientWithSession(cfg.PublicBucketName, sess), nil
 }
 
 // StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
-func /*(s *dps3.S3)*/ (h *CsvComplete) StreamAndWrite(s *dps3.S3, ctx context.Context, s3Path string, vaultPath string, w io.Writer, isPublished bool, fileName string) (err error) {
+func /*(s *dps3.S3)*/ (h *CsvComplete) StreamAndWrite(privateDownloader, publicDownloader *dps3.S3, ctx context.Context, s3Path string, vaultPath string, w io.Writer, isPublished bool, fileName string) (length int64, err error) {
 	var s3ReadCloser io.ReadCloser
+	var lengthPtr *int64
 
 	if isPublished {
-		s3ReadCloser, _, err = s.Get(s3Path)
+		s3ReadCloser, lengthPtr, err = publicDownloader.Get(s3Path)
 		if err != nil {
-			return err
+			return 0, err
 		}
 	} else {
 		if h.cfg.EncryptionDisabled {
-			s3ReadCloser, _, err = s.Get(s3Path)
+			s3ReadCloser, lengthPtr, err = privateDownloader.Get(s3Path)
 			if err != nil {
-				return err
+				return 0, err
 			}
 		} else {
 			psk, err := h.getVaultKeyForCSVFile(fileName)
 			if err != nil {
-				return err
+				return 0, err
 			}
 
-			s3ReadCloser, _, err = s.GetWithPSK(s3Path, psk)
+			s3ReadCloser, lengthPtr, err = privateDownloader.GetWithPSK(s3Path, psk)
 			if err != nil {
-				return err
+				return 0, err
 			}
 		}
+	}
+
+	if lengthPtr != nil {
+		length = *lengthPtr
 	}
 
 	defer closeAndLogError(ctx, s3ReadCloser)
 
 	_, err = io.Copy(w, s3ReadCloser)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return length, nil
 }
 
 func /*(s *S3StreamWriter)*/ (h *CsvComplete) getVaultKeyForCSVFile(fileName string) ([]byte, error) {
@@ -156,19 +159,6 @@ func closeAndLogError(ctx context.Context, closer io.Closer) {
 	if err := closer.Close(); err != nil {
 		log.Error(ctx, "error closing io.Closer", err)
 	}
-}
-
-// FakeWriterAt is a fake WriterAt to wrap a Writer
-// from: https://stackoverflow.com/questions/60034007/is-there-an-aws-s3-go-api-for-reading-file-instead-of-download-file
-// see also: https://dev.to/flowup/using-io-reader-io-writer-in-go-to-stream-data-3i7b
-type FakeWriterAt struct {
-	w io.Writer
-}
-
-func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
-	// ignore 'offset' because we forced sequential downloads
-	_ = offset // stop any linters complaining
-	return fw.w.Write(p)
 }
 
 // Handle takes a single event.
@@ -312,20 +302,16 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 	}
 
 	//!!! getting the following needs to be done once during service init
-	downloader, err := GetS3Downloader(&h.cfg)
+	privateDownloader, publicDownloader, err := GetS3Downloaders(&h.cfg)
 	if err != nil {
 		return err
 	}
-
-	// Set concurrency to one so the download will be sequential (which is essential to stream reading file in order)
-	//	downloader.Concurrency = 1
 
 	filenameCsv := generateS3FilenameCSV(e) //!!! may need different things for different private/public buckets
 
 	// Create an io.Pipe to have the ability to read what is written to a writer
 	csvReader, csvWriter := io.Pipe()
 
-	// !!! need to use 'isPublished' to determine if to get encrypted file ...
 	downloadCtx, cancelDownload := context.WithCancel(ctx)
 	defer cancelDownload()
 
@@ -334,29 +320,21 @@ func (h *CsvComplete) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryS
 	go func(ctx context.Context) {
 		defer wgDownload.Done()
 
-		err := h.StreamAndWrite(downloader, ctx, filenameCsv, h.cfg.VaultPath, csvWriter, false /* for testisPublished*/, e.InstanceID)
+		numberOfBytesRead, err := h.StreamAndWrite(privateDownloader, publicDownloader, ctx, filenameCsv, h.cfg.VaultPath, csvWriter, false /* for test isPublished*/, e.InstanceID)
 
-		// Wrap the writer created with io.Pipe() with the FakeWriterAt created in the first step.
-		// Use the DownloadWithContext function to write to the wrapped Writer:
-		/*	numberOfBytesRead, err := downloader.DownloadWithContext(ctx, FakeWriterAt{csvWriter},
-			&s3.GetObjectInput{
-				Bucket: aws.String(bucketName),
-				Key:    aws.String(filenameCsv),
-			})*/
-		//!!! fix following errors messages
 		if err != nil {
-			report := &Error{err: fmt.Errorf("DownloadWithContext failed, %w", err),
+			report := &Error{err: fmt.Errorf("StreamAndWrite failed, %w", err),
 				logData: log.Data{"err": err, "bucketName": bucketName, "filenameCsv": filenameCsv},
 			}
 
 			if closeErr := csvWriter.CloseWithError(report); closeErr != nil {
-				log.Error(ctx, "error closing download writerWithError", closeErr)
+				log.Error(ctx, "error closing StreamAndWrite writerWithError", closeErr)
 			}
 		} else {
-			log.Info(ctx, fmt.Sprintf(".csv file: %s, downloaded from bucket: %s", filenameCsv, bucketName))
+			log.Info(ctx, fmt.Sprintf(".csv file: %s, downloaded from bucket: %s, length: %d bytes", filenameCsv, bucketName, numberOfBytesRead))
 
 			if closeErr := csvWriter.Close(); closeErr != nil {
-				log.Error(ctx, "error closing download writer", closeErr)
+				log.Error(ctx, "error closing StreamAndWrite writer", closeErr)
 			}
 		}
 	}(downloadCtx)
@@ -502,7 +480,7 @@ func (h *CsvComplete) SaveExcelStructureToExcelFile(ctx context.Context, excelIn
 				log.Error(ctx, "error closing upload writerWithError", closeErr)
 			}
 		} else {
-			log.Info(ctx, fmt.Sprintf("finished writing file: %s, to pipe for bucket: %s", filenameXlsx, bucketName)) // !!! do we want this log line or the one "XLSX file uploaded to" further on ?
+			log.Info(ctx, fmt.Sprintf("finished writing file: %s, to pipe for bucket: %s", filenameXlsx, bucketName))
 
 			if closeErr := xlsxWriter.Close(); closeErr != nil {
 				log.Error(ctx, "error closing upload writer", closeErr)
