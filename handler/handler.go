@@ -78,7 +78,7 @@ var GetS3Downloader = func(cfg *config.Config) (*dps3.S3, error) {
 			return nil, fmt.Errorf("could not create the local-object-store s3 client: %w", err)
 		}
 		//!!! need to do private and public in following
-		return dps3.NewClientWithSession(cfg.PrivateUploadBucketName, sess), nil
+		return dps3.NewClientWithSession(cfg.PrivateBucketName, sess), nil
 	}
 
 	sess, _ := session.NewSession(&aws.Config{
@@ -86,7 +86,7 @@ var GetS3Downloader = func(cfg *config.Config) (*dps3.S3, error) {
 	})
 
 	//!!! need to do private and public in following
-	return dps3.NewClientWithSession(cfg.PrivateUploadBucketName, sess), nil
+	return dps3.NewClientWithSession(cfg.PrivateBucketName, sess), nil
 }
 
 // StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
@@ -732,7 +732,6 @@ func generateURL(downloadServiceURL, instanceID string) string {
 func generateS3FilenameCSV(e *event.CantabularCsvCreated) string {
 	return fmt.Sprintf("instances/%s.csv", e.InstanceID)
 
-	//return fmt.Sprint("instances/cantabular-example-1-2021-2.csv") //!!! this is an encrypted file for test
 	// return fmt.Sprintf("instances/1000Kx50.csv")//!!! for non stream code this crashes using 13GB RAM in docker
 	// return fmt.Sprintf("instances/50Kx50.csv") //!!! this uses 1.7GB for non large excel code
 	// return fmt.Sprintf("instances/10Kx7.csv")

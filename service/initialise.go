@@ -104,17 +104,17 @@ var GetS3Uploaders = func(cfg *config.Config) (privateUploader, publicUploader S
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create aws session (local): %w", err)
 		}
-		return dps3.NewUploaderWithSession(cfg.PrivateUploadBucketName, s),
-			dps3.NewUploaderWithSession(cfg.PublicUploadBucketName, s),
+		return dps3.NewUploaderWithSession(cfg.PrivateBucketName, s),
+			dps3.NewUploaderWithSession(cfg.PublicBucketName, s),
 			nil
 	}
 
-	privateUploader, err = dps3.NewUploader(cfg.AWSRegion, cfg.PrivateUploadBucketName)
+	privateUploader, err = dps3.NewUploader(cfg.AWSRegion, cfg.PrivateBucketName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create S3 Client: %w", err)
 	}
 
-	publicUploader = dps3.NewUploaderWithSession(cfg.PublicUploadBucketName, privateUploader.Session())
+	publicUploader = dps3.NewUploaderWithSession(cfg.PublicBucketName, privateUploader.Session())
 	return privateUploader, publicUploader, nil
 }
 
