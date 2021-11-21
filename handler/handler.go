@@ -316,8 +316,6 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 	var outputRow = startRow // !!! this value choosen for test to visually see effect in excel spreadsheet
 	// AND most importantly to NOT touch any cells previously created with the excelize streamWriter mechanism
 
-	var maxCol = 1
-
 	styleID14, err := excelInMemoryStructure.NewStyle(`{"font":{"size":14}}`)
 	//	styleID14, err := excelInMemoryStructure.NewStyle(`{"alignment":{"shrinkToFit":true}, "font":{"size":14}}`)
 	if err != nil {
@@ -349,9 +347,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 				logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv},
 			}
 		}
-		if nofColumns > maxCol {
-			maxCol = nofColumns
-		}
+
 		var rowItemsWithStyle []interface{}
 		for colID := 0; colID < nofColumns; colID++ {
 			value := columns[colID]
@@ -445,11 +441,6 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 				}
 			}
 		}
-
-		// set font style for range of cells written
-		/*		if err = ApplySmallSheetCellStyle(excelInMemoryStructure, startRow, maxCol, outputRow, sheet1, styleID14); err != nil {
-				return fmt.Errorf("ApplySmallSheetCellStyle %w", err)
-			}*/
 	}
 
 	return nil
@@ -751,32 +742,6 @@ func ApplyMainSheetHeader(excelInMemoryStructure *excelize.File, doLargeSheet bo
 		}
 		if err := excelInMemoryStructure.SetSheetRow(sheet1, "A1", &[]interface{}{"Data, <=10K lines (API)"}); err != nil {
 			return fmt.Errorf("SetSheetRow 1 %w", err)
-		}
-	}
-
-	return nil
-}
-
-func ApplySmallSheetCellStyle(excelInMemoryStructure *excelize.File, startRow, maxCol, outputRow int, sheet1 string, styleID14 int) error {
-	// set font style for range of cells written
-
-	cellTopLeft, err := excelize.CoordinatesToCellName(1, startRow)
-	if err != nil {
-		return fmt.Errorf("CoordinatesToCellName 1 %w", err)
-	}
-
-	cellBottomRight, err := excelize.CoordinatesToCellName(maxCol, outputRow)
-	if err != nil {
-		return fmt.Errorf("CoordinatesToCellName 2 %w", err)
-	}
-
-	if err = excelInMemoryStructure.SetCellStyle(sheet1, cellTopLeft, cellBottomRight, styleID14); err != nil {
-		return fmt.Errorf("SetCellStyle 2 %w", err)
-	}
-
-	for i := startRow; i < outputRow; i++ { //!!! this may not be needed ?
-		if err = excelInMemoryStructure.SetRowHeight(sheet1, i, 14); err != nil {
-			return fmt.Errorf("SetRowHeight %w", err)
 		}
 	}
 
