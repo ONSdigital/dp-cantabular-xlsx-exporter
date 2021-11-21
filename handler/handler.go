@@ -30,6 +30,8 @@ import (
 const (
 	maxAllowedRowCount       = 999900
 	smallEnoughForFullFormat = 10000 // Not too large to achieve full formatting in memory
+	maxSettableColumnWidths  = 500   // The maximum number of columns whose widths will be determined and set in excel files whose source csv file has <= 'smallEnoughForFullFormat' lines
+	columNotSet              = -1    // Magic number indicating column width has no determined value
 )
 
 // XlsxCreate is the handle for the CsvHandler event
@@ -264,6 +266,14 @@ func (h *XlsxCreate) Handle(ctx context.Context, event *event.CantabularCsvCreat
 // inserts it into the excel "in memory structure"
 func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string, isPublished bool) error {
 	var bucketName string
+	var columnWidths [maxSettableColumnWidths]int
+
+	if !doLargeSheet {
+		for i := 0; i < maxSettableColumnWidths; i++ {
+			columnWidths[i] = columNotSet
+		}
+	}
+
 	if isPublished {
 		bucketName = h.s3PublicUploader.BucketName()
 	} else {
@@ -309,6 +319,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 	var maxCol = 1
 
 	styleID14, err := excelInMemoryStructure.NewStyle(`{"font":{"size":14}}`)
+	//	styleID14, err := excelInMemoryStructure.NewStyle(`{"alignment":{"shrinkToFit":true}, "font":{"size":14}}`)
 	if err != nil {
 		return fmt.Errorf("NewStyle size 14 %w", err)
 	}
@@ -352,11 +363,20 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 					rowItemsWithStyle = append(rowItemsWithStyle, excelize.Cell{StyleID: styleID14, Value: value})
 				}
 			} else {
+				colStr := ""
 				if err == nil {
 					rowItemsWithStyle = append(rowItemsWithStyle, valueFloat)
+					colStr = fmt.Sprintf("%f", valueFloat)
 				} else {
 					rowItemsWithStyle = append(rowItemsWithStyle, value)
-					//!!! need to gather the max width of each column for all rows (clamping max value to 255 for the excelize library limit of 255)
+					colStr = value
+				}
+				if colID < maxSettableColumnWidths {
+					l := len(colStr)
+					if l > columnWidths[colID] {
+						// update record of maximum column width
+						columnWidths[colID] = l
+					}
 				}
 			}
 		}
@@ -407,19 +427,29 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 			}
 		}
 	} else {
-		// set font style for range of cells written
-		if err = ApplySmallSheetCellStyle(excelInMemoryStructure, startRow, maxCol, outputRow, sheet1, styleID14); err != nil {
-			return fmt.Errorf("ApplySmallSheetCellStyle %w", err)
+		// set column widths
+		for i := 0; i < maxSettableColumnWidths; i++ {
+			if columnWidths[i] != columNotSet {
+				width := columnWidths[i] + 1 // add 1 to achieve slight visual space between columns and/or the vertical column lines
+				if width > 255 {
+					width = 255 // must limit to a max of 255, which the excelize library stipulates
+				}
+				columnName, err := excelize.ColumnNumberToName(i + 1) // add 1, as column numbers start at 1 in excelize library
+				if err != nil {
+					return fmt.Errorf("ColumnNumberToName %w", err)
+				}
+				err = excelInMemoryStructure.SetColWidth(sheet1, columnName, columnName, float64(width))
+				log.Info(ctx, fmt.Sprintf("SetColWidth i: %d, columnName: %s, width: %d, width float: %f", i, columnName, width, float64(width)))
+				if err != nil {
+					return &Error{err: err}
+				}
+			}
 		}
 
-		err = excelInMemoryStructure.SetColWidth(sheet1, "A", "B", 24) //!!! this is for test and needs further work to apply desired widths for all columns
-		if err != nil {
-			return &Error{err: err}
-		}
-		err = excelInMemoryStructure.SetColWidth(sheet1, "C", "C", 40) //!!! this is for test and needs further work to apply desired widths for all columns
-		if err != nil {
-			return &Error{err: err}
-		}
+		// set font style for range of cells written
+		/*		if err = ApplySmallSheetCellStyle(excelInMemoryStructure, startRow, maxCol, outputRow, sheet1, styleID14); err != nil {
+				return fmt.Errorf("ApplySmallSheetCellStyle %w", err)
+			}*/
 	}
 
 	return nil
