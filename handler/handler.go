@@ -30,7 +30,7 @@ import (
 const (
 	maxAllowedRowCount       = 999900
 	smallEnoughForFullFormat = 10000 // Not too large to achieve full formatting in memory
-	maxSettableColumnWidths  = 500   // The maximum number of columns whose widths will be determined and set in excel files whose source csv file has <= 'smallEnoughForFullFormat' lines
+	maxSettableColumnWidths  = 500   // The maximum number of columns whose widths will be determined and set in excel files whose source csv file has <= 'smallEnoughForFullFormat' lines. Apparently the max in the real dataset is 400, so we have a larger number just in case.
 	columNotSet              = -1    // Magic number indicating column width has no determined value
 )
 
@@ -106,6 +106,12 @@ func (h *XlsxCreate) StreamAndWrite(ctx context.Context, s3Path string, w io.Wri
 	return length, nil
 }
 
+func closeAndLogError(ctx context.Context, closer io.Closer) {
+	if err := closer.Close(); err != nil {
+		log.Error(ctx, "error closing io.Closer", err)
+	}
+}
+
 func (h *XlsxCreate) getVaultKeyForCSVFile(fileName string) ([]byte, error) {
 	if len(fileName) == 0 {
 		return nil, errors.New("vault filename required but was empty")
@@ -126,12 +132,6 @@ func (h *XlsxCreate) getVaultKeyForCSVFile(fileName string) ([]byte, error) {
 	return psk, nil
 }
 
-func closeAndLogError(ctx context.Context, closer io.Closer) {
-	if err := closer.Close(); err != nil {
-		log.Error(ctx, "error closing io.Closer", err)
-	}
-}
-
 // Handle takes a single event.
 func (h *XlsxCreate) Handle(ctx context.Context, event *event.CantabularCsvCreated) error {
 	logData := log.Data{
@@ -139,7 +139,6 @@ func (h *XlsxCreate) Handle(ctx context.Context, event *event.CantabularCsvCreat
 	}
 
 	if event.RowCount > maxAllowedRowCount {
-		// !!! change this to a log info and also report that job complete with no result due to too large an CSV file
 		return &Error{err: fmt.Errorf("full download too large to export to .xlsx file"),
 			logData: logData,
 		}
@@ -269,6 +268,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 	var columnWidths [maxSettableColumnWidths]int
 
 	if !doLargeSheet {
+		// mark all column widths as unknown
 		for i := 0; i < maxSettableColumnWidths; i++ {
 			columnWidths[i] = columNotSet
 		}
@@ -280,7 +280,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 		bucketName = h.s3PrivateUploader.BucketName()
 	}
 
-	filenameCsv := generateS3FilenameCSV(event) //!!! may need different things for different private/public buckets
+	filenameCsv := generateS3FilenameCSV(event)
 
 	// Create an io.Pipe to have the ability to read what is written to a writer
 	csvReader, csvWriter := io.Pipe()
@@ -317,7 +317,6 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 	// AND most importantly to NOT touch any cells previously created with the excelize streamWriter mechanism
 
 	styleID14, err := excelInMemoryStructure.NewStyle(`{"font":{"size":14}}`)
-	//	styleID14, err := excelInMemoryStructure.NewStyle(`{"alignment":{"shrinkToFit":true}, "font":{"size":14}}`)
 	if err != nil {
 		return fmt.Errorf("NewStyle size 14 %w", err)
 	}
@@ -348,6 +347,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 			}
 		}
 
+		// Create row items from csv line
 		var rowItemsWithStyle []interface{}
 		for colID := 0; colID < nofColumns; colID++ {
 			value := columns[colID]
@@ -377,6 +377,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 			}
 		}
 
+		// Place row items into excelize data structure
 		if doLargeSheet {
 			cell, err := excelize.CoordinatesToCellName(1, outputRow)
 			if err != nil {
@@ -423,7 +424,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 			}
 		}
 	} else {
-		// set column widths
+		// Process and apply column widths
 		for i := 0; i < maxSettableColumnWidths; i++ {
 			if columnWidths[i] != columNotSet {
 				width := columnWidths[i] + 1 // add 1 to achieve slight visual space between columns and/or the vertical column lines
