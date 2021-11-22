@@ -22,8 +22,6 @@ services:
             BIND_ADDR:          ":26300"
             KAFKA_ADDR:         "kafka:9092"
             DATASET_API_URL:    "http://dp-dataset-api:22000"
-            #!!! get rid of cantabular server, etc
-            CANTABULAR_URL:     "http://dp-cantabular-server:8491"
             SERVICE_AUTH_TOKEN: "testToken"
             COMPONENT_TEST_USE_LOG_FILE: "${COMPONENT_TEST_USE_LOG_FILE-false}"
             LOCAL_OBJECT_STORE:     "http://minio:9000"
