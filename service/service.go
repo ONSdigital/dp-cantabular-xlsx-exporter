@@ -206,6 +206,11 @@ func (svc *Service) registerCheckers() error {
 		return fmt.Errorf("error adding check for s3 public uploader: %w", err)
 	}
 
+	// we only need one checker to cover the private and public downloaders as they use the same session
+	if err := svc.HealthCheck.AddCheck("S3 private and public downloader", svc.S3PrivateDownloader.Checker); err != nil {
+		return fmt.Errorf("error adding check for s3 private and public downloader: %w", err)
+	}
+
 	if !svc.Cfg.EncryptionDisabled {
 		if err := svc.HealthCheck.AddCheck("Vault", svc.VaultClient.Checker); err != nil {
 			return fmt.Errorf("error adding check for vault client: %w", err)
