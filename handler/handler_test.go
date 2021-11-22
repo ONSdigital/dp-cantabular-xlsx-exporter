@@ -45,7 +45,7 @@ var (
 
 func testCfg() config.Config {
 	return config.Config{
-		UploadBucketName:   testBucket,
+		PublicBucketName:   testBucket,
 		VaultPath:          testVaultPath,
 		EncryptionDisabled: true,
 		DownloadServiceURL: testDownloadServiceURL,
@@ -160,7 +160,7 @@ func TestUploadCSVFile(t *testing.T) {
 		cfg := testCfg()
 		cfg.EncryptionDisabled = false
 		s3Uploader := mock.S3UploaderMock{
-			BucketNameFunc: func() string { return cfg.UploadBucketName },
+			BucketNameFunc: func() string { return cfg.PublicBucketName },
 		}
 		vaultClient := vaultUnhappy()
 		eventHandler := handler.NewInstanceComplete(cfg, nil, nil, &s3Uploader, &vaultClient, nil, generator)
@@ -230,7 +230,7 @@ func TestUploadCSVFile(t *testing.T) {
 		cfg := testCfg()
 		cfg.EncryptionDisabled = false
 		s3Uploader := mock.S3UploaderMock{
-			BucketNameFunc: func() string { return cfg.UploadBucketName },
+			BucketNameFunc: func() string { return cfg.PublicBucketName },
 		}
 
 		generator.NewPSKFunc = func() ([]byte, error) {

@@ -14,16 +14,16 @@ import (
 	"sync"
 )
 
-// Ensure, that S3UploaderMock does implement service.S3Uploader.
+// Ensure, that S3ClientMock does implement service.S3Client.
 // If this is not the case, regenerate this file with moq.
-var _ service.S3Uploader = &S3UploaderMock{}
+var _ service.S3Client = &S3ClientMock{}
 
-// S3UploaderMock is a mock implementation of service.S3Uploader.
+// S3ClientMock is a mock implementation of service.S3Client.
 //
-// 	func TestSomethingThatUsesS3Uploader(t *testing.T) {
+// 	func TestSomethingThatUsesS3Client(t *testing.T) {
 //
-// 		// make and configure a mocked service.S3Uploader
-// 		mockedS3Uploader := &S3UploaderMock{
+// 		// make and configure a mocked service.S3Client
+// 		mockedS3Client := &S3ClientMock{
 // 			BucketNameFunc: func() string {
 // 				panic("mock out the BucketName method")
 // 			},
@@ -32,6 +32,9 @@ var _ service.S3Uploader = &S3UploaderMock{}
 // 			},
 // 			GetFunc: func(key string) (io.ReadCloser, *int64, error) {
 // 				panic("mock out the Get method")
+// 			},
+// 			GetWithPSKFunc: func(key string, psk []byte) (io.ReadCloser, *int64, error) {
+// 				panic("mock out the GetWithPSK method")
 // 			},
 // 			HeadFunc: func(key string) (*s3.HeadObjectOutput, error) {
 // 				panic("mock out the Head method")
@@ -47,11 +50,11 @@ var _ service.S3Uploader = &S3UploaderMock{}
 // 			},
 // 		}
 //
-// 		// use mockedS3Uploader in code that requires service.S3Uploader
+// 		// use mockedS3Client in code that requires service.S3Client
 // 		// and then make assertions.
 //
 // 	}
-type S3UploaderMock struct {
+type S3ClientMock struct {
 	// BucketNameFunc mocks the BucketName method.
 	BucketNameFunc func() string
 
@@ -60,6 +63,9 @@ type S3UploaderMock struct {
 
 	// GetFunc mocks the Get method.
 	GetFunc func(key string) (io.ReadCloser, *int64, error)
+
+	// GetWithPSKFunc mocks the GetWithPSK method.
+	GetWithPSKFunc func(key string, psk []byte) (io.ReadCloser, *int64, error)
 
 	// HeadFunc mocks the Head method.
 	HeadFunc func(key string) (*s3.HeadObjectOutput, error)
@@ -90,6 +96,13 @@ type S3UploaderMock struct {
 			// Key is the key argument value.
 			Key string
 		}
+		// GetWithPSK holds details about calls to the GetWithPSK method.
+		GetWithPSK []struct {
+			// Key is the key argument value.
+			Key string
+			// Psk is the psk argument value.
+			Psk []byte
+		}
 		// Head holds details about calls to the Head method.
 		Head []struct {
 			// Key is the key argument value.
@@ -118,6 +131,7 @@ type S3UploaderMock struct {
 	lockBucketName        sync.RWMutex
 	lockChecker           sync.RWMutex
 	lockGet               sync.RWMutex
+	lockGetWithPSK        sync.RWMutex
 	lockHead              sync.RWMutex
 	lockSession           sync.RWMutex
 	lockUploadWithContext sync.RWMutex
@@ -125,9 +139,9 @@ type S3UploaderMock struct {
 }
 
 // BucketName calls BucketNameFunc.
-func (mock *S3UploaderMock) BucketName() string {
+func (mock *S3ClientMock) BucketName() string {
 	if mock.BucketNameFunc == nil {
-		panic("S3UploaderMock.BucketNameFunc: method is nil but S3Uploader.BucketName was just called")
+		panic("S3ClientMock.BucketNameFunc: method is nil but S3Client.BucketName was just called")
 	}
 	callInfo := struct {
 	}{}
@@ -139,8 +153,8 @@ func (mock *S3UploaderMock) BucketName() string {
 
 // BucketNameCalls gets all the calls that were made to BucketName.
 // Check the length with:
-//     len(mockedS3Uploader.BucketNameCalls())
-func (mock *S3UploaderMock) BucketNameCalls() []struct {
+//     len(mockedS3Client.BucketNameCalls())
+func (mock *S3ClientMock) BucketNameCalls() []struct {
 } {
 	var calls []struct {
 	}
@@ -151,9 +165,9 @@ func (mock *S3UploaderMock) BucketNameCalls() []struct {
 }
 
 // Checker calls CheckerFunc.
-func (mock *S3UploaderMock) Checker(contextMoqParam context.Context, checkState *healthcheck.CheckState) error {
+func (mock *S3ClientMock) Checker(contextMoqParam context.Context, checkState *healthcheck.CheckState) error {
 	if mock.CheckerFunc == nil {
-		panic("S3UploaderMock.CheckerFunc: method is nil but S3Uploader.Checker was just called")
+		panic("S3ClientMock.CheckerFunc: method is nil but S3Client.Checker was just called")
 	}
 	callInfo := struct {
 		ContextMoqParam context.Context
@@ -170,8 +184,8 @@ func (mock *S3UploaderMock) Checker(contextMoqParam context.Context, checkState 
 
 // CheckerCalls gets all the calls that were made to Checker.
 // Check the length with:
-//     len(mockedS3Uploader.CheckerCalls())
-func (mock *S3UploaderMock) CheckerCalls() []struct {
+//     len(mockedS3Client.CheckerCalls())
+func (mock *S3ClientMock) CheckerCalls() []struct {
 	ContextMoqParam context.Context
 	CheckState      *healthcheck.CheckState
 } {
@@ -186,9 +200,9 @@ func (mock *S3UploaderMock) CheckerCalls() []struct {
 }
 
 // Get calls GetFunc.
-func (mock *S3UploaderMock) Get(key string) (io.ReadCloser, *int64, error) {
+func (mock *S3ClientMock) Get(key string) (io.ReadCloser, *int64, error) {
 	if mock.GetFunc == nil {
-		panic("S3UploaderMock.GetFunc: method is nil but S3Uploader.Get was just called")
+		panic("S3ClientMock.GetFunc: method is nil but S3Client.Get was just called")
 	}
 	callInfo := struct {
 		Key string
@@ -203,8 +217,8 @@ func (mock *S3UploaderMock) Get(key string) (io.ReadCloser, *int64, error) {
 
 // GetCalls gets all the calls that were made to Get.
 // Check the length with:
-//     len(mockedS3Uploader.GetCalls())
-func (mock *S3UploaderMock) GetCalls() []struct {
+//     len(mockedS3Client.GetCalls())
+func (mock *S3ClientMock) GetCalls() []struct {
 	Key string
 } {
 	var calls []struct {
@@ -216,10 +230,45 @@ func (mock *S3UploaderMock) GetCalls() []struct {
 	return calls
 }
 
+// GetWithPSK calls GetWithPSKFunc.
+func (mock *S3ClientMock) GetWithPSK(key string, psk []byte) (io.ReadCloser, *int64, error) {
+	if mock.GetWithPSKFunc == nil {
+		panic("S3ClientMock.GetWithPSKFunc: method is nil but S3Client.GetWithPSK was just called")
+	}
+	callInfo := struct {
+		Key string
+		Psk []byte
+	}{
+		Key: key,
+		Psk: psk,
+	}
+	mock.lockGetWithPSK.Lock()
+	mock.calls.GetWithPSK = append(mock.calls.GetWithPSK, callInfo)
+	mock.lockGetWithPSK.Unlock()
+	return mock.GetWithPSKFunc(key, psk)
+}
+
+// GetWithPSKCalls gets all the calls that were made to GetWithPSK.
+// Check the length with:
+//     len(mockedS3Client.GetWithPSKCalls())
+func (mock *S3ClientMock) GetWithPSKCalls() []struct {
+	Key string
+	Psk []byte
+} {
+	var calls []struct {
+		Key string
+		Psk []byte
+	}
+	mock.lockGetWithPSK.RLock()
+	calls = mock.calls.GetWithPSK
+	mock.lockGetWithPSK.RUnlock()
+	return calls
+}
+
 // Head calls HeadFunc.
-func (mock *S3UploaderMock) Head(key string) (*s3.HeadObjectOutput, error) {
+func (mock *S3ClientMock) Head(key string) (*s3.HeadObjectOutput, error) {
 	if mock.HeadFunc == nil {
-		panic("S3UploaderMock.HeadFunc: method is nil but S3Uploader.Head was just called")
+		panic("S3ClientMock.HeadFunc: method is nil but S3Client.Head was just called")
 	}
 	callInfo := struct {
 		Key string
@@ -234,8 +283,8 @@ func (mock *S3UploaderMock) Head(key string) (*s3.HeadObjectOutput, error) {
 
 // HeadCalls gets all the calls that were made to Head.
 // Check the length with:
-//     len(mockedS3Uploader.HeadCalls())
-func (mock *S3UploaderMock) HeadCalls() []struct {
+//     len(mockedS3Client.HeadCalls())
+func (mock *S3ClientMock) HeadCalls() []struct {
 	Key string
 } {
 	var calls []struct {
@@ -248,9 +297,9 @@ func (mock *S3UploaderMock) HeadCalls() []struct {
 }
 
 // Session calls SessionFunc.
-func (mock *S3UploaderMock) Session() *session.Session {
+func (mock *S3ClientMock) Session() *session.Session {
 	if mock.SessionFunc == nil {
-		panic("S3UploaderMock.SessionFunc: method is nil but S3Uploader.Session was just called")
+		panic("S3ClientMock.SessionFunc: method is nil but S3Client.Session was just called")
 	}
 	callInfo := struct {
 	}{}
@@ -262,8 +311,8 @@ func (mock *S3UploaderMock) Session() *session.Session {
 
 // SessionCalls gets all the calls that were made to Session.
 // Check the length with:
-//     len(mockedS3Uploader.SessionCalls())
-func (mock *S3UploaderMock) SessionCalls() []struct {
+//     len(mockedS3Client.SessionCalls())
+func (mock *S3ClientMock) SessionCalls() []struct {
 } {
 	var calls []struct {
 	}
@@ -274,9 +323,9 @@ func (mock *S3UploaderMock) SessionCalls() []struct {
 }
 
 // UploadWithContext calls UploadWithContextFunc.
-func (mock *S3UploaderMock) UploadWithContext(ctx context.Context, input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
+func (mock *S3ClientMock) UploadWithContext(ctx context.Context, input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error) {
 	if mock.UploadWithContextFunc == nil {
-		panic("S3UploaderMock.UploadWithContextFunc: method is nil but S3Uploader.UploadWithContext was just called")
+		panic("S3ClientMock.UploadWithContextFunc: method is nil but S3Client.UploadWithContext was just called")
 	}
 	callInfo := struct {
 		Ctx     context.Context
@@ -295,8 +344,8 @@ func (mock *S3UploaderMock) UploadWithContext(ctx context.Context, input *s3mana
 
 // UploadWithContextCalls gets all the calls that were made to UploadWithContext.
 // Check the length with:
-//     len(mockedS3Uploader.UploadWithContextCalls())
-func (mock *S3UploaderMock) UploadWithContextCalls() []struct {
+//     len(mockedS3Client.UploadWithContextCalls())
+func (mock *S3ClientMock) UploadWithContextCalls() []struct {
 	Ctx     context.Context
 	Input   *s3manager.UploadInput
 	Options []func(*s3manager.Uploader)
@@ -313,9 +362,9 @@ func (mock *S3UploaderMock) UploadWithContextCalls() []struct {
 }
 
 // UploadWithPSK calls UploadWithPSKFunc.
-func (mock *S3UploaderMock) UploadWithPSK(input *s3manager.UploadInput, psk []byte) (*s3manager.UploadOutput, error) {
+func (mock *S3ClientMock) UploadWithPSK(input *s3manager.UploadInput, psk []byte) (*s3manager.UploadOutput, error) {
 	if mock.UploadWithPSKFunc == nil {
-		panic("S3UploaderMock.UploadWithPSKFunc: method is nil but S3Uploader.UploadWithPSK was just called")
+		panic("S3ClientMock.UploadWithPSKFunc: method is nil but S3Client.UploadWithPSK was just called")
 	}
 	callInfo := struct {
 		Input *s3manager.UploadInput
@@ -332,8 +381,8 @@ func (mock *S3UploaderMock) UploadWithPSK(input *s3manager.UploadInput, psk []by
 
 // UploadWithPSKCalls gets all the calls that were made to UploadWithPSK.
 // Check the length with:
-//     len(mockedS3Uploader.UploadWithPSKCalls())
-func (mock *S3UploaderMock) UploadWithPSKCalls() []struct {
+//     len(mockedS3Client.UploadWithPSKCalls())
+func (mock *S3ClientMock) UploadWithPSKCalls() []struct {
 	Input *s3manager.UploadInput
 	Psk   []byte
 } {

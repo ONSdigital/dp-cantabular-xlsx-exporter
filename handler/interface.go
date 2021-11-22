@@ -29,6 +29,7 @@ type DatasetAPIClient interface {
 
 // VaultClient contains the required methods for the Vault Client
 type VaultClient interface {
+	ReadKey(path, key string) (string, error)
 	WriteKey(path, key, value string) error
 }
 

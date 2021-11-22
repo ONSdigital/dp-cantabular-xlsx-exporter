@@ -19,7 +19,7 @@ var _ event.Handler = &HandlerMock{}
 //
 // 		// make and configure a mocked event.Handler
 // 		mockedHandler := &HandlerMock{
-// 			HandleFunc: func(ctx context.Context, csvComplete *event.CantabularCsvCreated) error {
+// 			HandleFunc: func(ctx context.Context, XlsxCreate *event.CantabularCsvCreated) error {
 // 				panic("mock out the Handle method")
 // 			},
 // 		}
@@ -30,7 +30,7 @@ var _ event.Handler = &HandlerMock{}
 // 	}
 type HandlerMock struct {
 	// HandleFunc mocks the Handle method.
-	HandleFunc func(ctx context.Context, csvComplete *event.CantabularCsvCreated) error
+	HandleFunc func(ctx context.Context, XlsxCreate *event.CantabularCsvCreated) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -38,41 +38,41 @@ type HandlerMock struct {
 		Handle []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// CsvComplete is the csvComplete argument value.
-			CsvComplete *event.CantabularCsvCreated
+			// XlsxCreate is the XlsxCreate argument value.
+			XlsxCreate *event.CantabularCsvCreated
 		}
 	}
 	lockHandle sync.RWMutex
 }
 
 // Handle calls HandleFunc.
-func (mock *HandlerMock) Handle(ctx context.Context, csvComplete *event.CantabularCsvCreated) error {
+func (mock *HandlerMock) Handle(ctx context.Context, XlsxCreate *event.CantabularCsvCreated) error {
 	if mock.HandleFunc == nil {
 		panic("HandlerMock.HandleFunc: method is nil but Handler.Handle was just called")
 	}
 	callInfo := struct {
-		Ctx         context.Context
-		CsvComplete *event.CantabularCsvCreated
+		Ctx        context.Context
+		XlsxCreate *event.CantabularCsvCreated
 	}{
-		Ctx:         ctx,
-		CsvComplete: csvComplete,
+		Ctx:        ctx,
+		XlsxCreate: XlsxCreate,
 	}
 	mock.lockHandle.Lock()
 	mock.calls.Handle = append(mock.calls.Handle, callInfo)
 	mock.lockHandle.Unlock()
-	return mock.HandleFunc(ctx, csvComplete)
+	return mock.HandleFunc(ctx, XlsxCreate)
 }
 
 // HandleCalls gets all the calls that were made to Handle.
 // Check the length with:
 //     len(mockedHandler.HandleCalls())
 func (mock *HandlerMock) HandleCalls() []struct {
-	Ctx         context.Context
-	CsvComplete *event.CantabularCsvCreated
+	Ctx        context.Context
+	XlsxCreate *event.CantabularCsvCreated
 } {
 	var calls []struct {
-		Ctx         context.Context
-		CsvComplete *event.CantabularCsvCreated
+		Ctx        context.Context
+		XlsxCreate *event.CantabularCsvCreated
 	}
 	mock.lockHandle.RLock()
 	calls = mock.calls.Handle

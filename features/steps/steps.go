@@ -171,7 +171,7 @@ func (c *Component) theFollowingFileCanBeSeenInMinio(fileName string) error {
 
 	for {
 		numBytes, err = c.S3Downloader.Download(f, &s3.GetObjectInput{
-			Bucket: aws.String(c.cfg.UploadBucketName),
+			Bucket: aws.String(c.cfg.PublicBucketName),
 			Key:    aws.String(fileName),
 		})
 		if err == nil || retries <= 0 {

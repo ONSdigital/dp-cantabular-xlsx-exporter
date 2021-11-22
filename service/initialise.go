@@ -23,7 +23,7 @@ import (
 
 const VaultRetries = 3
 
-// GetHTTPServer creates an http server and sets the Server
+// GetHTTPServer creates a http server and sets the Server
 var GetHTTPServer = func(bindAddr string, router http.Handler) HTTPServer {
 	s := dphttp.NewServer(bindAddr, router)
 	s.HandleOSSignals = false
@@ -90,7 +90,7 @@ var GetDatasetAPIClient = func(cfg *config.Config) DatasetAPIClient {
 }
 
 // GetS3Uploaders creates the private and public S3 Uploaders using the same AWS session, or a local storage client if a non-empty LocalObjectStore is provided
-var GetS3Uploaders = func(cfg *config.Config) (private, public S3Uploader, err error) {
+var GetS3Uploaders = func(cfg *config.Config) (privateUploader, publicUploader S3Client, err error) {
 	if cfg.LocalObjectStore != "" {
 		s3Config := &aws.Config{
 			Credentials:      credentials.NewStaticCredentials(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
@@ -104,19 +104,45 @@ var GetS3Uploaders = func(cfg *config.Config) (private, public S3Uploader, err e
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create aws session (local): %w", err)
 		}
-		return dps3.NewUploaderWithSession(cfg.PrivateUploadBucketName, s),
-			dps3.NewUploaderWithSession(cfg.UploadBucketName, s),
+		return dps3.NewUploaderWithSession(cfg.PrivateBucketName, s),
+			dps3.NewUploaderWithSession(cfg.PublicBucketName, s),
 			nil
 	}
 
-	private, err = dps3.NewUploader(cfg.AWSRegion, cfg.PrivateUploadBucketName)
+	privateUploader, err = dps3.NewUploader(cfg.AWSRegion, cfg.PrivateBucketName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create S3 Client: %w", err)
 	}
 
-	// !!! is seems odd that the following function does not return an error, like the previous one
-	public = dps3.NewUploaderWithSession(cfg.UploadBucketName, private.Session())
-	return private, public, nil
+	publicUploader = dps3.NewUploaderWithSession(cfg.PublicBucketName, privateUploader.Session())
+	return privateUploader, publicUploader, nil
+}
+
+// GetS3Downloaders creates the private and public S3 Downloaders using the same AWS session, or a local storage client if a non-empty LocalObjectStore is provided
+var GetS3Downloaders = func(cfg *config.Config) (privateDownloader, publicDownloader *dps3.S3, err error) {
+	if cfg.LocalObjectStore != "" {
+		// configure things for development utilising minio
+		s3Config := &aws.Config{
+			Credentials:      credentials.NewStaticCredentials(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
+			Endpoint:         aws.String(cfg.LocalObjectStore),
+			Region:           aws.String(cfg.AWSRegion),
+			DisableSSL:       aws.Bool(true),
+			S3ForcePathStyle: aws.Bool(true),
+		}
+
+		sess, err := session.NewSession(s3Config)
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not create the local-object-store s3 client: %w", err)
+		}
+		return dps3.NewClientWithSession(cfg.PrivateBucketName, sess), dps3.NewClientWithSession(cfg.PublicBucketName, sess), nil
+	}
+
+	sess, err := session.NewSession(&aws.Config{Region: aws.String(cfg.AWSRegion)})
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create the s3 client: %w", err)
+	}
+
+	return dps3.NewClientWithSession(cfg.PrivateBucketName, sess), dps3.NewClientWithSession(cfg.PublicBucketName, sess), nil
 }
 
 // GetVault creates a VaultClient

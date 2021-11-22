@@ -1,7 +1,7 @@
 package event
 
-//!!! adjust the following to indicate that an xlsx has been produced OK
-// InstanceComplete provides an avro structure for a Instance Complete event
+//!!! adjust the following to indicate that a xlsx has been produced OK
+// InstanceComplete provides an avro structure for an Instance Complete event
 type InstanceComplete struct {
 	InstanceID     string `avro:"instance_id"`
 	CantabularBlob string `avro:"cantabular_blob"`
