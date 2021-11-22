@@ -32,6 +32,7 @@ const (
 	smallEnoughForFullFormat = 10000 // Not too large to achieve full formatting in memory
 	maxSettableColumnWidths  = 500   // The maximum number of columns whose widths will be determined and set in excel files whose source csv file has <= 'smallEnoughForFullFormat' lines. Apparently the max in the real dataset is 400, so we have a larger number just in case.
 	columNotSet              = -1    // Magic number indicating column width has no determined value
+	maxExcelizeColumnWidth   = 255   // Max column width that the excelize library will work with
 )
 
 // XlsxCreate is the handle for the CsvHandler event
@@ -428,8 +429,8 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 		for i := 0; i < maxSettableColumnWidths; i++ {
 			if columnWidths[i] != columNotSet {
 				width := columnWidths[i] + 1 // add 1 to achieve slight visual space between columns and/or the vertical column lines
-				if width > 255 {
-					width = 255 // must limit to a max of 255, which the excelize library stipulates
+				if width > maxExcelizeColumnWidth {
+					width = maxExcelizeColumnWidth
 				}
 				columnName, err := excelize.ColumnNumberToName(i + 1) // add 1, as column numbers start at 1 in excelize library
 				if err != nil {
