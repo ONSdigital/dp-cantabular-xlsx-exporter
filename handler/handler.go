@@ -664,15 +664,6 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 	return nil
 }
 
-// !!! this comment and code within function may need adjusting ... ask David ...
-// generateURL generates the download service URL for the provided instanceID CSV file
-func generateURL(downloadServiceURL, instanceID string) string {
-	return fmt.Sprintf("%s/downloads/instances/%s.csv",
-		downloadServiceURL,
-		instanceID,
-	)
-}
-
 // generateS3FilenameCSV generates the S3 key (filename including `subpaths` after the bucket)
 // for the provided instanceID CSV file that is going to be read
 func generateS3FilenameCSV(event *event.CantabularCsvCreated) string {
