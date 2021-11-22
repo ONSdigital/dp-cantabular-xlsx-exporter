@@ -17,7 +17,6 @@ import (
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
-	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
 
 	kafka "github.com/ONSdigital/dp-kafka/v2"
 	dps3 "github.com/ONSdigital/dp-s3"
@@ -199,7 +198,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, event *event.CantabularCsvCreat
 
 	excelInMemoryStructure.SetDefaultFont("Aerial")
 
-	// !!! write header on first sheet, just to demonstrate ... this may not be needed - TBD
+	// Write header on first sheet, just to demonstrate ... this may not be needed - TBD
 	if err = ApplyMainSheetHeader(excelInMemoryStructure, doLargeSheet, efficientExcelAPIWriter, sheet1); err != nil {
 		if err != nil {
 			return &Error{err: fmt.Errorf("ApplyMainSheetHeader failed: %w", err),
@@ -249,12 +248,6 @@ func (h *XlsxCreate) Handle(ctx context.Context, event *event.CantabularCsvCreat
 		return fmt.Errorf("failed to update instance: %w", err)
 	}
 
-	//!!! fix following for xlsx
-	log.Event(ctx, "producing common output created event", log.INFO, log.Data{"s3Path": s3Path})
-
-	//!!! fix following for xlsx output
-	//!!! need to figure out what to produce ... or do whatever the dp-dataset-exporter-xlsx does ...
-	//!!! may use this to signify job done to export manager ?
 	// Generate output kafka message
 	if err := h.ProduceExportCompleteEvent(event); err != nil {
 		return fmt.Errorf("failed to produce export complete kafka message: %w", err)
@@ -314,7 +307,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 	}(downloadCtx)
 
 	var startRow = 3
-	var outputRow = startRow // !!! this value choosen for test to visually see effect in excel spreadsheet
+	var outputRow = startRow // this value choosen for test to visually see effect in excel spreadsheet - this will probably need adjusting - TBD
 	// AND most importantly to NOT touch any cells previously created with the excelize streamWriter mechanism
 
 	styleID14, err := excelInMemoryStructure.NewStyle(`{"font":{"size":14}}`)
@@ -572,6 +565,8 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 				)
 			}
 
+			//!!! when using latest csv exporter, update following to us:
+			//    %s/%s-%s-%s.xlsx", h.cfg.vaultPath, e.DatasetID, e.Edition, e.Version
 			vaultPath := fmt.Sprintf("%s/%s.xlsx", h.cfg.VaultPath, event.InstanceID)
 			vaultKey := "key"
 
@@ -583,10 +578,11 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 				)
 			}
 
-			// !!! this code needs to use 'UploadWithContextPSK' ???, because when processing an excel file that is
+			// This code needs to use 'UploadWithPSKAndContext', because when processing an excel file that is
 			// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
-			// to shut down gracefully before installing a new version of this app, then this could cause problems.
-			result, err := h.s3PrivateUploader.UploadWithPSK(&s3manager.UploadInput{
+			// to shut down gracefully before installing a new version of this app, then without using context this
+			// could cause problems.
+			result, err := h.s3PrivateUploader.UploadWithPSKAndContext(ctx, &s3manager.UploadInput{
 				Body:   file,
 				Bucket: &bucketName,
 				Key:    &filename,
@@ -674,26 +670,6 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 	return nil
 }
 
-//!!! need to have discussion to determine what the output of this service should be
-// ProduceExportCompleteEvent sends the final kafka message signifying the export complete
-func (h *XlsxCreate) ProduceExportCompleteEvent(ev *event.CantabularCsvCreated) error {
-	//!!!	downloadURL := generateURL(h.cfg.DownloadServiceURL, instanceID)
-
-	// create InstanceComplete event and Marshal it
-	b, err := schema.InstanceComplete.Marshal(&event.InstanceComplete{
-		InstanceID: ev.InstanceID,
-		//!!!		FileURL:    downloadURL, // download service URL for the CSV file
-	})
-	if err != nil {
-		return fmt.Errorf("error marshalling instance complete event: %w", err)
-	}
-
-	// Send bytes to kafka producer output channel
-	h.producer.Channels().Output <- b
-
-	return nil
-}
-
 // generateURL generates the download service URL for the provided instanceID CSV file
 func generateURL(downloadServiceURL, instanceID string) string {
 	return fmt.Sprintf("%s/downloads/instances/%s.csv",
@@ -704,12 +680,13 @@ func generateURL(downloadServiceURL, instanceID string) string {
 
 // generateS3FilenameCSV generates the S3 key (filename including `subpaths` after the bucket)
 // for the provided instanceID CSV file that is going to be read
-// !!! TODO filename should be datasets/<dataset_name>_<version>.csv to match CMD naming ???
 func generateS3FilenameCSV(event *event.CantabularCsvCreated) string {
+	// !!! this should match https://github.com/ONSdigital/dp-cantabular-csv-exporter/blob/develop/handler/handler.go#L358
+	//   datasets/%s-%s-%s.csv", e.DatasetID, e.Edition, e.Version
 	return fmt.Sprintf("instances/%s.csv", event.InstanceID)
 
-	// return fmt.Sprintf("instances/1000Kx50.csv")//!!! for non stream code this crashes using 13GB RAM in docker
-	// return fmt.Sprintf("instances/50Kx50.csv") //!!! this uses 1.7GB for non large excel code
+	// return fmt.Sprintf("instances/1000Kx50.csv")// OBSERVED: for non stream code this crashes using 13GB RAM in docker
+	// return fmt.Sprintf("instances/50Kx50.csv") // OBSERVED this uses 1.7GB for non large excel code
 	// return fmt.Sprintf("instances/10Kx7.csv")
 	// return fmt.Sprintf("instances/25Kx7.csv")
 	// return fmt.Sprintf("instances/50Kx7.csv")
@@ -720,6 +697,8 @@ func generateS3FilenameCSV(event *event.CantabularCsvCreated) string {
 // generateS3FilenameXLSX generates the S3 key (filename including `subpaths` after the bucket)
 // for the provided instanceID XLSX file that is going to be written
 func generateS3FilenameXLSX(event *event.CantabularCsvCreated) string {
+	// !!! update when using latest csv exporter to:
+	//    datasets/%s-%s-%s.csv", e.DatasetID, e.Edition, e.Version
 	return fmt.Sprintf("instances/%s.xlsx", event.InstanceID)
 }
 
