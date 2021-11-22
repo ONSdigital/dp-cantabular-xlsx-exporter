@@ -248,10 +248,6 @@ func (h *XlsxCreate) Handle(ctx context.Context, event *event.CantabularCsvCreat
 		return fmt.Errorf("failed to update instance: %w", err)
 	}
 
-	// Generate output kafka message
-	if err := h.ProduceExportCompleteEvent(event); err != nil {
-		return fmt.Errorf("failed to produce export complete kafka message: %w", err)
-	}
 	return nil
 }
 
