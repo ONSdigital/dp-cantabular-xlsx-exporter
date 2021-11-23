@@ -644,7 +644,7 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 
 	versionUpdate := dataset.Version{
 		Downloads: map[string]dataset.Download{
-			"XLSX": *xlsxDownload,
+			"XLS": *xlsxDownload,
 		},
 	}
 
