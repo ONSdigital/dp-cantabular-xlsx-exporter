@@ -16,8 +16,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"github.com/cucumber/godog"
-	"github.com/google/go-cmp/cmp"
-	"github.com/rdumont/assistdog"
 )
 
 // RegisterSteps maps the human-readable regular expressions to their corresponding funcs
@@ -26,7 +24,7 @@ func (c *Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the following instance with id "([^"]*)" is available from dp-dataset-api:$`, c.theFollowingInstanceIsAvailable)
 	ctx.Step(`^an instance with id "([^"]*)" is updated to dp-dataset-api`, c.theFollowingInstanceIsUpdated)
 	ctx.Step(`^this cantabular-csv-created event is consumed:$`, c.thisCantabularCsvCreatedEventIsConsumed)
-	ctx.Step(`^these common-output-created events are produced:$`, c.theseInstanceCompleteEventsAreProduced)
+	//	ctx.Step(`^these common-output-created events are produced:$`, c.theseInstanceCompleteEventsAreProduced)
 	ctx.Step(`^a file with filename "([^"]*)" can be seen in minio`, c.theFollowingFileCanBeSeenInMinio)
 }
 
@@ -86,7 +84,7 @@ func (c *Component) theFollowingQueryResponseIsAvailable(name string, cb *godog.
 
 // theseCommonOutputEventsAreProduced consumes kafka messages that are expected to be produced by the service under test
 // and validates that they match the expected values in the test
-func (c *Component) theseInstanceCompleteEventsAreProduced(events *godog.Table) error {
+/*func (c *Component) theseInstanceCompleteEventsAreProduced(events *godog.Table) error {
 	expected, err := assistdog.NewDefault().CreateSlice(new(event.InstanceComplete), events)
 	if err != nil {
 		return fmt.Errorf("failed to create slice from godog table: %w", err)
@@ -127,7 +125,7 @@ func (c *Component) theseInstanceCompleteEventsAreProduced(events *godog.Table) 
 	}
 
 	return nil
-}
+}*/
 
 func (c *Component) thisCantabularCsvCreatedEventIsConsumed(input *godog.DocString) error {
 	ctx := context.Background()
