@@ -48,7 +48,7 @@ func TestConfig(t *testing.T) {
 				So(cfg.KafkaConfig.SecClientCert, ShouldEqual, "")
 				So(cfg.KafkaConfig.SecSkipVerify, ShouldBeFalse)
 				So(cfg.KafkaConfig.CsvCreatedGroup, ShouldEqual, "dp-cantabular-xlsx-exporter")
-				So(cfg.KafkaConfig.CsvCreatedTopic, ShouldEqual, "cantabular-csvw-created")
+				So(cfg.KafkaConfig.CsvCreatedTopic, ShouldEqual, "cantabular-csv-created")
 				So(cfg.KafkaConfig.CantabularOutputCreatedTopic, ShouldEqual, "cantabular-output-created")
 			})
 
