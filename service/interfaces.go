@@ -22,8 +22,6 @@ import (
 //go:generate moq -out mock/s3_uploader.go -pkg mock . S3Client
 //go:generate moq -out mock/vault.go -pkg mock . VaultClient
 //go:generate moq -out mock/processor.go -pkg mock . Processor
-//!!! is generator missing from above list, or is it done elsewhere ?
-//!!! because a generator is defined below.
 
 // Initialiser defines the methods to initialise external services
 type Initialiser interface {
