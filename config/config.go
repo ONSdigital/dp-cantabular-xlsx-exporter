@@ -19,7 +19,7 @@ type Config struct {
 	HealthCheckCriticalTimeout time.Duration `envconfig:"HEALTHCHECK_CRITICAL_TIMEOUT"`
 	ServiceAuthToken           string        `envconfig:"SERVICE_AUTH_TOKEN"         json:"-"`
 	DatasetAPIURL              string        `envconfig:"DATASET_API_URL"`
-	DownloadServiceURL         string        `envconfig:"DOWNLOAD_SERVICE_URL"` // needed to create url for file downloads, but this service is not actually called - TODO - remove if not needed
+	DownloadServiceURL         string        `envconfig:"DOWNLOAD_SERVICE_URL"` // needed to create url for file downloads
 	AWSRegion                  string        `envconfig:"AWS_REGION"`
 	PublicBucketName           string        `envconfig:"UPLOAD_BUCKET_NAME"`
 	PrivateBucketName          string        `envconfig:"PRIVATE_UPLOAD_BUCKET_NAME"`
