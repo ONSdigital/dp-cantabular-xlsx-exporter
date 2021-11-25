@@ -64,30 +64,30 @@ func NewXlsxCreate(cfg config.Config, d DatasetAPIClient, sPrivateUploader S3Upl
 }
 
 // StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
-func (h *XlsxCreate) StreamAndWrite(ctx context.Context, s3Path string, w io.Writer, isPublished bool, fileName string) (length int64, err error) {
+func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, w io.Writer, isPublished bool) (length int64, err error) {
 	var s3ReadCloser io.ReadCloser
 	var lengthPtr *int64
 
 	if isPublished {
-		s3ReadCloser, lengthPtr, err = h.s3PublicDownloader.Get(s3Path)
+		s3ReadCloser, lengthPtr, err = h.s3PublicDownloader.Get(filenameCsv)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("failed in Published Get: %w", err)
 		}
 	} else {
 		if h.cfg.EncryptionDisabled {
-			s3ReadCloser, lengthPtr, err = h.s3PrivateDownloader.Get(s3Path)
+			s3ReadCloser, lengthPtr, err = h.s3PrivateDownloader.Get(filenameCsv)
 			if err != nil {
-				return 0, err
+				return 0, fmt.Errorf("failed in Get: %w", err)
 			}
 		} else {
-			psk, err := h.getVaultKeyForCSVFile(fileName)
+			psk, err := h.getVaultKeyForCSVFile(filenameCsv)
 			if err != nil {
-				return 0, err
+				return 0, fmt.Errorf("failed in getVaultKeyForCSVFile: %w", err)
 			}
 
-			s3ReadCloser, lengthPtr, err = h.s3PrivateDownloader.GetWithPSK(s3Path, psk)
+			s3ReadCloser, lengthPtr, err = h.s3PrivateDownloader.GetWithPSK(filenameCsv, psk)
 			if err != nil {
-				return 0, err
+				return 0, fmt.Errorf("failed in GetWithPSK: %w", err)
 			}
 		}
 	}
@@ -100,7 +100,7 @@ func (h *XlsxCreate) StreamAndWrite(ctx context.Context, s3Path string, w io.Wri
 
 	_, err = io.Copy(w, s3ReadCloser)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed in io.Copy: %w", err)
 	}
 
 	return length, nil
@@ -121,12 +121,12 @@ func (h *XlsxCreate) getVaultKeyForCSVFile(fileName string) ([]byte, error) {
 
 	pskStr, err := h.vaultClient.ReadKey(vaultPath, "key")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed in ReadKey: %w", err)
 	}
 
 	psk, err := hex.DecodeString(pskStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed in DecodeString: %w", err)
 	}
 
 	return psk, nil
@@ -283,7 +283,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 	go func(ctx context.Context) {
 		defer wgDownload.Done()
 
-		numberOfBytesRead, err := h.StreamAndWrite(ctx, filenameCsv, csvWriter, isPublished, event.InstanceID)
+		numberOfBytesRead, err := h.StreamAndWrite(ctx, filenameCsv, csvWriter, isPublished)
 
 		if err != nil {
 			report := &Error{err: fmt.Errorf("StreamAndWrite failed, %w", err),
