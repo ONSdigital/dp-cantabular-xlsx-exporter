@@ -117,7 +117,8 @@ func (h *XlsxCreate) getVaultKeyForCSVFile(fileName string) ([]byte, error) {
 		return nil, errors.New("vault filename required but was empty")
 	}
 
-	vaultPath := fmt.Sprintf("%s/%s.csv", h.cfg.VaultPath, fileName)
+	// NOTE: incoming file name already has '.csv' on the end - so no need to add again
+	vaultPath := fmt.Sprintf("%s/%s", h.cfg.VaultPath, fileName)
 
 	pskStr, err := h.vaultClient.ReadKey(vaultPath, "key")
 	if err != nil {
