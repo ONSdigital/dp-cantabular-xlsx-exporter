@@ -64,7 +64,7 @@ func NewXlsxCreate(cfg config.Config, d DatasetAPIClient, sPrivateUploader S3Upl
 }
 
 // StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
-func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, w io.Writer, isPublished bool) (length int64, err error) {
+func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, event *event.CantabularCsvCreated, w io.Writer, isPublished bool) (length int64, err error) {
 	var s3ReadCloser io.ReadCloser
 	var lengthPtr *int64
 
@@ -80,7 +80,7 @@ func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, w i
 				return 0, fmt.Errorf("failed in Get: %w", err)
 			}
 		} else {
-			psk, err := h.getVaultKeyForCSVFile(filenameCsv)
+			psk, err := h.getVaultKeyForCSVFile(event)
 			if err != nil {
 				return 0, fmt.Errorf("failed in getVaultKeyForCSVFile: %w", err)
 			}
@@ -112,13 +112,8 @@ func closeAndLogError(ctx context.Context, closer io.Closer) {
 	}
 }
 
-func (h *XlsxCreate) getVaultKeyForCSVFile(fileName string) ([]byte, error) {
-	if len(fileName) == 0 {
-		return nil, errors.New("vault filename required but was empty")
-	}
-
-	// NOTE: incoming file name already has '.csv' on the end - so no need to add again
-	vaultPath := fmt.Sprintf("%s/%s", h.cfg.VaultPath, fileName)
+func (h *XlsxCreate) getVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([]byte, error) {
+	vaultPath := fmt.Sprintf("%s/%s-%s-%s.csv", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
 
 	pskStr, err := h.vaultClient.ReadKey(vaultPath, "key")
 	if err != nil {
@@ -284,7 +279,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 	go func(ctx context.Context) {
 		defer wgDownload.Done()
 
-		numberOfBytesRead, err := h.StreamAndWrite(ctx, filenameCsv, csvWriter, isPublished)
+		numberOfBytesRead, err := h.StreamAndWrite(ctx, filenameCsv, event, csvWriter, isPublished)
 
 		if err != nil {
 			report := &Error{err: fmt.Errorf("StreamAndWrite failed, %w", err),
