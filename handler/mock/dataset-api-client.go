@@ -23,6 +23,9 @@ var _ handler.DatasetAPIClient = &DatasetAPIClientMock{}
 // 			GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error) {
 // 				panic("mock out the GetInstance method")
 // 			},
+// 			GetVersionMetadataFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, id string, edition string, version string) (dataset.Metadata, error) {
+// 				panic("mock out the GetVersionMetadata method")
+// 			},
 // 			PutVersionFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, datasetID string, edition string, version string, m dataset.Version) error {
 // 				panic("mock out the PutVersion method")
 // 			},
@@ -35,6 +38,9 @@ var _ handler.DatasetAPIClient = &DatasetAPIClientMock{}
 type DatasetAPIClientMock struct {
 	// GetInstanceFunc mocks the GetInstance method.
 	GetInstanceFunc func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error)
+
+	// GetVersionMetadataFunc mocks the GetVersionMetadata method.
+	GetVersionMetadataFunc func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, id string, edition string, version string) (dataset.Metadata, error)
 
 	// PutVersionFunc mocks the PutVersion method.
 	PutVersionFunc func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, datasetID string, edition string, version string, m dataset.Version) error
@@ -56,6 +62,23 @@ type DatasetAPIClientMock struct {
 			// IfMatch is the ifMatch argument value.
 			IfMatch string
 		}
+		// GetVersionMetadata holds details about calls to the GetVersionMetadata method.
+		GetVersionMetadata []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// UserAuthToken is the userAuthToken argument value.
+			UserAuthToken string
+			// ServiceAuthToken is the serviceAuthToken argument value.
+			ServiceAuthToken string
+			// CollectionID is the collectionID argument value.
+			CollectionID string
+			// ID is the id argument value.
+			ID string
+			// Edition is the edition argument value.
+			Edition string
+			// Version is the version argument value.
+			Version string
+		}
 		// PutVersion holds details about calls to the PutVersion method.
 		PutVersion []struct {
 			// Ctx is the ctx argument value.
@@ -76,8 +99,9 @@ type DatasetAPIClientMock struct {
 			M dataset.Version
 		}
 	}
-	lockGetInstance sync.RWMutex
-	lockPutVersion  sync.RWMutex
+	lockGetInstance        sync.RWMutex
+	lockGetVersionMetadata sync.RWMutex
+	lockPutVersion         sync.RWMutex
 }
 
 // GetInstance calls GetInstanceFunc.
@@ -128,6 +152,61 @@ func (mock *DatasetAPIClientMock) GetInstanceCalls() []struct {
 	mock.lockGetInstance.RLock()
 	calls = mock.calls.GetInstance
 	mock.lockGetInstance.RUnlock()
+	return calls
+}
+
+// GetVersionMetadata calls GetVersionMetadataFunc.
+func (mock *DatasetAPIClientMock) GetVersionMetadata(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, id string, edition string, version string) (dataset.Metadata, error) {
+	if mock.GetVersionMetadataFunc == nil {
+		panic("DatasetAPIClientMock.GetVersionMetadataFunc: method is nil but DatasetAPIClient.GetVersionMetadata was just called")
+	}
+	callInfo := struct {
+		Ctx              context.Context
+		UserAuthToken    string
+		ServiceAuthToken string
+		CollectionID     string
+		ID               string
+		Edition          string
+		Version          string
+	}{
+		Ctx:              ctx,
+		UserAuthToken:    userAuthToken,
+		ServiceAuthToken: serviceAuthToken,
+		CollectionID:     collectionID,
+		ID:               id,
+		Edition:          edition,
+		Version:          version,
+	}
+	mock.lockGetVersionMetadata.Lock()
+	mock.calls.GetVersionMetadata = append(mock.calls.GetVersionMetadata, callInfo)
+	mock.lockGetVersionMetadata.Unlock()
+	return mock.GetVersionMetadataFunc(ctx, userAuthToken, serviceAuthToken, collectionID, id, edition, version)
+}
+
+// GetVersionMetadataCalls gets all the calls that were made to GetVersionMetadata.
+// Check the length with:
+//     len(mockedDatasetAPIClient.GetVersionMetadataCalls())
+func (mock *DatasetAPIClientMock) GetVersionMetadataCalls() []struct {
+	Ctx              context.Context
+	UserAuthToken    string
+	ServiceAuthToken string
+	CollectionID     string
+	ID               string
+	Edition          string
+	Version          string
+} {
+	var calls []struct {
+		Ctx              context.Context
+		UserAuthToken    string
+		ServiceAuthToken string
+		CollectionID     string
+		ID               string
+		Edition          string
+		Version          string
+	}
+	mock.lockGetVersionMetadata.RLock()
+	calls = mock.calls.GetVersionMetadata
+	mock.lockGetVersionMetadata.RUnlock()
 	return calls
 }
 

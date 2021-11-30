@@ -91,7 +91,7 @@ func Get() (*Config, error) {
 			SecClientCert:                "",
 			SecSkipVerify:                false,
 			CsvCreatedGroup:              "dp-cantabular-xlsx-exporter",
-			CsvCreatedTopic:              "cantabular-csv-created",
+			CsvCreatedTopic:              "cantabular-csvw-created",
 			CantabularOutputCreatedTopic: "cantabular-output-created",
 		},
 	}

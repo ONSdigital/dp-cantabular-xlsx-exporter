@@ -216,7 +216,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, event *event.CantabularCsvCreat
 		}
 	}
 
-	if err = h.AddMetaDataToExcelStructure(excelInMemoryStructure); err != nil {
+	if err = h.AddMetaDataToExcelStructure(ctx, excelInMemoryStructure, event); err != nil {
 		return &Error{err: fmt.Errorf("AddMetaDataToExcelStructure failed: %w", err),
 			logData: logData,
 		}

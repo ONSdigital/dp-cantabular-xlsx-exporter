@@ -48,6 +48,7 @@ type DatasetAPIClient interface {
 	PutVersion(ctx context.Context, userAuthToken, serviceAuthToken, collectionID, datasetID, edition, version string, m dataset.Version) error
 	GetInstance(ctx context.Context, userAuthToken, serviceAuthToken, collectionID, instanceID, ifMatch string) (m dataset.Instance, eTag string, err error)
 	Checker(context.Context, *healthcheck.CheckState) error
+	GetVersionMetadata(ctx context.Context, userAuthToken, serviceAuthToken, collectionID, id, edition, version string) (dataset.Metadata, error)
 }
 type S3Client interface {
 	Get(key string) (io.ReadCloser, *int64, error)
