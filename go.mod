@@ -7,7 +7,7 @@ replace github.com/coreos/etcd => github.com/coreos/etcd v3.3.24+incompatible
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.41.1
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.4.2
-	github.com/ONSdigital/dp-component-test v0.6.0
+	github.com/ONSdigital/dp-component-test v0.6.3
 	github.com/ONSdigital/dp-healthcheck v1.1.3
 	github.com/ONSdigital/dp-kafka/v2 v2.4.2
 	github.com/ONSdigital/dp-net v1.2.0
@@ -18,7 +18,7 @@ require (
 	github.com/cucumber/godog v0.12.1
 	github.com/gorilla/mux v1.8.0
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/maxcnunes/httpfake v1.2.1
+	github.com/maxcnunes/httpfake v1.2.4
 	github.com/smartystreets/goconvey v1.7.2
 	github.com/xuri/excelize/v2 v2.4.1
 )
