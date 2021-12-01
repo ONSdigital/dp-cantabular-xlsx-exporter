@@ -36,7 +36,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 
 	rowNumber := 1
 
-	columnAwidth := 1 //change to A, B
+	columnAwidth := 1
 	columnBwidth := 1
 
 	processError := false
