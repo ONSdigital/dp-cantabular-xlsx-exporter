@@ -427,9 +427,8 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 					return fmt.Errorf("ColumnNumberToName %w", err)
 				}
 				err = excelInMemoryStructure.SetColWidth(sheet1, columnName, columnName, float64(width))
-				// log.Info(ctx, fmt.Sprintf("SetColWidth i: %d, columnName: %s, width: %d, width float: %f", i, columnName, width, float64(width)))
 				if err != nil {
-					return &Error{err: err}
+					return fmt.Errorf("SetColWidth failed for Dataset sheet: %w", err)
 				}
 			}
 		}

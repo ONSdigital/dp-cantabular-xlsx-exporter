@@ -7,14 +7,11 @@ import (
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/log.go/v2/log"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/xuri/excelize/v2"
 )
 
-// AddMetaDataToExcelStructure streams in a line at a time from .txt or .csvw file from S3 bucket and
-// inserts it into the excel "in memory structure"
-// !!! OR it might read the whole .txt or .csvw file into memory first (as its possibly less than 1 mega byte)
-// and then inserts it into the excel "in memory structure"
+// AddMetaDataToExcelStructure reads in the metadata structure and extracts the desired items in the desired order
+// and places them into the metadata sheet of the in-memory excelize library structure
 func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated) error {
 	logData := log.Data{
 		"event": event,
@@ -46,13 +43,11 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 
 	var processErrorStr error
 
-	// TODO place proper comments to describe what the below function does
-
+	// place items in columns A and B, determine max column widths, and advance to next row
 	processMetaElement := func(col1, col2 string, skipIfCol2Empty bool) {
 		if processError {
 			return
 		}
-		fmt.Printf("%s: %s\n", col1, col2) // TODO remove this once development is complete
 
 		if skipIfCol2Empty && col2 == "" {
 			return
@@ -91,10 +86,11 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		rowNumber++
 	}
 
+	// TODO the below fields are only an initial prototype, further adjustments will be needed we get the full metadata structure definition
 	processMetaElement("Title", meta.DatasetDetails.Title, true)
 	processMetaElement("Description", meta.DatasetDetails.Description, true)
 	processMetaElement("Release Date", meta.Version.ReleaseDate, true)
-	processMetaElement("URL", meta.DatasetDetails.URI, true) // TODO which entry box in florence causes this to be populated, as this is printing a blank when I've entered something into the URI box?
+	processMetaElement("Dataset URL", meta.DatasetDetails.URI, true)
 	processMetaElement("Unit of Measure", meta.DatasetDetails.UnitOfMeasure, true)
 
 	if meta.DatasetDetails.Contacts != nil {
@@ -114,9 +110,6 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 			rowNumber++
 		}
 	}
-	fmt.Printf("meta struct: %v\n", meta)                            // TODO trash after test
-	spew.Dump(meta)                                                  // TODO trash after test
-	log.Info(ctx, "full meta struct", log.Data{"meta struct": meta}) // TODO trash after test
 
 	if meta.Version.Alerts != nil {
 		processMetaElement("Alerts", "", false)
@@ -136,32 +129,6 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 
 	processMetaElement("Qulaity and methodology information", meta.DatasetDetails.QMI.URL, true)
 
-	csvVal, csvOk := meta.Version.Downloads["csv"]
-	csvwVal, csvwOk := meta.Version.Downloads["csvw"]
-	txtVal, txtOk := meta.Version.Downloads["txt"]
-	xlsxVal, xlsxOk := meta.Version.Downloads["xlsx"]
-
-	if csvOk || csvwOk || txtOk || xlsxOk {
-
-		processMetaElement("Downloads:", "", false)
-		if csvOk && csvVal.URL != "" {
-			processMetaElement("    csv:", csvVal.URL, true)
-			// we also need to show the values in csvVal
-		}
-		if csvwOk && csvwVal.URL != "" {
-			processMetaElement("    csvw:", csvwVal.URL, true)
-			// we also need to show the values in csvwVal
-		}
-		if txtOk && txtVal.URL != "" {
-			processMetaElement("    txt:", txtVal.URL, true)
-			// we also need to show the values in txtVal
-		}
-		if xlsxOk && xlsxVal.URL != "" {
-			processMetaElement("    xlsx:", xlsxVal.URL, true)
-			// we also need to show the values in xlsxVal
-		}
-	}
-
 	rowNumber++
 
 	processMetaElement("Version", strconv.Itoa(meta.Version.Version), true)
@@ -170,36 +137,22 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		return fmt.Errorf("error in processing metadata: %w", processErrorStr)
 	}
 
-	if columnAwidth > 255 {
-		columnAwidth = 255
-	} // won't work properly because of indentation
-
-	if columnBwidth > 255 {
-		columnBwidth = 255
+	if columnAwidth > maxExcelizeColumnWidth {
+		columnAwidth = maxExcelizeColumnWidth
 	}
 
-	// fmt.Printf("column A width: %d\n", columnAwidth)
-
-	err = excelInMemoryStructure.SetColWidth("Metadata", "A", "A", float64(columnAwidth)) // !!! the max can be 255, so clamp in code at some point !!!
-	// NOTE: the above sets the widt to 8 times the max width of a character in a font and does not do proportionality for different width characters in a font
-	// ... so, it would be best if we used a fixed width font !!! ... not Aerial as in the dp-dataset-exporter-xlsx
-	//!!! also if the max number of characters in a column is say 10, then set the coumn width to 10+1 => 11
-	if err != nil {
-		fmt.Printf("SetColWidth A failed: %w", err)
-
-		// return proper error
+	if columnBwidth > maxExcelizeColumnWidth {
+		columnBwidth = maxExcelizeColumnWidth
 	}
 
-	// fmt.Printf("column B width: %d\n", columnBwidth)
-
-	err = excelInMemoryStructure.SetColWidth("Metadata", "B", "B", float64(columnBwidth)) // !!! the max can be 255, so clamp in code at some point !!!
-	// NOTE: the above sets the widt to 8 times the max width of a character in a font and does not do proportionality for different width characters in a font
-	// ... so, it would be best if we used a fixed width font !!! ... not Aerial as in the dp-dataset-exporter-xlsx
-	//!!! also if the max number of characters in a column is say 10, then set the coumn width to 10+1 => 11
+	err = excelInMemoryStructure.SetColWidth("Metadata", "A", "A", float64(columnAwidth))
 	if err != nil {
-		fmt.Printf("SetColWidth B failed: %w", err)
+		return fmt.Errorf("SetColWidth A failed: %w", err)
+	}
 
-		// return proper error
+	err = excelInMemoryStructure.SetColWidth("Metadata", "B", "B", float64(columnBwidth))
+	if err != nil {
+		return fmt.Errorf("SetColWidth B failed: %w", err)
 	}
 
 	return nil
