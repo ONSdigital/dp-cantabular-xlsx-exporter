@@ -7,7 +7,7 @@ import (
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/handler"
-	kafka "github.com/ONSdigital/dp-kafka/v2"
+	kafka "github.com/ONSdigital/dp-kafka/v3"
 	"github.com/ONSdigital/log.go/v2/log"
 
 	"github.com/gorilla/mux"
@@ -57,9 +57,6 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 		}
 	}
 
-	// Kafka error logging go-routine
-	//	consumer.Channels().LogErrors(ctx, "kafka consumer") !!! does the stuff above have this, or need something like this ?
-
 	svc.DatasetAPIClient = GetDatasetAPIClient(cfg)
 
 	svc.Processor = GetProcessor(cfg)
@@ -86,7 +83,7 @@ func (svc *Service) Start(ctx context.Context, svcErrors chan error) {
 	log.Info(ctx, "starting service")
 
 	// Kafka error logging go-routine
-	svc.Consumer.Channels().LogErrors(ctx, "kafka consumer")
+	svc.Consumer.LogErrors(ctx)
 
 	// Event Handler for Kafka Consumer
 	svc.Processor.Consume(
@@ -102,6 +99,8 @@ func (svc *Service) Start(ctx context.Context, svcErrors chan error) {
 			svc.generator,
 		),
 	)
+
+	svc.Consumer.Start()
 
 	svc.HealthCheck.Start(ctx)
 
@@ -133,10 +132,7 @@ func (svc *Service) Close(ctx context.Context) error {
 		// This will automatically stop the event consumer loops and no more messages will be processed.
 		// The kafka consumer will be closed after the service shuts down.
 		if svc.Consumer != nil {
-			if err := svc.Consumer.StopListeningToConsumer(shutdownCtx); err != nil {
-				log.Error(shutdownCtx, "error stopping kafka consumer listener", err)
-				hasShutdownError = true
-			}
+			svc.Consumer.StopAndWait()
 			log.Info(shutdownCtx, "stopped kafka consumer listener")
 		}
 

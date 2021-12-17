@@ -11,7 +11,7 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/generator"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 
-	kafka "github.com/ONSdigital/dp-kafka/v2"
+	kafka "github.com/ONSdigital/dp-kafka/v3"
 	dphttp "github.com/ONSdigital/dp-net/http"
 	dps3 "github.com/ONSdigital/dp-s3/v2"
 	vault "github.com/ONSdigital/dp-vault"
@@ -32,15 +32,18 @@ var GetHTTPServer = func(bindAddr string, router http.Handler) HTTPServer {
 
 // GetKafkaConsumer creates a Kafka consumer
 var GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.IConsumerGroup, error) {
-	cgChannels := kafka.CreateConsumerGroupChannels(cfg.KafkaConfig.NumWorkers)
-
 	kafkaOffset := kafka.OffsetNewest
 	if cfg.KafkaConfig.OffsetOldest {
 		kafkaOffset = kafka.OffsetOldest
 	}
 	cgConfig := &kafka.ConsumerGroupConfig{
-		KafkaVersion: &cfg.KafkaConfig.Version,
-		Offset:       &kafkaOffset,
+		BrokerAddrs:       cfg.KafkaConfig.Addr,
+		MinBrokersHealthy: &cfg.KafkaConfig.ConsumerMinBrokersHealthy,
+		Topic:             cfg.KafkaConfig.CsvCreatedTopic,
+		GroupName:         cfg.KafkaConfig.CsvCreatedGroup,
+		KafkaVersion:      &cfg.KafkaConfig.Version,
+		NumWorkers:        &cfg.KafkaConfig.NumWorkers,
+		Offset:            &kafkaOffset,
 	}
 	if cfg.KafkaConfig.SecProtocol == config.KafkaTLSProtocolFlag {
 		cgConfig.SecurityConfig = kafka.GetSecurityConfig(
@@ -50,22 +53,17 @@ var GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.ICon
 			cfg.KafkaConfig.SecSkipVerify,
 		)
 	}
-	return kafka.NewConsumerGroup(
-		ctx,
-		cfg.KafkaConfig.Addr,
-		cfg.KafkaConfig.CsvCreatedTopic,
-		cfg.KafkaConfig.CsvCreatedGroup,
-		cgChannels,
-		cgConfig,
-	)
+	return kafka.NewConsumerGroup(ctx, cgConfig)
 }
 
 // GetKafkaProducer creates a Kafka producer
 var GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (kafka.IProducer, error) {
-	pChannels := kafka.CreateProducerChannels()
 	pConfig := &kafka.ProducerConfig{
-		KafkaVersion:    &cfg.KafkaConfig.Version,
-		MaxMessageBytes: &cfg.KafkaConfig.MaxBytes,
+		BrokerAddrs:       cfg.KafkaConfig.Addr,
+		MinBrokersHealthy: &cfg.KafkaConfig.ProducerMinBrokersHealthy,
+		Topic:             cfg.KafkaConfig.CantabularOutputCreatedTopic,
+		KafkaVersion:      &cfg.KafkaConfig.Version,
+		MaxMessageBytes:   &cfg.KafkaConfig.MaxBytes,
 	}
 	if cfg.KafkaConfig.SecProtocol == config.KafkaTLSProtocolFlag {
 		pConfig.SecurityConfig = kafka.GetSecurityConfig(
@@ -75,13 +73,7 @@ var GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (kafka.IPro
 			cfg.KafkaConfig.SecSkipVerify,
 		)
 	}
-	return kafka.NewProducer(
-		ctx,
-		cfg.KafkaConfig.Addr,
-		cfg.KafkaConfig.CantabularOutputCreatedTopic,
-		pChannels,
-		pConfig,
-	)
+	return kafka.NewProducer(ctx, pConfig)
 }
 
 // GetDatasetAPIClient gets and initialises the DatasetAPI Client

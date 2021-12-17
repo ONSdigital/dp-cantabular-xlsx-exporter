@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
-	kafka "github.com/ONSdigital/dp-kafka/v2"
+	kafka "github.com/ONSdigital/dp-kafka/v3"
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
