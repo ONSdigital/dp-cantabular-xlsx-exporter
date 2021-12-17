@@ -25,10 +25,6 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		}
 	}
 
-	log.Info(ctx, "metadata structure", log.Data{ // TODO this is for test, remove at some point
-		"metadata_struct": meta,
-	})
-
 	metaExcel := "Metadata"
 
 	// we don't need to save the newly created sheet number, because the caller of this function will set the active page to a different sheet
@@ -127,11 +123,12 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		}
 	}
 
-	processMetaElement("Qulaity and methodology information", meta.DatasetDetails.QMI.URL, true)
+	processMetaElement("Quality and methodology information", meta.DatasetDetails.QMI.URL, true)
 
 	rowNumber++
 
 	processMetaElement("Version", strconv.Itoa(meta.Version.Version), true)
+	processMetaElement("Dataset version", meta.DatasetLinks.LatestVersion.URL, true)
 
 	if processError {
 		return fmt.Errorf("error in processing metadata: %w", processErrorStr)
