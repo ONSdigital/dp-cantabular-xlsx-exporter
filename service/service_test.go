@@ -74,18 +74,18 @@ func TestInit(t *testing.T) {
 			return datasetApiMock
 		}
 
-		s3PrivateUploaderMock := &serviceMock.S3ClientMock{
+		s3PrivateClientMock := &serviceMock.S3ClientMock{
 			CheckerFunc: func(context.Context, *healthcheck.CheckState) error {
 				return nil
 			},
 		}
-		s3PublicUploaderMock := &serviceMock.S3ClientMock{
+		s3PublicClientMock := &serviceMock.S3ClientMock{
 			CheckerFunc: func(context.Context, *healthcheck.CheckState) error {
 				return nil
 			},
 		}
-		service.GetS3Uploaders = func(cfg *config.Config) (service.S3Client, service.S3Client, error) {
-			return s3PrivateUploaderMock, s3PublicUploaderMock, nil
+		service.GetS3Clients = func(cfg *config.Config) (service.S3Client, service.S3Client, error) {
+			return s3PrivateClientMock, s3PublicClientMock, nil
 		}
 
 		vaultMock := &serviceMock.VaultClientMock{
@@ -166,19 +166,18 @@ func TestInit(t *testing.T) {
 				So(svc.Consumer, ShouldResemble, consumerMock)
 				So(svc.Producer, ShouldResemble, producerMock)
 				So(svc.DatasetAPIClient, ShouldResemble, datasetApiMock)
-				So(svc.S3PrivateUploader, ShouldResemble, s3PrivateUploaderMock)
-				So(svc.S3PublicUploader, ShouldResemble, s3PublicUploaderMock)
+				So(svc.S3Private, ShouldResemble, s3PrivateClientMock)
+				So(svc.S3Public, ShouldResemble, s3PublicClientMock)
 				So(svc.VaultClient, ShouldResemble, vaultMock)
 
 				Convey("And all checks are registered", func() {
-					So(hcMock.AddCheckCalls(), ShouldHaveLength, 7)
+					So(hcMock.AddCheckCalls(), ShouldHaveLength, 6)
 					So(hcMock.AddCheckCalls()[0].Name, ShouldResemble, "Kafka consumer")
 					So(hcMock.AddCheckCalls()[1].Name, ShouldResemble, "Kafka producer")
 					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "Dataset API client")
-					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "S3 private uploader")
-					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "S3 public uploader")
-					So(hcMock.AddCheckCalls()[5].Name, ShouldResemble, "S3 private and public downloader")
-					So(hcMock.AddCheckCalls()[6].Name, ShouldResemble, "Vault")
+					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "S3 private client")
+					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "S3 public client")
+					So(hcMock.AddCheckCalls()[5].Name, ShouldResemble, "Vault")
 				})
 			})
 		})
@@ -195,17 +194,16 @@ func TestInit(t *testing.T) {
 				So(svc.Consumer, ShouldResemble, consumerMock)
 				So(svc.Producer, ShouldResemble, producerMock)
 				So(svc.DatasetAPIClient, ShouldResemble, datasetApiMock)
-				So(svc.S3PrivateUploader, ShouldResemble, s3PrivateUploaderMock)
-				So(svc.S3PublicUploader, ShouldResemble, s3PublicUploaderMock)
+				So(svc.S3Private, ShouldResemble, s3PrivateClientMock)
+				So(svc.S3Public, ShouldResemble, s3PublicClientMock)
 
 				Convey("And all checks are registered, except Vault", func() {
-					So(hcMock.AddCheckCalls(), ShouldHaveLength, 6)
+					So(hcMock.AddCheckCalls(), ShouldHaveLength, 5)
 					So(hcMock.AddCheckCalls()[0].Name, ShouldResemble, "Kafka consumer")
 					So(hcMock.AddCheckCalls()[1].Name, ShouldResemble, "Kafka producer")
 					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "Dataset API client")
-					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "S3 private uploader")
-					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "S3 public uploader")
-					So(hcMock.AddCheckCalls()[5].Name, ShouldResemble, "S3 private and public downloader")
+					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "S3 private client")
+					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "S3 public client")
 				})
 			})
 		})

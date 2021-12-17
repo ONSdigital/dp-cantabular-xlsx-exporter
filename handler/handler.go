@@ -13,13 +13,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ONSdigital/dp-api-clients-go/headers"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
+	"github.com/ONSdigital/dp-api-clients-go/v2/headers"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 
 	kafka "github.com/ONSdigital/dp-kafka/v2"
-	dps3 "github.com/ONSdigital/dp-s3"
 
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -36,30 +35,26 @@ const (
 
 // XlsxCreate is the handle for the CsvHandler event
 type XlsxCreate struct {
-	cfg                 config.Config
-	datasets            DatasetAPIClient
-	s3PrivateUploader   S3Uploader
-	s3PublicUploader    S3Uploader
-	s3PrivateDownloader *dps3.S3
-	s3PublicDownloader  *dps3.S3
-	vaultClient         VaultClient
-	producer            kafka.IProducer
-	generator           Generator
+	cfg         config.Config
+	datasets    DatasetAPIClient
+	s3Private   S3Client
+	s3Public    S3Client
+	vaultClient VaultClient
+	producer    kafka.IProducer
+	generator   Generator
 }
 
 // NewXlsxCreatecreates a new CsvHandler
-func NewXlsxCreate(cfg config.Config, d DatasetAPIClient, sPrivateUploader S3Uploader, sPublicUploader S3Uploader,
-	sPrivateDownloader *dps3.S3, sPublicDownloader *dps3.S3, v VaultClient, p kafka.IProducer, g Generator) *XlsxCreate {
+func NewXlsxCreate(cfg config.Config, d DatasetAPIClient, sPrivate S3Client, sPublic S3Client,
+	v VaultClient, p kafka.IProducer, g Generator) *XlsxCreate {
 	return &XlsxCreate{
-		cfg:                 cfg,
-		datasets:            d,
-		s3PrivateUploader:   sPrivateUploader,
-		s3PublicUploader:    sPublicUploader,
-		s3PrivateDownloader: sPrivateDownloader,
-		s3PublicDownloader:  sPublicDownloader,
-		vaultClient:         v,
-		producer:            p,
-		generator:           g,
+		cfg:         cfg,
+		datasets:    d,
+		s3Private:   sPrivate,
+		s3Public:    sPublic,
+		vaultClient: v,
+		producer:    p,
+		generator:   g,
 	}
 }
 
@@ -69,13 +64,13 @@ func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, eve
 	var lengthPtr *int64
 
 	if isPublished {
-		s3ReadCloser, lengthPtr, err = h.s3PublicDownloader.Get(filenameCsv)
+		s3ReadCloser, lengthPtr, err = h.s3Public.Get(filenameCsv)
 		if err != nil {
 			return 0, fmt.Errorf("failed in Published Get: %w", err)
 		}
 	} else {
 		if h.cfg.EncryptionDisabled {
-			s3ReadCloser, lengthPtr, err = h.s3PrivateDownloader.Get(filenameCsv)
+			s3ReadCloser, lengthPtr, err = h.s3Private.Get(filenameCsv)
 			if err != nil {
 				return 0, fmt.Errorf("failed in Get: %w", err)
 			}
@@ -85,7 +80,7 @@ func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, eve
 				return 0, fmt.Errorf("failed in getVaultKeyForCSVFile: %w", err)
 			}
 
-			s3ReadCloser, lengthPtr, err = h.s3PrivateDownloader.GetWithPSK(filenameCsv, psk)
+			s3ReadCloser, lengthPtr, err = h.s3Private.GetWithPSK(filenameCsv, psk)
 			if err != nil {
 				return 0, fmt.Errorf("failed in GetWithPSK: %w", err)
 			}
@@ -261,9 +256,9 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 	}
 
 	if isPublished {
-		bucketName = h.s3PublicUploader.BucketName()
+		bucketName = h.s3Public.BucketName()
 	} else {
-		bucketName = h.s3PrivateUploader.BucketName()
+		bucketName = h.s3Private.BucketName()
 	}
 
 	filenameCsv := generateS3FilenameCSV(event)
@@ -438,9 +433,9 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated, isPublished bool) (string, error) {
 	var bucketName string
 	if isPublished {
-		bucketName = h.s3PublicUploader.BucketName()
+		bucketName = h.s3Public.BucketName()
 	} else {
-		bucketName = h.s3PrivateUploader.BucketName()
+		bucketName = h.s3Private.BucketName()
 	}
 
 	filenameXlsx := generateS3FilenameXLSX(event)
@@ -517,7 +512,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 		// We use UploadWithContext because when processing an excel file that is
 		// nearly 1million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 		// to shut down gracefully before installing a new version of this app, then this could cause problems.
-		result, err := h.s3PublicUploader.UploadWithContext(ctx, &s3manager.UploadInput{
+		result, err := h.s3Public.UploadWithContext(ctx, &s3manager.UploadInput{
 			Body:   file,
 			Bucket: &bucketName,
 			Key:    &filename,
@@ -535,7 +530,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 		if h.cfg.EncryptionDisabled {
 			log.Info(ctx, "uploading unencrypted file to S3", logData)
 
-			result, err := h.s3PrivateUploader.UploadWithContext(ctx, &s3manager.UploadInput{
+			result, err := h.s3Private.UploadWithContext(ctx, &s3manager.UploadInput{
 				Body:   file,
 				Bucket: &bucketName,
 				Key:    &filename,
@@ -571,7 +566,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 			// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 			// to shut down gracefully before installing a new version of this app, then without using context this
 			// could cause problems.
-			result, err := h.s3PrivateUploader.UploadWithPSKAndContext(ctx, &s3manager.UploadInput{
+			result, err := h.s3Private.UploadWithPSKAndContext(ctx, &s3manager.UploadInput{
 				Body:   file,
 				Bucket: &bucketName,
 				Key:    &filename,
@@ -599,13 +594,13 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPublished bool) (int, error) {
 	filename := generateS3FilenameXLSX(event)
 	if isPublished {
-		headOutput, err := h.s3PublicUploader.Head(filename)
+		headOutput, err := h.s3Public.Head(filename)
 		if err != nil {
 			return 0, fmt.Errorf("public s3 head object error: %w", err)
 		}
 		return int(*headOutput.ContentLength), nil
 	}
-	headOutput, err := h.s3PrivateUploader.Head(filename)
+	headOutput, err := h.s3Private.Head(filename)
 	if err != nil {
 		return 0, fmt.Errorf("private s3 head object error: %w", err)
 	}

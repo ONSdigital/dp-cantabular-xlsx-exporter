@@ -19,7 +19,7 @@ import (
 //go:generate moq -out mock/server.go -pkg mock . HTTPServer
 //go:generate moq -out mock/health_check.go -pkg mock . HealthChecker
 //go:generate moq -out mock/dataset_api_client.go -pkg mock . DatasetAPIClient
-//go:generate moq -out mock/s3_uploader.go -pkg mock . S3Client
+//go:generate moq -out mock/s3_client.go -pkg mock . S3Client
 //go:generate moq -out mock/vault.go -pkg mock . VaultClient
 //go:generate moq -out mock/processor.go -pkg mock . Processor
 
