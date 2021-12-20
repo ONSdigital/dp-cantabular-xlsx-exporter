@@ -17,6 +17,7 @@ import (
 	"github.com/ONSdigital/dp-api-clients-go/v2/headers"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
 
 	kafka "github.com/ONSdigital/dp-kafka/v3"
 
@@ -124,10 +125,21 @@ func (h *XlsxCreate) getVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([
 }
 
 // Handle takes a single event.
-func (h *XlsxCreate) Handle(ctx context.Context, event *event.CantabularCsvCreated) error {
-	logData := log.Data{
-		"event": event,
+func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message) error {
+	event := &event.CantabularCsvCreated{}
+	s := schema.CantabularCsvCreated
+
+	if err := s.Unmarshal(msg.GetData(), event); err != nil {
+		return &Error{
+			err: fmt.Errorf("failed to unmarshal event: %w", err),
+			logData: map[string]interface{}{
+				"msg_data": msg.GetData(),
+			},
+		}
 	}
+
+	logData := log.Data{"event": event}
+	log.Info(ctx, "event received", logData)
 
 	if event.RowCount > maxAllowedRowCount {
 		return &Error{err: fmt.Errorf("full download too large to export to .xlsx file"),

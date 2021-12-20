@@ -21,7 +21,6 @@ type Service struct {
 	Consumer         kafka.IConsumerGroup
 	Producer         kafka.IProducer
 	DatasetAPIClient DatasetAPIClient
-	Processor        Processor
 	S3Private        S3Client
 	S3Public         S3Client
 	VaultClient      VaultClient
@@ -59,8 +58,19 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 
 	svc.DatasetAPIClient = GetDatasetAPIClient(cfg)
 
-	svc.Processor = GetProcessor(cfg)
 	svc.generator = GetGenerator()
+
+	// Event Handler for Kafka Consumer
+	h := handler.NewXlsxCreate(
+		*svc.Cfg,
+		svc.DatasetAPIClient,
+		svc.S3Private,
+		svc.S3Public,
+		svc.VaultClient,
+		svc.Producer,
+		svc.generator,
+	)
+	svc.Consumer.RegisterHandler(ctx, h.Handle)
 
 	// Get HealthCheck
 	if svc.HealthCheck, err = GetHealthCheck(cfg, buildTime, gitCommit, version); err != nil {
@@ -84,21 +94,6 @@ func (svc *Service) Start(ctx context.Context, svcErrors chan error) {
 
 	// Kafka error logging go-routine
 	svc.Consumer.LogErrors(ctx)
-
-	// Event Handler for Kafka Consumer
-	svc.Processor.Consume(
-		ctx,
-		svc.Consumer,
-		handler.NewXlsxCreate(
-			*svc.Cfg,
-			svc.DatasetAPIClient,
-			svc.S3Private,
-			svc.S3Public,
-			svc.VaultClient,
-			svc.Producer,
-			svc.generator,
-		),
-	)
 
 	// If start/stop on health updates is disabled, start consuming as soon as possible
 	if !svc.Cfg.StopConsumingOnUnhealthy {

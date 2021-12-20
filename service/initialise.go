@@ -7,7 +7,6 @@ import (
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
-	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/generator"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 
@@ -113,11 +112,6 @@ var GetS3Clients = func(cfg *config.Config) (privateClient, publicClient S3Clien
 // GetVault creates a VaultClient
 var GetVault = func(cfg *config.Config) (VaultClient, error) {
 	return vault.CreateClient(cfg.VaultToken, cfg.VaultAddress, VaultRetries)
-}
-
-// GetProcessor gets and initialises the event Processor
-var GetProcessor = func(cfg *config.Config) Processor {
-	return event.NewProcessor(*cfg)
 }
 
 // GetHealthCheck creates a healthcheck with versionInfo

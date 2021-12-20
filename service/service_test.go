@@ -11,7 +11,6 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/service"
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
-	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	serviceMock "github.com/ONSdigital/dp-cantabular-xlsx-exporter/service/mock"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 
@@ -41,7 +40,11 @@ func TestInit(t *testing.T) {
 		cfg, err := config.Get()
 		So(err, ShouldBeNil)
 
-		consumerMock := &kafkatest.IConsumerGroupMock{}
+		consumerMock := &kafkatest.IConsumerGroupMock{
+			RegisterHandlerFunc: func(ctx context.Context, h kafka.Handler) error {
+				return nil
+			},
+		}
 		service.GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.IConsumerGroup, error) {
 			return consumerMock, nil
 		}
@@ -96,12 +99,6 @@ func TestInit(t *testing.T) {
 		}
 		service.GetVault = func(cfg *config.Config) (service.VaultClient, error) {
 			return vaultMock, nil
-		}
-
-		service.GetProcessor = func(cfg *config.Config) service.Processor {
-			return &serviceMock.ProcessorMock{
-				ConsumeFunc: func(context.Context, kafka.IConsumerGroup, event.Handler) {},
-			}
 		}
 
 		svc := &service.Service{}
@@ -185,6 +182,10 @@ func TestInit(t *testing.T) {
 					So(hcMock.SubscribeAllCalls(), ShouldHaveLength, 1)
 					So(hcMock.SubscribeAllCalls()[0].S, ShouldEqual, svc.Consumer)
 				})
+
+				Convey("And the kafka handler handler is registered to the consumer", func() {
+					So(consumerMock.RegisterHandlerCalls(), ShouldHaveLength, 1)
+				})
 			})
 		})
 
@@ -210,6 +211,15 @@ func TestInit(t *testing.T) {
 					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "Dataset API client")
 					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "S3 private client")
 					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "S3 public client")
+				})
+
+				Convey("And kafka consumer subscribes to all the healthcheck checkers", func() {
+					So(hcMock.SubscribeAllCalls(), ShouldHaveLength, 1)
+					So(hcMock.SubscribeAllCalls()[0].S, ShouldEqual, svc.Consumer)
+				})
+
+				Convey("And the kafka handler handler is registered to the consumer", func() {
+					So(consumerMock.RegisterHandlerCalls(), ShouldHaveLength, 1)
 				})
 			})
 		})
@@ -240,10 +250,6 @@ func TestStart(t *testing.T) {
 			StartFunc:     func() error { return nil },
 		}
 
-		processorMock := &serviceMock.ProcessorMock{
-			ConsumeFunc: func(context.Context, kafka.IConsumerGroup, event.Handler) {},
-		}
-
 		hcMock := &serviceMock.HealthCheckerMock{
 			StartFunc: func(ctx context.Context) {},
 		}
@@ -256,7 +262,6 @@ func TestStart(t *testing.T) {
 			Server:      serverMock,
 			HealthCheck: hcMock,
 			Consumer:    consumerMock,
-			Processor:   processorMock,
 		}
 
 		Convey("When a service with a successful HTTP server is started", func() {
