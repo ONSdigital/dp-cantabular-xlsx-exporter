@@ -52,7 +52,8 @@ func TestInit(t *testing.T) {
 		}
 
 		hcMock := &serviceMock.HealthCheckerMock{
-			AddCheckFunc: func(name string, checker healthcheck.Checker) error { return nil },
+			AddCheckFunc:     func(name string, checker healthcheck.Checker) error { return nil },
+			SubscribeAllFunc: func(s healthcheck.Subscriber) {},
 		}
 		service.GetHealthCheck = func(cfg *config.Config, buildTime, gitCommit, version string) (service.HealthChecker, error) {
 			return hcMock, nil
@@ -179,6 +180,11 @@ func TestInit(t *testing.T) {
 					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "S3 public client")
 					So(hcMock.AddCheckCalls()[5].Name, ShouldResemble, "Vault")
 				})
+
+				Convey("And kafka consumer subscribes to all the healthcheck checkers", func() {
+					So(hcMock.SubscribeAllCalls(), ShouldHaveLength, 1)
+					So(hcMock.SubscribeAllCalls()[0].S, ShouldEqual, svc.Consumer)
+				})
 			})
 		})
 
@@ -205,6 +211,19 @@ func TestInit(t *testing.T) {
 					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "S3 private client")
 					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "S3 public client")
 				})
+			})
+		})
+
+		Convey("Given that all dependencies are successfully initialised and StopConsumingOnUnhealthy is disabled", func() {
+			cfg.StopConsumingOnUnhealthy = false
+			defer func() {
+				cfg.StopConsumingOnUnhealthy = true
+			}()
+
+			Convey("Then service Init succeeds, and the kafka consumer does not subscribe to the healthcheck library", func() {
+				err := svc.Init(ctx, cfg, testBuildTime, testGitCommit, testVersion)
+				So(err, ShouldBeNil)
+				So(hcMock.SubscribeAllCalls(), ShouldHaveLength, 0)
 			})
 		})
 	})
@@ -267,6 +286,25 @@ func TestStart(t *testing.T) {
 			Convey("Then HTTP server errors are reported to the provided errors channel", func() {
 				rxErr := <-errChan
 				So(rxErr.Error(), ShouldResemble, fmt.Sprintf("failure in http listen and serve: %s", errServer.Error()))
+			})
+		})
+
+		Convey("When a service with a successful HTTP server is started and StopConsumingOnUnhealthy is false", func() {
+			cfg.StopConsumingOnUnhealthy = false
+			defer func() {
+				cfg.StopConsumingOnUnhealthy = true
+			}()
+
+			consumerMock.StartFunc = func() error { return nil }
+			serverMock.ListenAndServeFunc = func() error {
+				serverWg.Done()
+				return nil
+			}
+			serverWg.Add(1)
+			svc.Start(ctx, make(chan error, 1))
+
+			Convey("Then the kafka consumer is started", func() {
+				So(consumerMock.StartCalls(), ShouldHaveLength, 1)
 			})
 		})
 	})

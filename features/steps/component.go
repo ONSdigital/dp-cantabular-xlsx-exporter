@@ -76,6 +76,7 @@ func (c *Component) initService(ctx context.Context) error {
 
 	log.Info(ctx, "config read", log.Data{"cfg": cfg})
 
+	cfg.StopConsumingOnUnhealthy = true
 	cfg.EncryptionDisabled = true
 	cfg.KafkaConfig.ConsumerMinBrokersHealthy = MinBrokersHealthy
 	cfg.KafkaConfig.ProducerMinBrokersHealthy = MinBrokersHealthy

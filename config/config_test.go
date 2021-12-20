@@ -37,6 +37,7 @@ func TestConfig(t *testing.T) {
 				So(cfg.VaultAddress, ShouldEqual, "http://localhost:8200")
 				So(cfg.VaultToken, ShouldEqual, "")
 				So(cfg.EncryptionDisabled, ShouldBeFalse)
+				So(cfg.StopConsumingOnUnhealthy, ShouldBeTrue)
 				So(cfg.KafkaConfig.Addr, ShouldResemble, []string{"localhost:9092", "localhost:9093", "localhost:9094"})
 				So(cfg.KafkaConfig.ConsumerMinBrokersHealthy, ShouldEqual, 1)
 				So(cfg.KafkaConfig.ProducerMinBrokersHealthy, ShouldEqual, 2)

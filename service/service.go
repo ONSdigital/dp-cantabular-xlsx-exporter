@@ -100,7 +100,10 @@ func (svc *Service) Start(ctx context.Context, svcErrors chan error) {
 		),
 	)
 
-	svc.Consumer.Start()
+	// If start/stop on health updates is disabled, start consuming as soon as possible
+	if !svc.Cfg.StopConsumingOnUnhealthy {
+		svc.Consumer.Start()
+	}
 
 	svc.HealthCheck.Start(ctx)
 
@@ -198,6 +201,10 @@ func (svc *Service) registerCheckers() error {
 		if err := svc.HealthCheck.AddCheck("Vault", svc.VaultClient.Checker); err != nil {
 			return fmt.Errorf("error adding check for vault client: %w", err)
 		}
+	}
+
+	if svc.Cfg.StopConsumingOnUnhealthy {
+		svc.HealthCheck.SubscribeAll(svc.Consumer)
 	}
 
 	return nil
