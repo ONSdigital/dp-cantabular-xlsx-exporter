@@ -2,7 +2,6 @@ package steps
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -23,7 +22,14 @@ import (
 	"github.com/maxcnunes/httpfake"
 )
 
-const ComponentTestGroup = "component-test" // kafka group name for the component test consumer
+const (
+	ComponentTestGroup    = "component-test" // kafka group name for the component test consumer
+	DrainTopicTimeout     = 1 * time.Second  // maximum time to wait for a topic to be drained
+	DrainTopicMaxMessages = 1000             // maximum number of messages that will be drained from a topic
+	MinioCheckRetries     = 3                // maximum number of retires to validate that a file is present in minio
+	WaitEventTimeout      = 5 * time.Second  // maximum time that the component test consumer will wait for a kafka event
+)
+
 var MinBrokersHealthy = 1
 
 var (
@@ -46,8 +52,8 @@ type Component struct {
 	cfg              *config.Config
 	wg               *sync.WaitGroup
 	signals          chan os.Signal
-	waitEventTimeout time.Duration
 	testETag         string
+	ctx              context.Context
 }
 
 func NewComponent() *Component {
@@ -57,8 +63,8 @@ func NewComponent() *Component {
 		CantabularSrv:    httpfake.New(),
 		CantabularAPIExt: httpfake.New(),
 		wg:               &sync.WaitGroup{},
-		waitEventTimeout: time.Second * 5,
 		testETag:         "13c7791bafdbaaf5e6660754feb1a58cd6aaa892",
+		ctx:              context.Background(),
 	}
 }
 
@@ -80,7 +86,7 @@ func (c *Component) initService(ctx context.Context) error {
 	cfg.EncryptionDisabled = true
 	cfg.KafkaConfig.ConsumerMinBrokersHealthy = MinBrokersHealthy
 	cfg.KafkaConfig.ProducerMinBrokersHealthy = MinBrokersHealthy
-	//	cfg.DatasetAPIURL = c.DatasetAPI.ResolveURL("")
+	cfg.DatasetAPIURL = c.DatasetAPI.ResolveURL("")
 	//	cfg.CantabularURL = c.CantabularSrv.ResolveURL("")
 	//!!!	cfg.CantabularExtURL = c.CantabularAPIExt.ResolveURL("")
 
@@ -100,8 +106,8 @@ func (c *Component) initService(ctx context.Context) error {
 		ctx,
 		&kafka.ProducerConfig{
 			BrokerAddrs:       cfg.KafkaConfig.Addr,
-			MinBrokersHealthy: &MinBrokersHealthy,
 			Topic:             cfg.KafkaConfig.CsvCreatedTopic,
+			MinBrokersHealthy: &MinBrokersHealthy,
 			KafkaVersion:      &cfg.KafkaConfig.Version,
 			MaxMessageBytes:   &cfg.KafkaConfig.MaxBytes,
 		},
@@ -117,9 +123,9 @@ func (c *Component) initService(ctx context.Context) error {
 		ctx,
 		&kafka.ConsumerGroupConfig{
 			BrokerAddrs:       cfg.KafkaConfig.Addr,
-			MinBrokersHealthy: &MinBrokersHealthy,
 			Topic:             cfg.KafkaConfig.CantabularOutputCreatedTopic,
 			GroupName:         ComponentTestGroup,
+			MinBrokersHealthy: &MinBrokersHealthy,
 			KafkaVersion:      &cfg.KafkaConfig.Version,
 			Offset:            &kafkaOffset,
 		},
@@ -140,7 +146,7 @@ func (c *Component) initService(ctx context.Context) error {
 
 	// Create service and initialise it
 	c.svc = service.New()
-	if err = c.svc.Init(context.Background(), cfg, BuildTime, GitCommit, Version); err != nil {
+	if err = c.svc.Init(c.ctx, cfg, BuildTime, GitCommit, Version); err != nil {
 		return fmt.Errorf("unexpected service Init error in NewComponent: %w", err)
 	}
 
@@ -159,7 +165,7 @@ func (c *Component) initService(ctx context.Context) error {
 // Then it closes the service (graceful shutdown)
 func (c *Component) startService(ctx context.Context) {
 	defer c.wg.Done()
-	c.svc.Start(context.Background(), c.errorChan)
+	c.svc.Start(c.ctx, c.errorChan)
 
 	// blocks until an os interrupt or a fatal error occurs
 	select {
@@ -175,79 +181,140 @@ func (c *Component) startService(ctx context.Context) {
 	}
 }
 
-// drainTopic drains the topic of any residual messages between scenarios.
+// drainTopic drains the provided topic and group of any residual messages between scenarios.
 // Prevents future tests failing if previous tests fail unexpectedly and
 // leave messages in the queue.
-func (c *Component) drainTopic(ctx context.Context) error {
-	var msgs []interface{}
+//
+// A temporary batch consumer is used, that is created and closed within this func
+// A maximum of DrainTopicMaxMessages messages will be drained from the provided topic and group.
+//
+// This method accepts a waitGroup pionter. If it is not nil, it will wait for the topic to be drained
+// in a new go-routine, which will be added to the waitgroup. If it is nil, execution will be blocked
+// until the topic is drained (or time out expires)
+func (c *Component) drainTopic(ctx context.Context, topic, group string, wg *sync.WaitGroup) error {
+	msgs := []kafka.Message{}
 
 	defer func() {
 		log.Info(ctx, "drained topic", log.Data{
 			"len":      len(msgs),
 			"messages": msgs,
+			"topic":    topic,
+			"group":    group,
 		})
 	}()
 
-	for {
-		select {
-		case <-time.After(time.Second * 1):
-			return nil
-		case msg, ok := <-c.consumer.Channels().Upstream:
-			if !ok {
-				return errors.New("upstream channel closed")
-			}
-
-			msgs = append(msgs, msg)
-			msg.Commit()
-			msg.Release()
-		}
+	kafkaOffset := kafka.OffsetOldest
+	batchSize := DrainTopicMaxMessages
+	batchWaitTime := DrainTopicTimeout
+	consumer, err := kafka.NewConsumerGroup(
+		ctx,
+		&kafka.ConsumerGroupConfig{
+			BrokerAddrs:   c.cfg.KafkaConfig.Addr,
+			Topic:         topic,
+			GroupName:     group,
+			KafkaVersion:  &c.cfg.KafkaConfig.Version,
+			Offset:        &kafkaOffset,
+			BatchSize:     &batchSize,
+			BatchWaitTime: &batchWaitTime,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("error creating kafka consumer to drain topic: %w", err)
 	}
+
+	// register batch handler with 'drained channel'
+	drained := make(chan struct{})
+	consumer.RegisterBatchHandler(
+		ctx,
+		func(ctx context.Context, batch []kafka.Message) error {
+			defer close(drained)
+			msgs = append(msgs, batch...)
+			return nil
+		},
+	)
+
+	// start consumer group
+	consumer.Start()
+
+	// start kafka logging go-routines
+	consumer.LogErrors(ctx)
+
+	// waitUntilDrained is a func that will wait until the batch is consumed or the timeout expires
+	// (with 100 ms of extra time to allow any in-flight drain)
+	waitUntilDrained := func() {
+		select {
+		case <-time.After(DrainTopicTimeout + 100*time.Millisecond):
+		case <-drained:
+		}
+
+		consumer.Close(ctx)
+		<-consumer.Channels().Closed
+	}
+
+	// sync wait if wg is not provided
+	if wg == nil {
+		waitUntilDrained()
+		return nil
+	}
+
+	// async wait if wg is provided
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		waitUntilDrained()
+	}()
+	return nil
 }
 
 // Close kills the application under test, and then it shuts down the testing consumer and producer.
 func (c *Component) Close() {
-	ctx := context.Background()
-
-	// stop listening to consumer
-	c.consumer.StopAndWait()
-
-	// drain topic so that next test case starts from a known state
-	if err := c.drainTopic(ctx); err != nil {
-		log.Error(ctx, "error draining topic", err)
-	}
-
-	// close producer
-	if err := c.producer.Close(ctx); err != nil {
-		log.Error(ctx, "error closing kafka producer", err)
-	}
-
-	// close consumer
-	if err := c.consumer.Close(ctx); err != nil {
-		log.Error(ctx, "error closing kafka consumer", err)
-	}
-
 	// kill application
 	c.signals <- os.Interrupt
 
 	// wait for graceful shutdown to finish (or timeout)
 	c.wg.Wait()
+
+	// stop listening to consumer
+	c.consumer.StopAndWait()
+
+	// close producer
+	if err := c.producer.Close(c.ctx); err != nil {
+		log.Error(c.ctx, "error closing kafka producer", err)
+	}
+
+	// close consumer
+	if err := c.consumer.Close(c.ctx); err != nil {
+		log.Error(c.ctx, "error closing kafka consumer", err)
+	}
+
+	// drain topics in parallel
+	wg := &sync.WaitGroup{}
+	if err := c.drainTopic(c.ctx, c.cfg.KafkaConfig.CantabularOutputCreatedTopic, ComponentTestGroup, wg); err != nil {
+		log.Error(c.ctx, "error draining topic", err, log.Data{
+			"topic": c.cfg.KafkaConfig.CantabularOutputCreatedTopic,
+			"group": ComponentTestGroup,
+		})
+	}
+	if err := c.drainTopic(c.ctx, c.cfg.KafkaConfig.CsvCreatedTopic, c.cfg.KafkaConfig.CsvCreatedGroup, wg); err != nil {
+		log.Error(c.ctx, "error draining topic", err, log.Data{
+			"topic": c.cfg.KafkaConfig.CsvCreatedTopic,
+			"group": c.cfg.KafkaConfig.CsvCreatedGroup,
+		})
+	}
+	wg.Wait()
 }
 
-// Reset initialises the service under test, the api mocks and then starts the service
+// Reset runs before each scenario. It re-initialises the service under test and the api mocks.
+// Note that the service under test should not be started yet
+// to prevent race conditions if it tries to call un-initialised dependencies (steps)
 func (c *Component) Reset() error {
-	ctx := context.Background()
-
-	if err := c.initService(ctx); err != nil {
+	if err := c.initService(c.ctx); err != nil {
 		return fmt.Errorf("failed to initialise service: %w", err)
 	}
 
 	c.DatasetAPI.Reset()
 	c.CantabularSrv.Reset()
 	c.CantabularAPIExt.Reset()
-
-	// run application in separate goroutine
-	c.wg.Add(1)
-	go c.startService(ctx)
 
 	return nil
 }

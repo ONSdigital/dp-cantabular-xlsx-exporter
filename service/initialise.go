@@ -37,9 +37,9 @@ var GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.ICon
 	}
 	cgConfig := &kafka.ConsumerGroupConfig{
 		BrokerAddrs:       cfg.KafkaConfig.Addr,
-		MinBrokersHealthy: &cfg.KafkaConfig.ConsumerMinBrokersHealthy,
 		Topic:             cfg.KafkaConfig.CsvCreatedTopic,
 		GroupName:         cfg.KafkaConfig.CsvCreatedGroup,
+		MinBrokersHealthy: &cfg.KafkaConfig.ConsumerMinBrokersHealthy,
 		KafkaVersion:      &cfg.KafkaConfig.Version,
 		NumWorkers:        &cfg.KafkaConfig.NumWorkers,
 		Offset:            &kafkaOffset,
@@ -59,8 +59,8 @@ var GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.ICon
 var GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (kafka.IProducer, error) {
 	pConfig := &kafka.ProducerConfig{
 		BrokerAddrs:       cfg.KafkaConfig.Addr,
-		MinBrokersHealthy: &cfg.KafkaConfig.ProducerMinBrokersHealthy,
 		Topic:             cfg.KafkaConfig.CantabularOutputCreatedTopic,
+		MinBrokersHealthy: &cfg.KafkaConfig.ProducerMinBrokersHealthy,
 		KafkaVersion:      &cfg.KafkaConfig.Version,
 		MaxMessageBytes:   &cfg.KafkaConfig.MaxBytes,
 	}
