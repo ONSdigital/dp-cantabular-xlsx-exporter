@@ -30,8 +30,6 @@ const (
 	WaitEventTimeout      = 5 * time.Second  // maximum time that the component test consumer will wait for a kafka event
 )
 
-var MinBrokersHealthy = 1
-
 var (
 	BuildTime string = "1625046891"
 	GitCommit string = "7434fe334d9f51b7239f978094ea29d10ac33b16"
@@ -80,15 +78,11 @@ func (c *Component) initService(ctx context.Context) error {
 		return fmt.Errorf("failed to get config: %w", err)
 	}
 
-	log.Info(ctx, "config read", log.Data{"cfg": cfg})
-
-	cfg.StopConsumingOnUnhealthy = true
-	cfg.EncryptionDisabled = true
-	cfg.KafkaConfig.ConsumerMinBrokersHealthy = MinBrokersHealthy
-	cfg.KafkaConfig.ProducerMinBrokersHealthy = MinBrokersHealthy
 	cfg.DatasetAPIURL = c.DatasetAPI.ResolveURL("")
 	//	cfg.CantabularURL = c.CantabularSrv.ResolveURL("")
 	//!!!	cfg.CantabularExtURL = c.CantabularAPIExt.ResolveURL("")
+
+	log.Info(ctx, "config used by component tests", log.Data{"cfg": cfg})
 
 	s3Config := &aws.Config{
 		Credentials:      credentials.NewStaticCredentials(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
@@ -107,7 +101,7 @@ func (c *Component) initService(ctx context.Context) error {
 		&kafka.ProducerConfig{
 			BrokerAddrs:       cfg.KafkaConfig.Addr,
 			Topic:             cfg.KafkaConfig.CsvCreatedTopic,
-			MinBrokersHealthy: &MinBrokersHealthy,
+			MinBrokersHealthy: &cfg.KafkaConfig.ProducerMinBrokersHealthy,
 			KafkaVersion:      &cfg.KafkaConfig.Version,
 			MaxMessageBytes:   &cfg.KafkaConfig.MaxBytes,
 		},
@@ -125,7 +119,7 @@ func (c *Component) initService(ctx context.Context) error {
 			BrokerAddrs:       cfg.KafkaConfig.Addr,
 			Topic:             cfg.KafkaConfig.CantabularOutputCreatedTopic,
 			GroupName:         ComponentTestGroup,
-			MinBrokersHealthy: &MinBrokersHealthy,
+			MinBrokersHealthy: &cfg.KafkaConfig.ConsumerMinBrokersHealthy,
 			KafkaVersion:      &cfg.KafkaConfig.Version,
 			Offset:            &kafkaOffset,
 		},
