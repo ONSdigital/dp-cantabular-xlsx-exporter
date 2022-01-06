@@ -113,7 +113,7 @@ func (h *XlsxCreate) getVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([
 
 	pskStr, err := h.vaultClient.ReadKey(vaultPath, "key")
 	if err != nil {
-		return nil, fmt.Errorf("failed in ReadKey: %w", err)
+		return nil, fmt.Errorf("for 'vaultPath': %s,  failed in ReadKey: %w", vaultPath, err)
 	}
 
 	psk, err := hex.DecodeString(pskStr)
