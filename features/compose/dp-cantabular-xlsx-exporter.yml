@@ -17,13 +17,17 @@ services:
             - minio
             - vault
         ports:
-            - 26300:26300
+            - 26800:26800
         environment:
-            BIND_ADDR:          ":26300"
-            KAFKA_ADDR:         "kafka:9092"
-            DATASET_API_URL:    "http://dp-dataset-api:22000"
-            SERVICE_AUTH_TOKEN: "testToken"
-            COMPONENT_TEST_USE_LOG_FILE: "${COMPONENT_TEST_USE_LOG_FILE-false}"
-            LOCAL_OBJECT_STORE:     "http://minio:9000"
-            MINIO_ACCESS_KEY:       "minio-access-key"
-            MINIO_SECRET_KEY:       "minio-secret-key"
+            BIND_ADDR:                          ":26800"
+            SERVICE_AUTH_TOKEN:                 "testToken"
+            COMPONENT_TEST_USE_LOG_FILE:        "${COMPONENT_TEST_USE_LOG_FILE-false}"
+            LOCAL_OBJECT_STORE:                 "http://minio:9000"
+            MINIO_ACCESS_KEY:                   "minio-access-key"
+            MINIO_SECRET_KEY:                   "minio-secret-key"
+            ENCRYPTION_DISABLED:                "true"
+            STOP_CONSUMING_ON_UNHEALTHY:        "true"
+            KAFKA_ADDR:                         "kafka:9092"
+            KAFKA_CONSUMER_MIN_BROKERS_HEALTHY: 1
+            KAFKA_PRODUCER_MIN_BROKERS_HEALTHY: 1
+            KAFKA_SEC_PROTO:                    ""

@@ -33,6 +33,9 @@ var _ service.HealthChecker = &HealthCheckerMock{}
 // 			StopFunc: func()  {
 // 				panic("mock out the Stop method")
 // 			},
+// 			SubscribeAllFunc: func(s healthcheck.Subscriber)  {
+// 				panic("mock out the SubscribeAll method")
+// 			},
 // 		}
 //
 // 		// use mockedHealthChecker in code that requires service.HealthChecker
@@ -51,6 +54,9 @@ type HealthCheckerMock struct {
 
 	// StopFunc mocks the Stop method.
 	StopFunc func()
+
+	// SubscribeAllFunc mocks the SubscribeAll method.
+	SubscribeAllFunc func(s healthcheck.Subscriber)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -76,11 +82,17 @@ type HealthCheckerMock struct {
 		// Stop holds details about calls to the Stop method.
 		Stop []struct {
 		}
+		// SubscribeAll holds details about calls to the SubscribeAll method.
+		SubscribeAll []struct {
+			// S is the s argument value.
+			S healthcheck.Subscriber
+		}
 	}
-	lockAddCheck sync.RWMutex
-	lockHandler  sync.RWMutex
-	lockStart    sync.RWMutex
-	lockStop     sync.RWMutex
+	lockAddCheck     sync.RWMutex
+	lockHandler      sync.RWMutex
+	lockStart        sync.RWMutex
+	lockStop         sync.RWMutex
+	lockSubscribeAll sync.RWMutex
 }
 
 // AddCheck calls AddCheckFunc.
@@ -207,5 +219,36 @@ func (mock *HealthCheckerMock) StopCalls() []struct {
 	mock.lockStop.RLock()
 	calls = mock.calls.Stop
 	mock.lockStop.RUnlock()
+	return calls
+}
+
+// SubscribeAll calls SubscribeAllFunc.
+func (mock *HealthCheckerMock) SubscribeAll(s healthcheck.Subscriber) {
+	if mock.SubscribeAllFunc == nil {
+		panic("HealthCheckerMock.SubscribeAllFunc: method is nil but HealthChecker.SubscribeAll was just called")
+	}
+	callInfo := struct {
+		S healthcheck.Subscriber
+	}{
+		S: s,
+	}
+	mock.lockSubscribeAll.Lock()
+	mock.calls.SubscribeAll = append(mock.calls.SubscribeAll, callInfo)
+	mock.lockSubscribeAll.Unlock()
+	mock.SubscribeAllFunc(s)
+}
+
+// SubscribeAllCalls gets all the calls that were made to SubscribeAll.
+// Check the length with:
+//     len(mockedHealthChecker.SubscribeAllCalls())
+func (mock *HealthCheckerMock) SubscribeAllCalls() []struct {
+	S healthcheck.Subscriber
+} {
+	var calls []struct {
+		S healthcheck.Subscriber
+	}
+	mock.lockSubscribeAll.RLock()
+	calls = mock.calls.SubscribeAll
+	mock.lockSubscribeAll.RUnlock()
 	return calls
 }

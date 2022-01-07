@@ -7,11 +7,10 @@ import (
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
-	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/generator"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 
-	kafka "github.com/ONSdigital/dp-kafka/v2"
+	kafka "github.com/ONSdigital/dp-kafka/v3"
 	dphttp "github.com/ONSdigital/dp-net/http"
 	dps3 "github.com/ONSdigital/dp-s3/v2"
 	vault "github.com/ONSdigital/dp-vault"
@@ -23,6 +22,8 @@ import (
 
 const VaultRetries = 3
 
+var OneAndOnlyOneWorker int = 1 // WARNING - Do NOT EVER make this bigger than '1' otherwise an OOM migh happen for more than one large csv file being processed in parallel
+
 // GetHTTPServer creates a http server and sets the Server
 var GetHTTPServer = func(bindAddr string, router http.Handler) HTTPServer {
 	s := dphttp.NewServer(bindAddr, router)
@@ -32,15 +33,18 @@ var GetHTTPServer = func(bindAddr string, router http.Handler) HTTPServer {
 
 // GetKafkaConsumer creates a Kafka consumer
 var GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.IConsumerGroup, error) {
-	cgChannels := kafka.CreateConsumerGroupChannels(cfg.KafkaConfig.NumWorkers)
-
 	kafkaOffset := kafka.OffsetNewest
 	if cfg.KafkaConfig.OffsetOldest {
 		kafkaOffset = kafka.OffsetOldest
 	}
 	cgConfig := &kafka.ConsumerGroupConfig{
-		KafkaVersion: &cfg.KafkaConfig.Version,
-		Offset:       &kafkaOffset,
+		BrokerAddrs:       cfg.KafkaConfig.Addr,
+		Topic:             cfg.KafkaConfig.CsvCreatedTopic,
+		GroupName:         cfg.KafkaConfig.CsvCreatedGroup,
+		MinBrokersHealthy: &cfg.KafkaConfig.ConsumerMinBrokersHealthy,
+		KafkaVersion:      &cfg.KafkaConfig.Version,
+		NumWorkers:        &OneAndOnlyOneWorker,
+		Offset:            &kafkaOffset,
 	}
 	if cfg.KafkaConfig.SecProtocol == config.KafkaTLSProtocolFlag {
 		cgConfig.SecurityConfig = kafka.GetSecurityConfig(
@@ -50,22 +54,17 @@ var GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.ICon
 			cfg.KafkaConfig.SecSkipVerify,
 		)
 	}
-	return kafka.NewConsumerGroup(
-		ctx,
-		cfg.KafkaConfig.Addr,
-		cfg.KafkaConfig.CsvCreatedTopic,
-		cfg.KafkaConfig.CsvCreatedGroup,
-		cgChannels,
-		cgConfig,
-	)
+	return kafka.NewConsumerGroup(ctx, cgConfig)
 }
 
 // GetKafkaProducer creates a Kafka producer
 var GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (kafka.IProducer, error) {
-	pChannels := kafka.CreateProducerChannels()
 	pConfig := &kafka.ProducerConfig{
-		KafkaVersion:    &cfg.KafkaConfig.Version,
-		MaxMessageBytes: &cfg.KafkaConfig.MaxBytes,
+		BrokerAddrs:       cfg.KafkaConfig.Addr,
+		Topic:             cfg.KafkaConfig.CantabularOutputCreatedTopic,
+		MinBrokersHealthy: &cfg.KafkaConfig.ProducerMinBrokersHealthy,
+		KafkaVersion:      &cfg.KafkaConfig.Version,
+		MaxMessageBytes:   &cfg.KafkaConfig.MaxBytes,
 	}
 	if cfg.KafkaConfig.SecProtocol == config.KafkaTLSProtocolFlag {
 		pConfig.SecurityConfig = kafka.GetSecurityConfig(
@@ -75,13 +74,7 @@ var GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (kafka.IPro
 			cfg.KafkaConfig.SecSkipVerify,
 		)
 	}
-	return kafka.NewProducer(
-		ctx,
-		cfg.KafkaConfig.Addr,
-		cfg.KafkaConfig.CantabularOutputCreatedTopic,
-		pChannels,
-		pConfig,
-	)
+	return kafka.NewProducer(ctx, pConfig)
 }
 
 // GetDatasetAPIClient gets and initialises the DatasetAPI Client
@@ -121,11 +114,6 @@ var GetS3Clients = func(cfg *config.Config) (privateClient, publicClient S3Clien
 // GetVault creates a VaultClient
 var GetVault = func(cfg *config.Config) (VaultClient, error) {
 	return vault.CreateClient(cfg.VaultToken, cfg.VaultAddress, VaultRetries)
-}
-
-// GetProcessor gets and initialises the event Processor
-var GetProcessor = func(cfg *config.Config) Processor {
-	return event.NewProcessor(*cfg)
 }
 
 // GetHealthCheck creates a healthcheck with versionInfo

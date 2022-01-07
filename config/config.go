@@ -12,7 +12,6 @@ const KafkaTLSProtocolFlag = "TLS"
 // Config represents service configuration for dp-cantabular-xlsx-exporter
 type Config struct {
 	// in develop & prod there is also AWS_ACCESS_KEY_ID & AWS_SECRET_ACCESS_KEY in the secrets files
-
 	BindAddr                   string        `envconfig:"BIND_ADDR"`
 	GracefulShutdownTimeout    time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
 	HealthCheckInterval        time.Duration `envconfig:"HEALTHCHECK_INTERVAL"`
@@ -31,15 +30,17 @@ type Config struct {
 	VaultPath                  string        `envconfig:"VAULT_PATH"`
 	ComponentTestUseLogFile    bool          `envconfig:"COMPONENT_TEST_USE_LOG_FILE"`
 	EncryptionDisabled         bool          `envconfig:"ENCRYPTION_DISABLED"`
+	StopConsumingOnUnhealthy   bool          `envconfig:"STOP_CONSUMING_ON_UNHEALTHY"`
 	KafkaConfig                KafkaConfig
 }
 
 // KafkaConfig contains the config required to connect to Kafka
 type KafkaConfig struct {
 	Addr                         []string `envconfig:"KAFKA_ADDR"                            json:"-"`
+	ConsumerMinBrokersHealthy    int      `envconfig:"KAFKA_CONSUMER_MIN_BROKERS_HEALTHY"`
+	ProducerMinBrokersHealthy    int      `envconfig:"KAFKA_PRODUCER_MIN_BROKERS_HEALTHY"`
 	Version                      string   `envconfig:"KAFKA_VERSION"`
 	OffsetOldest                 bool     `envconfig:"KAFKA_OFFSET_OLDEST"`
-	NumWorkers                   int      `envconfig:"KAFKA_NUM_WORKERS"`
 	MaxBytes                     int      `envconfig:"KAFKA_MAX_BYTES"`
 	SecProtocol                  string   `envconfig:"KAFKA_SEC_PROTO"`
 	SecCACerts                   string   `envconfig:"KAFKA_SEC_CA_CERTS"`
@@ -79,11 +80,13 @@ func Get() (*Config, error) {
 		VaultToken:                 "",
 		ComponentTestUseLogFile:    false,
 		EncryptionDisabled:         false, // needed for local development to skip needing vault - TODO - remove if not needed
+		StopConsumingOnUnhealthy:   true,
 		KafkaConfig: KafkaConfig{
-			Addr:                         []string{"localhost:9092"},
+			Addr:                         []string{"localhost:9092", "localhost:9093", "localhost:9094"},
+			ConsumerMinBrokersHealthy:    1,
+			ProducerMinBrokersHealthy:    2,
 			Version:                      "1.0.2",
 			OffsetOldest:                 true,
-			NumWorkers:                   1, // it is not advised to change this, as it may cause Out of Memeory problems for very large files - TBD
 			MaxBytes:                     2000000,
 			SecProtocol:                  "",
 			SecCACerts:                   "",
