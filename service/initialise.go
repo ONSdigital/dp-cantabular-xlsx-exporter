@@ -22,6 +22,8 @@ import (
 
 const VaultRetries = 3
 
+var OneAndOnlyOneWorker int = 1 // WARNING - Do NOT EVER make this bigger than '1' otherwise an OOM migh happen for more than one large csv file being processed in parallel
+
 // GetHTTPServer creates a http server and sets the Server
 var GetHTTPServer = func(bindAddr string, router http.Handler) HTTPServer {
 	s := dphttp.NewServer(bindAddr, router)
@@ -41,7 +43,7 @@ var GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.ICon
 		GroupName:         cfg.KafkaConfig.CsvCreatedGroup,
 		MinBrokersHealthy: &cfg.KafkaConfig.ConsumerMinBrokersHealthy,
 		KafkaVersion:      &cfg.KafkaConfig.Version,
-		NumWorkers:        &cfg.KafkaConfig.NumWorkers,
+		NumWorkers:        &OneAndOnlyOneWorker,
 		Offset:            &kafkaOffset,
 	}
 	if cfg.KafkaConfig.SecProtocol == config.KafkaTLSProtocolFlag {

@@ -43,7 +43,6 @@ func TestConfig(t *testing.T) {
 				So(cfg.KafkaConfig.ProducerMinBrokersHealthy, ShouldEqual, 2)
 				So(cfg.KafkaConfig.Version, ShouldEqual, "1.0.2")
 				So(cfg.KafkaConfig.OffsetOldest, ShouldBeTrue)
-				So(cfg.KafkaConfig.NumWorkers, ShouldEqual, 1)
 				So(cfg.KafkaConfig.MaxBytes, ShouldEqual, 2000000)
 				So(cfg.KafkaConfig.SecProtocol, ShouldEqual, "")
 				So(cfg.KafkaConfig.SecCACerts, ShouldEqual, "")

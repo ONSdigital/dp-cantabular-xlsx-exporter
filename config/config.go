@@ -41,7 +41,6 @@ type KafkaConfig struct {
 	ProducerMinBrokersHealthy    int      `envconfig:"KAFKA_PRODUCER_MIN_BROKERS_HEALTHY"`
 	Version                      string   `envconfig:"KAFKA_VERSION"`
 	OffsetOldest                 bool     `envconfig:"KAFKA_OFFSET_OLDEST"`
-	NumWorkers                   int      `envconfig:"KAFKA_NUM_WORKERS"`
 	MaxBytes                     int      `envconfig:"KAFKA_MAX_BYTES"`
 	SecProtocol                  string   `envconfig:"KAFKA_SEC_PROTO"`
 	SecCACerts                   string   `envconfig:"KAFKA_SEC_CA_CERTS"`
@@ -88,7 +87,6 @@ func Get() (*Config, error) {
 			ProducerMinBrokersHealthy:    2,
 			Version:                      "1.0.2",
 			OffsetOldest:                 true,
-			NumWorkers:                   1, // it is not advised to change this, as it may cause Out of Memory problems for very large files - TBD
 			MaxBytes:                     2000000,
 			SecProtocol:                  "",
 			SecCACerts:                   "",
