@@ -60,7 +60,10 @@ func run(ctx context.Context) error {
 		cancelService()
 		return fmt.Errorf("running service failed with error: %w", err)
 	}
-	svc.Start(serviceCtx, svcErrors)
+	if err := svc.Start(ctx, svcErrors); err != nil {
+		cancelService()
+		return fmt.Errorf("service start failed with error: %w", err)
+	}
 
 	// blocks until an os interrupt or a fatal error occurs
 	select {
@@ -75,7 +78,7 @@ func run(ctx context.Context) error {
 		log.Info(serviceCtx, "os signal received", log.Data{"signal": sig})
 	}
 
-	// we do this to cancel 3rd part libraries like AWS S3 access
+	// we do this to cancel 3rd part libraries like AWS S3 access - BEFORE closing our internal code
 	cancelService()
 
 	return svc.Close(ctx)

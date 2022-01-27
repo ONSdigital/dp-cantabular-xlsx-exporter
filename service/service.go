@@ -70,7 +70,9 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 		svc.Producer,
 		svc.generator,
 	)
-	svc.Consumer.RegisterHandler(ctx, h.Handle)
+	if err := svc.Consumer.RegisterHandler(ctx, h.Handle); err != nil {
+		return fmt.Errorf("could not register kafka handler: %w", err)
+	}
 
 	// Get HealthCheck
 	if svc.HealthCheck, err = GetHealthCheck(cfg, buildTime, gitCommit, version); err != nil {
@@ -89,7 +91,7 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 }
 
 // Start the service
-func (svc *Service) Start(ctx context.Context, svcErrors chan error) {
+func (svc *Service) Start(ctx context.Context, svcErrors chan error) error {
 	log.Info(ctx, "starting service")
 
 	// Kafka error logging go-routine
@@ -97,7 +99,9 @@ func (svc *Service) Start(ctx context.Context, svcErrors chan error) {
 
 	// If start/stop on health updates is disabled, start consuming as soon as possible
 	if !svc.Cfg.StopConsumingOnUnhealthy {
-		svc.Consumer.Start()
+		if err := svc.Consumer.Start(); err != nil {
+			return fmt.Errorf("consumer failed to start: %w", err)
+		}
 	}
 
 	svc.HealthCheck.Start(ctx)
@@ -108,6 +112,8 @@ func (svc *Service) Start(ctx context.Context, svcErrors chan error) {
 			svcErrors <- fmt.Errorf("failure in http listen and serve: %w", err)
 		}
 	}()
+
+	return nil
 }
 
 // Close gracefully shuts the service down in the required order, with timeout
@@ -130,7 +136,10 @@ func (svc *Service) Close(ctx context.Context) error {
 		// This will automatically stop the event consumer loops and no more messages will be processed.
 		// The kafka consumer will be closed after the service shuts down.
 		if svc.Consumer != nil {
-			svc.Consumer.StopAndWait()
+			if err := svc.Consumer.StopAndWait(); err != nil {
+				log.Error(ctx, "failed to stop kafka consumer", err)
+				hasShutdownError = true
+			}
 			log.Info(shutdownCtx, "stopped kafka consumer listener")
 		}
 

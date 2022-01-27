@@ -14,7 +14,7 @@ services:
         volumes:
             - ../../:/dp-cantabular-xlsx-exporter
         depends_on:
-            - kafka
+            - kafka-1
             - minio
             - vault
         ports:
@@ -28,7 +28,7 @@ services:
             MINIO_SECRET_KEY:                   "minio-secret-key"
             ENCRYPTION_DISABLED:                "true"
             STOP_CONSUMING_ON_UNHEALTHY:        "true"
-            KAFKA_ADDR:                         "kafka:9092"
+            KAFKA_ADDR:                         "kafka-1:9092"
             KAFKA_CONSUMER_MIN_BROKERS_HEALTHY: 1
             KAFKA_PRODUCER_MIN_BROKERS_HEALTHY: 1
             KAFKA_SEC_PROTO:                    ""
