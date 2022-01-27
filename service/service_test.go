@@ -325,8 +325,10 @@ func TestClose(t *testing.T) {
 
 		// kafka consumer mock
 		consumerMock := &kafkatest.IConsumerGroupMock{
-			StopAndWaitFunc: func() {},
-			CloseFunc:       func(ctx context.Context) error { return nil },
+			StopAndWaitFunc: func() error {
+				return nil
+			},
+			CloseFunc: func(ctx context.Context) error { return nil },
 		}
 
 		// healthcheck Stop does not depend on any other service being closed/stopped
@@ -361,7 +363,9 @@ func TestClose(t *testing.T) {
 		})
 
 		Convey("If services fail to stop, the Close operation tries to close all dependencies and returns an error", func() {
-			consumerMock.StopAndWaitFunc = func() {}
+			consumerMock.StopAndWaitFunc = func() error {
+				return nil
+			}
 			consumerMock.CloseFunc = func(ctx context.Context) error {
 				return errKafkaConsumer
 			}

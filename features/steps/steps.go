@@ -84,7 +84,7 @@ func (c *Component) theFollowingInstanceIsUpdated(id string) error {
 	return nil
 }
 
-// theFollowingQueryResposneIsAvailable generates a mocked response for Cantabular Server
+// theFollowingQueryResponseIsAvailable generates a mocked response for Cantabular Server
 // POST /graphql?query with the provided query
 func (c *Component) theFollowingQueryResponseIsAvailable(name string, cb *godog.DocString) error {
 	const urlQuery = `{

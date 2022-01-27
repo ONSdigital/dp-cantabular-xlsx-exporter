@@ -31,9 +31,9 @@ const (
 )
 
 var (
-	BuildTime string = "1625046891"
-	GitCommit string = "7434fe334d9f51b7239f978094ea29d10ac33b16"
-	Version   string = ""
+	BuildTime = "1625046891"
+	GitCommit = "7434fe334d9f51b7239f978094ea29d10ac33b16"
+	Version   = ""
 )
 
 type Component struct {
@@ -149,7 +149,7 @@ func (c *Component) initService(ctx context.Context) error {
 	// wait for producer to be initialised and consumer to be in consuming state
 	<-c.producer.Channels().Initialised
 	log.Info(ctx, "component-test kafka producer initialised")
-	<-c.consumer.Channels().State.Consuming
+	c.consumer.StateWait(kafka.Consuming)
 	log.Info(ctx, "component-test kafka consumer is in consuming state")
 
 	return nil
