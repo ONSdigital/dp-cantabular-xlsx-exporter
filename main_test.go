@@ -44,7 +44,7 @@ func (f *ComponentTest) InitializeScenario(ctx *godog.ScenarioContext) {
 }
 
 func (f *ComponentTest) InitializeTestSuite(ctx *godog.TestSuiteContext) {
-
+	_ = ctx // shut linter up
 }
 
 func TestComponent(t *testing.T) {
@@ -64,7 +64,11 @@ func TestComponent(t *testing.T) {
 				t.Fatalf("could not create logs file: %s", err)
 			}
 
-			defer logfile.Close()
+			defer func() {
+				if err := logfile.Close(); err != nil {
+					t.Fatalf("failed to close logs file: %s", err)
+				}
+			}()
 			output = logfile
 
 			dplogs.SetDestination(logfile, nil)

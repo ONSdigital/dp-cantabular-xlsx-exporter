@@ -52,7 +52,7 @@ func main() {
 	// kafka error logging go-routines
 	kafkaProducer.LogErrors(ctx)
 
-	// Wait for producer to be initialised plus 500ms (this might not be needed as its not in csv exporter)
+	// Wait for producer to be initialised plus 500ms (this might not be needed as it's not in csv exporter)
 	<-kafkaProducer.Channels().Initialised
 	time.Sleep(500 * time.Millisecond)
 

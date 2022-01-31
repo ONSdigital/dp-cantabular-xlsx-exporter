@@ -16,7 +16,7 @@ import (
 	"github.com/cucumber/godog"
 )
 
-// RegisterSteps maps the human-readable regular expressions to their corresponding funcs
+// RegisterSteps maps the human-readable regular expressions to their corresponding functions
 func (c *Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the following instance with id "([^"]*)" is available from dp-dataset-api:$`, c.theFollowingInstanceIsAvailable)
 	ctx.Step(`^an instance with id "([^"]*)" is updated to dp-dataset-api`, c.theFollowingInstanceIsUpdated)
@@ -29,13 +29,13 @@ func (c *Component) RegisterSteps(ctx *godog.ScenarioContext) {
 }
 
 // theServiceStarts starts the service under test in a new go-routine
-// note that this step should be called only after all dependencies have been setup,
+// note that this step should be called only after all dependencies have been set up,
 // to prevent any race condition, specially during the first healthcheck iteration.
 func (c *Component) theServiceStarts() error {
 	return c.startService(c.ctx)
 }
 
-// datasetAPIIsHealthy generates a mocked healthy response for dataset API healthecheck
+// datasetAPIIsHealthy generates a mocked healthy response for dataset API healthcheck
 func (c *Component) datasetAPIIsHealthy() error {
 	const res = `{"status": "OK"}`
 	c.DatasetAPI.NewHandler().
@@ -45,7 +45,7 @@ func (c *Component) datasetAPIIsHealthy() error {
 	return nil
 }
 
-// datasetAPIIsUnhealthy generates a mocked unhealthy response for dataset API healthecheck
+// datasetAPIIsUnhealthy generates a mocked unhealthy response for dataset API healthcheck
 func (c *Component) datasetAPIIsUnhealthy() error {
 	const res = `{"status": "CRITICAL"}`
 	c.DatasetAPI.NewHandler().

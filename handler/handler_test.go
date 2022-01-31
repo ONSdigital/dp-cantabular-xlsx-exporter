@@ -84,7 +84,7 @@ func TestUploadCSVFile(t *testing.T) {
 		s3Uploader := s3UploaderHappy(false)
 		eventHandler := handler.NewInstanceComplete(testCfg(), nil, nil, &s3Uploader, nil, nil, generator)
 
-		Convey("When UploadCSVFile is triggered with valid paramters and encryption disbled", func() {
+		Convey("When UploadCSVFile is triggered with valid parameters and encryption disabled", func() {
 			loc, err := eventHandler.UploadCSVFile(ctx, testInstanceID, testCsvBody, isPublished)
 
 			Convey("Then the expected location is returned with no error ", func() {
@@ -108,7 +108,7 @@ func TestUploadCSVFile(t *testing.T) {
 		cfg.EncryptionDisabled = false
 		eventHandler := handler.NewInstanceComplete(cfg, nil, nil, &s3Uploader, &vaultClient, nil, generator)
 
-		Convey("When UploadCSVFile is triggered with valid paramters", func() {
+		Convey("When UploadCSVFile is triggered with valid parameters", func() {
 			loc, err := eventHandler.UploadCSVFile(ctx, testInstanceID, testCsvBody, isPublished)
 
 			Convey("Then the expected location is returned with no error ", func() {
@@ -406,7 +406,7 @@ func TestUpdateInstance(t *testing.T) {
 
 func TestProduceExportCompleteEvent(t *testing.T) {
 	expectedEvent := event.CantabularCsvCreated{ //!!! probably should be 'InstanceComplete'
-	//!!! David suggests: I think the expected output message generated from cantabular XLSX epxorter should be Common Output Created?
+	//!!! David suggests: I think the expected output message generated from cantabular XLSX exporter should be Common Output Created?
 		FileURL:    fmt.Sprintf("%s/downloads/instances/%s.csv", testDownloadServiceURL, testInstanceID),
 		InstanceID: testInstanceID,
 	}

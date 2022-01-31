@@ -27,7 +27,6 @@ const (
 	DrainTopicTimeout     = 5 * time.Second  // maximum time to wait for a topic to be drained
 	DrainTopicMaxMessages = 1000             // maximum number of messages that will be drained from a topic
 	MinioCheckRetries     = 3                // maximum number of retires to validate that a file is present in minio
-	WaitEventTimeout      = 15 * time.Second // maximum time that the component test consumer will wait for a kafka event
 )
 
 var (
@@ -195,7 +194,7 @@ func (c *Component) startService(ctx context.Context) error {
 // A temporary batch consumer is used, that is created and closed within this func
 // A maximum of DrainTopicMaxMessages messages will be drained from the provided topic and group.
 //
-// This method accepts a waitGroup pionter. If it is not nil, it will wait for the topic to be drained
+// This method accepts a waitGroup pointer. If it is not nil, it will wait for the topic to be drained
 // in a new go-routine, which will be added to the waitgroup. If it is nil, execution will be blocked
 // until the topic is drained (or time out expires)
 func (c *Component) drainTopic(ctx context.Context, topic, group string, wg *sync.WaitGroup) error {
