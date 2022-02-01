@@ -1,4 +1,4 @@
-Feature: Cantabular-Csv-Exporter-Unhealthy
+Feature: Cantabular-Xlsx-Exporter-Unhealthy
 
   Background:
     Given dp-dataset-api is unhealthy
