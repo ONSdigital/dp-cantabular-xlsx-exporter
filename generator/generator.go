@@ -2,6 +2,7 @@ package generator
 
 import (
 	"crypto/rand"
+	"fmt"
 )
 
 // Generator is responsible for randomly generating new strings and tokens
@@ -17,7 +18,7 @@ func New() *Generator {
 func (g *Generator) NewPSK() ([]byte, error) {
 	key := make([]byte, 16)
 	if _, err := rand.Read(key); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read random bytes into key: %w", err)
 	}
 
 	return key, nil

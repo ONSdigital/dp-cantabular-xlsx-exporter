@@ -270,7 +270,8 @@ func TestStart(t *testing.T) {
 				return nil
 			}
 			serverWg.Add(1)
-			svc.Start(ctx, make(chan error, 1))
+			err := svc.Start(ctx, make(chan error, 1))
+			So(err, ShouldBeNil)
 
 			Convey("Then healthcheck is started and HTTP server starts listening", func() {
 				So(len(hcMock.StartCalls()), ShouldEqual, 1)
@@ -286,7 +287,8 @@ func TestStart(t *testing.T) {
 			}
 			errChan := make(chan error, 1)
 			serverWg.Add(1)
-			svc.Start(ctx, errChan)
+			err := svc.Start(ctx, errChan)
+			So(err, ShouldBeNil)
 
 			Convey("Then HTTP server errors are reported to the provided errors channel", func() {
 				rxErr := <-errChan
@@ -306,7 +308,8 @@ func TestStart(t *testing.T) {
 				return nil
 			}
 			serverWg.Add(1)
-			svc.Start(ctx, make(chan error, 1))
+			err := svc.Start(ctx, make(chan error, 1))
+			So(err, ShouldBeNil)
 
 			Convey("Then the kafka consumer is started", func() {
 				So(consumerMock.StartCalls(), ShouldHaveLength, 1)

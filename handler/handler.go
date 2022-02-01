@@ -29,7 +29,7 @@ import (
 const (
 	maxAllowedRowCount       = 999900
 	smallEnoughForFullFormat = 10000 // Not too large to achieve full formatting in memory
-	maxSettableColumnWidths  = 500   // The maximum number of columns whose widths will be determined and set in excel files whose source csv file has <= 'smallEnoughForFullFormat' lines. Apparently the max in the real dataset is 400, so we have a larger number just in case.
+	maxSettableColumnWidths  = 500   // The maximum number of columns whose widths will be determined and set in Excel files whose source csv file has <= 'smallEnoughForFullFormat' lines. Apparently the max in the real dataset is 400, so we have a larger number just in case.
 	columNotSet              = -1    // Magic number indicating column width has no determined value
 	maxExcelizeColumnWidth   = 255   // Max column width that the excelize library will work with
 )
@@ -45,7 +45,7 @@ type XlsxCreate struct {
 	generator   Generator
 }
 
-// NewXlsxCreatecreates a new CsvHandler
+// NewXlsxCreate a new CsvHandler
 func NewXlsxCreate(cfg config.Config, d DatasetAPIClient, sPrivate S3Client, sPublic S3Client,
 	v VaultClient, p kafka.IProducer, g Generator) *XlsxCreate {
 	return &XlsxCreate{
@@ -126,10 +126,11 @@ func (h *XlsxCreate) getVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([
 
 // Handle takes a single event.
 func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message) error {
-	event := &event.CantabularCsvCreated{}
+	_ = workerID // to shut linter up
+	kafkaEvent := &event.CantabularCsvCreated{}
 	s := schema.CantabularCsvCreated
 
-	if err := s.Unmarshal(msg.GetData(), event); err != nil {
+	if err := s.Unmarshal(msg.GetData(), kafkaEvent); err != nil {
 		return &Error{
 			err: fmt.Errorf("failed to unmarshal event: %w", err),
 			logData: map[string]interface{}{
@@ -138,22 +139,22 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 		}
 	}
 
-	logData := log.Data{"event": event}
+	logData := log.Data{"event": kafkaEvent}
 	log.Info(ctx, "event received", logData)
 
-	if event.RowCount > maxAllowedRowCount {
+	if kafkaEvent.RowCount > maxAllowedRowCount {
 		return &Error{err: fmt.Errorf("full download too large to export to .xlsx file"),
 			logData: logData,
 		}
 	}
 
-	if event.InstanceID == "" {
+	if kafkaEvent.InstanceID == "" {
 		return &Error{err: fmt.Errorf("instanceID is empty"),
 			logData: logData,
 		}
 	}
 
-	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", event.InstanceID, headers.IfMatchAnyETag)
+	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", kafkaEvent.InstanceID, headers.IfMatchAnyETag)
 	if err != nil {
 		return &Error{
 			err:     fmt.Errorf("failed to get instance: %w", err),
@@ -170,22 +171,22 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 
 	doLargeSheet := true
 
-	if event.RowCount <= smallEnoughForFullFormat {
+	if kafkaEvent.RowCount <= smallEnoughForFullFormat {
 		// The number of lines in the CSV file is small enough to use the excelize API calls to create
-		// an excel file where we can determine and set the column widths to provide the user with
-		// as good a presented excel file as we can.
+		// an Excel file where we can determine and set the column widths to provide the user with
+		// as good a presented Excel file as we can.
 		// (As of Nov 2021 the excelize streaming library code does not allow setting of column widths,
 		//  but we use the stream API calls for its speed and memory allocation efficiency for larger
 		//  CSV files).
-		// NOTE: the excelize libraries use of the word 'stream' is misleading as its actually the
-		// excelize libraries efficient mechanism of storring large sheets in memory and has nothing
+		// NOTE: the excelize libraries use of the word 'stream' is misleading as it's actually the
+		// excelize libraries efficient mechanism of storing large sheets in memory and has nothing
 		// to do with the meaning of the word 'streaming'.
 		doLargeSheet = false
 	}
 
 	defer runtime.GC()
 
-	// start creating the excel file in its "in memory structure"
+	// start creating the Excel file in its "in memory structure"
 	excelInMemoryStructure := excelize.NewFile()
 	sheet1 := "Sheet1"
 	var efficientExcelAPIWriter *excelize.StreamWriter
@@ -210,7 +211,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 		}
 	}
 
-	if err = h.GetCSVtoExcelStructure(ctx, excelInMemoryStructure, event, doLargeSheet, efficientExcelAPIWriter, sheet1, isPublished); err != nil {
+	if err = h.GetCSVtoExcelStructure(ctx, excelInMemoryStructure, kafkaEvent, doLargeSheet, efficientExcelAPIWriter, sheet1, isPublished); err != nil {
 		if err != nil {
 			return &Error{err: fmt.Errorf("GetCSVtoExcelStructure failed: %w", err),
 				logData: logData,
@@ -218,7 +219,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 		}
 	}
 
-	if err = h.AddMetaDataToExcelStructure(ctx, excelInMemoryStructure, event); err != nil {
+	if err = h.AddMetaDataToExcelStructure(ctx, excelInMemoryStructure, kafkaEvent); err != nil {
 		return &Error{err: fmt.Errorf("AddMetaDataToExcelStructure failed: %w", err),
 			logData: logData,
 		}
@@ -231,14 +232,14 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	// Set active sheet of the workbook.
 	excelInMemoryStructure.SetActiveSheet(excelInMemoryStructure.GetSheetIndex(sheetDataset))
 
-	s3Path, err := h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, event, isPublished)
+	s3Path, err := h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, kafkaEvent, isPublished)
 	if err != nil {
 		return &Error{err: fmt.Errorf("SaveExcelStructureToExcelFile failed: %w", err),
 			logData: logData,
 		}
 	}
 
-	numBytes, err := h.GetS3ContentLength(event, isPublished)
+	numBytes, err := h.GetS3ContentLength(kafkaEvent, isPublished)
 	if err != nil {
 		return &Error{
 			err:     fmt.Errorf("failed to get S3 content length: %w", err),
@@ -247,7 +248,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	}
 
 	// Update instance with link to file
-	if err := h.UpdateInstance(ctx, event, numBytes, isPublished, s3Path); err != nil {
+	if err := h.UpdateInstance(ctx, kafkaEvent, numBytes, isPublished, s3Path); err != nil {
 		return fmt.Errorf("failed to update instance: %w", err)
 	}
 
@@ -255,7 +256,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 }
 
 // GetCSVtoExcelStructure streams in a line at a time from csv file from S3 bucket and
-// inserts it into the excel "in memory structure"
+// inserts it into the Excel "in memory structure"
 func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string, isPublished bool) error {
 	var bucketName string
 	var columnWidths [maxSettableColumnWidths]int
@@ -306,7 +307,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 	}(downloadCtx)
 
 	var startRow = 3
-	var outputRow = startRow // this value choosen for test to visually see effect in excel spreadsheet - this will probably need adjusting - TBD
+	var outputRow = startRow // this value chosen for test to visually see effect in Excel spreadsheet - this will probably need adjusting - TBD
 	// AND most importantly to NOT touch any cells previously created with the excelize streamWriter mechanism
 
 	styleID14, err := excelInMemoryStructure.NewStyle(`{"font":{"size":14}}`)
@@ -331,7 +332,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 		incomingCsvRow++
 		line := scanner.Text()
 
-		// split 'line' and do the excel write at 'row' & deal with any errors
+		// split 'line' and do the Excel write at 'row' & deal with any errors
 		columns := strings.Split(line, ",")
 		nofColumns := len(columns)
 		if nofColumns == 0 {
@@ -404,7 +405,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 		}
 	}
 
-	// All of the CSV file has now been downloaded OK
+	// The whole CSV file has now been downloaded OK
 	// We wait until any logs coming from the go routine have completed before doing anything
 	// else to ensure the logs appear in the log file in the correct order.
 	wgDownload.Wait()
@@ -439,7 +440,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 	return nil
 }
 
-// SaveExcelStructureToExcelFile uses the excelize library Write function to effectively write out the excel
+// SaveExcelStructureToExcelFile uses the excelize library Write function to effectively write out the Excel
 // "in memory structure" to a stream that is then streamed directly into a file in S3 bucket.
 // returns s3Location (path) or Error
 func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated, isPublished bool) (string, error) {
@@ -491,7 +492,7 @@ func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInM
 		}
 	}
 
-	// All of the XLSX file has now been uploaded OK
+	// The whole XLSX file has now been uploaded OK
 	// We wait until any logs coming from the go routine have completed before doing anything
 	// else to ensure the logs appear in the log file in the correct order.
 	wgUpload.Wait()
@@ -521,7 +522,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 	if isPublished {
 		log.Info(ctx, "uploading published file to S3", logData)
 
-		// We use UploadWithContext because when processing an excel file that is
+		// We use UploadWithContext because when processing an Excel file that is
 		// nearly 1million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 		// to shut down gracefully before installing a new version of this app, then this could cause problems.
 		result, err := h.s3Public.UploadWithContext(ctx, &s3manager.UploadInput{
@@ -574,7 +575,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 				)
 			}
 
-			// This code needs to use 'UploadWithPSKAndContext', because when processing an excel file that is
+			// This code needs to use 'UploadWithPSKAndContext', because when processing an Excel file that is
 			// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 			// to shut down gracefully before installing a new version of this app, then without using context this
 			// could cause problems.
@@ -619,7 +620,7 @@ func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPub
 	return int(*headOutput.ContentLength), nil
 }
 
-// UpdateInstance updates the instance downlad CSV link using dataset API PUT /instances/{id} endpoint
+// UpdateInstance updates the instance download CSV link using dataset API PUT /instances/{id} endpoint
 // if the instance is published, then the s3Url will be set as public link and the instance state will be set to published
 // otherwise, a private url will be generated and the state will not be changed
 func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.CantabularCsvCreated, size int, isPublished bool, s3Url string) error {
@@ -672,7 +673,7 @@ func generateS3FilenameCSV(event *event.CantabularCsvCreated) string {
 	return fmt.Sprintf("datasets/%s-%s-%s.csv", event.DatasetID, event.Edition, event.Version)
 
 	// return fmt.Sprintf("instances/1000Kx50.csv")// OBSERVED: for non stream code this crashes using 13GB RAM in docker
-	// return fmt.Sprintf("instances/50Kx50.csv") // OBSERVED this uses 1.7GB for non large excel code
+	// return fmt.Sprintf("instances/50Kx50.csv") // OBSERVED this uses 1.7GB for non-large excel code
 	// return fmt.Sprintf("instances/10Kx7.csv")
 	// return fmt.Sprintf("instances/25Kx7.csv")
 	// return fmt.Sprintf("instances/50Kx7.csv")

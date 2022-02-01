@@ -21,20 +21,12 @@ func main() {
 	log.Namespace = serviceName
 	ctx := context.Background()
 
-	if err := run(ctx); err != nil {
-		log.Fatal(ctx, "fatal runtime error", err)
-		os.Exit(1)
-	}
-}
-
-func run(ctx context.Context) error {
 	// Get Config
 	cfg, err := config.Get()
 	if err != nil {
-		return fmt.Errorf("failed to get config: %s", err)
+		log.Fatal(ctx, "error getting config", err)
+		os.Exit(1)
 	}
-
-	log.Info(ctx, "Starting Kafka Producer (messages read from stdin)", log.Data{"config": cfg})
 
 	// Create Kafka Producer
 	pConfig := &kafka.ProducerConfig{
@@ -53,13 +45,14 @@ func run(ctx context.Context) error {
 	}
 	kafkaProducer, err := kafka.NewProducer(ctx, pConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create kafka producer: %w", err)
+		log.Fatal(ctx, "fatal error trying to create kafka producer", err, log.Data{"topic": cfg.KafkaConfig.CsvCreatedTopic})
+		os.Exit(1)
 	}
 
 	// kafka error logging go-routines
 	kafkaProducer.LogErrors(ctx)
 
-	// Wait for producer to be initialised plus 500ms
+	// Wait for producer to be initialised plus 500ms (this might not be needed as it's not in csv exporter)
 	<-kafkaProducer.Channels().Initialised
 	time.Sleep(500 * time.Millisecond)
 
@@ -70,7 +63,8 @@ func run(ctx context.Context) error {
 
 		bytes, err := schema.CantabularCsvCreated.Marshal(e)
 		if err != nil {
-			return fmt.Errorf("failed to marshal event: %w", err)
+			log.Fatal(ctx, "failed to marshal event: %w", err)
+			os.Exit(1)
 		}
 
 		// Send bytes to Output channel
