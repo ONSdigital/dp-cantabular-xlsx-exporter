@@ -11,6 +11,7 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"github.com/cucumber/godog"
@@ -18,14 +19,17 @@ import (
 
 // RegisterSteps maps the human-readable regular expressions to their corresponding functions
 func (c *Component) RegisterSteps(ctx *godog.ScenarioContext) {
+	ctx.Step(`^the following Csv file named: "([^"]*)" is available in Public S3 bucket:$`, c.thisFileIsPutInPublicS3Bucket)
 	ctx.Step(`^the following instance with id "([^"]*)" is available from dp-dataset-api:$`, c.theFollowingInstanceIsAvailable)
 	ctx.Step(`^an instance with id "([^"]*)" is updated to dp-dataset-api`, c.theFollowingInstanceIsUpdated)
 	ctx.Step(`^the service starts`, c.theServiceStarts)
 	ctx.Step(`^dp-dataset-api is healthy`, c.datasetAPIIsHealthy)
 	ctx.Step(`^dp-dataset-api is unhealthy`, c.datasetAPIIsUnhealthy)
 	ctx.Step(`^this cantabular-csv-created event is queued, to be consumed:$`, c.thisCantabularCsvCreatedEventIsQueued)
-	ctx.Step(`^a file with filename "([^"]*)" can be seen in minio`, c.theFollowingFileCanBeSeenInMinio)
-	//	ctx.Step(`^no file with filename "([^"]*)" can be seen in minio`, c.theFollowingFileCannotBeSeenInMinio) !!! is this function needed ?
+	ctx.Step(`^a public file with filename "([^"]*)" can be seen in minio`, c.theFollowingPublicFileCanBeSeenInMinio)
+	ctx.Step(`^a private file with filename "([^"]*)" can be seen in minio`, c.theFollowingPrivateFileCanBeSeenInMinio)
+	ctx.Step(`^no public file with filename "([^"]*)" can be seen in minio`, c.theFollowingPublicFileCannotBeSeenInMinio)
+	ctx.Step(`^no private file with filename "([^"]*)" can be seen in minio`, c.theFollowingPrivateFileCannotBeSeenInMinio)
 }
 
 // theServiceStarts starts the service under test in a new go-routine
@@ -98,18 +102,30 @@ func (c *Component) thisCantabularCsvCreatedEventIsQueued(input *godog.DocString
 // theFollowingPublicFileCanBeSeenInMinio checks that the provided fileName is available in the public bucket.
 // If it is not available it keeps checking following an exponential backoff up to MinioCheckRetries times.
 func (c *Component) theFollowingPublicFileCanBeSeenInMinio(fileName string) error {
-	return c.theFollowingFileCanBeSeenInMinio(fileName, c.cfg.PublicBucketName)
+	return c.expectMinioFile(fileName, true, c.cfg.PublicBucketName)
 }
 
 // theFollowingPrivateFileCanBeSeenInMinio checks that the provided fileName is available in the private bucket.
 // If it is not available it keeps checking following an exponential backoff up to MinioCheckRetries times.
 func (c *Component) theFollowingPrivateFileCanBeSeenInMinio(fileName string) error {
-	return c.theFollowingFileCanBeSeenInMinio(fileName, c.cfg.PrivateBucketName)
+	return c.expectMinioFile(fileName, true, c.cfg.PrivateBucketName)
 }
 
-// theFollowingFileCanBeSeenInMinio checks that the provided fileName is available in the provided bucket.
+// theFollowingPublicFileCannotBeSeenInMinio checks that the provided fileName is NOT available in the public bucket.
 // If it is not available it keeps checking following an exponential backoff up to MinioCheckRetries times.
-func (c *Component) theFollowingFileCanBeSeenInMinio(fileName, bucketName string) error {
+func (c *Component) theFollowingPublicFileCannotBeSeenInMinio(fileName string) error {
+	return c.expectMinioFile(fileName, false, c.cfg.PublicBucketName)
+}
+
+// theFollowingPrivateFileCannotBeSeenInMinio checks that the provided fileName is NOT available in the private bucket.
+// If it is not available it keeps checking following an exponential backoff up to MinioCheckRetries times.
+func (c *Component) theFollowingPrivateFileCannotBeSeenInMinio(fileName string) error {
+	return c.expectMinioFile(fileName, false, c.cfg.PrivateBucketName)
+}
+
+// expectMinioFile checks that the provided fileName 'is' / 'is NOT' available in the provided bucket.
+// If it is not available it keeps checking following an exponential backoff up to MinioCheckRetries times.
+func (c *Component) expectMinioFile(fileName string, expected bool, bucketName string) error {
 	var b []byte
 	f := aws.NewWriteAtBuffer(b)
 
@@ -120,10 +136,11 @@ func (c *Component) theFollowingFileCanBeSeenInMinio(fileName, bucketName string
 	var err error
 
 	for {
-		if numBytes, err = c.S3Downloader.Download(f, &s3.GetObjectInput{
+		numBytes, err = c.S3Downloader.Download(f, &s3.GetObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(fileName),
-		}); err == nil || retries <= 0 {
+		})
+		if err == nil || retries <= 0 {
 			break
 		}
 
@@ -138,19 +155,49 @@ func (c *Component) theFollowingFileCanBeSeenInMinio(fileName, bucketName string
 		timeout *= 2
 	}
 	if err != nil {
+		if !expected {
+			// file was not expected - expected error is 'NoSuchKey'
+			if awsErr, ok := err.(awserr.Error); ok {
+				if awsErr.Code() == s3.ErrCodeNoSuchKey {
+					log.Info(c.ctx, "successfully checked that file not found in minio")
+					return nil
+				}
+			}
+			// file was not expected but error is different than 'NoSuchKey'
+			return fmt.Errorf(
+				"error checking that file was not present in minio. Last error: %w",
+				err,
+			)
+		}
+		// file was expected - return wrapped error
 		return fmt.Errorf(
 			"error obtaining file from minio. Last error: %w",
 			err,
 		)
 	}
 
+	// file was not expected but it was found
+	if !expected {
+		return errors.New("found unexpected file in minio")
+	}
+
+	// file was expected and found - validate size
 	if numBytes < 1 {
 		return errors.New("file length zero")
 	}
 
+	// log file content
 	log.Info(c.ctx, "got file contents", log.Data{
 		"contents": string(f.Bytes()),
 	})
 
+	return nil
+}
+
+func (c *Component) thisFileIsPutInPublicS3Bucket(fileName string) error {
+	return c.putFileInBucket(fileName, c.cfg.PrivateBucketName)
+}
+
+func (c *Component) putFileInBucket(fileName string, bucketName string) error {
 	return nil
 }
