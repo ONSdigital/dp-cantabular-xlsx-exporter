@@ -5,6 +5,11 @@ services:
     image: 'bitnami/minio:latest'
     ports:
       - '9000:9000'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
     environment:
       - MINIO_ACCESS_KEY=minio-access-key
       - MINIO_SECRET_KEY=minio-secret-key
