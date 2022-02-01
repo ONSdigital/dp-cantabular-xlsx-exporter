@@ -42,6 +42,7 @@ type Component struct {
 	CantabularSrv    *httpfake.HTTPFake
 	CantabularAPIExt *httpfake.HTTPFake
 	S3Downloader     *s3manager.Downloader
+	S3Uploader       *s3manager.Uploader
 	producer         kafka.IProducer
 	consumer         kafka.IConsumerGroup
 	errorChan        chan error
@@ -95,6 +96,7 @@ func (c *Component) initService(ctx context.Context) error {
 		return fmt.Errorf("error creating aws session: %w", err)
 	}
 	c.S3Downloader = s3manager.NewDownloader(s)
+	c.S3Uploader = s3manager.NewUploader(s)
 
 	// producer for triggering test events that will be consumed by the service
 	if c.producer, err = kafka.NewProducer(

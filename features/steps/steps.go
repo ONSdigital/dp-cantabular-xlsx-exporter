@@ -4,15 +4,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/handler"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/gedge/go-spew/spew"
 
 	"github.com/cucumber/godog"
 )
@@ -194,10 +199,70 @@ func (c *Component) expectMinioFile(fileName string, expected bool, bucketName s
 	return nil
 }
 
-func (c *Component) thisFileIsPutInPublicS3Bucket(fileName string) error {
-	return c.putFileInBucket(fileName, c.cfg.PrivateBucketName)
+func (c *Component) thisFileIsPutInPublicS3Bucket(fileName string, file *godog.DocString) error {
+	return c.putFileInBucket(fileName, file, c.cfg.PrivateBucketName)
 }
 
-func (c *Component) putFileInBucket(fileName string, bucketName string) error {
-	return nil
+func (c *Component) putFileInBucket(fileName string, file *godog.DocString, bucketName string) error {
+	//!!! need to take into account private or public ?
+
+	spew.Dump(file.Content)
+	s := spew.Sdump(file.Content)
+
+	log.Info(c.ctx, "file contents", log.Data{
+		"contents": s,
+	})
+	fmt.Printf("\n\nfile: %s\n\n", s)
+
+	fileReader, fileWriter := io.Pipe()
+
+	wgUpload := sync.WaitGroup{}
+	wgUpload.Add(1)
+	go func() {
+		defer wgUpload.Done()
+
+		// Write the 'in memory' stringt to the given io.writer
+		if _, err := fileWriter.Write([]byte(file.Content)); err != nil {
+			report := handler.NewError(err,
+				log.Data{"err": err, "bucketName": bucketName, "filenameXlsx": fileName})
+
+			if closeErr := fileWriter.CloseWithError(report); closeErr != nil {
+				log.Error(c.ctx, "error closing upload writerWithError", closeErr)
+			}
+		} else {
+			log.Info(c.ctx, fmt.Sprintf("finished writing file: %s, to pipe for bucket: %s", fileName, bucketName))
+
+			if closeErr := fileWriter.Close(); closeErr != nil {
+				log.Error(c.ctx, "error closing upload writer", closeErr)
+			}
+		}
+	}()
+
+	// Upload input parameters
+	upParams := &s3manager.UploadInput{
+		Bucket: &bucketName,
+		Key:    &fileName,
+		Body:   fileReader,
+	}
+
+	// Perform an upload.
+	result, err := c.S3Uploader.Upload(upParams)
+
+	_ = result
+
+	/*	s = spew.Sdump(result)
+
+		fmt.Printf("\n\nresult: %s\n\n", s)
+
+		s = spew.Sdump(err)
+
+		fmt.Printf("\n\nerr: %s\n\n", s)
+	*/
+
+	// The whole file has now been uploaded OK
+	// We wait until any logs coming from the go routine have completed before doing anything
+	// else to ensure the logs appear in the log file in the correct order.
+	wgUpload.Wait()
+
+	return err
 }

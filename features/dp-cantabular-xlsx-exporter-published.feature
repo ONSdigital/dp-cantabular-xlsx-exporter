@@ -1,9 +1,31 @@
 Feature: Cantabular-Xlsx-Exporter-Published
 
-  # This file validates that an XLSX file generated for a csv file and a metadata structure is available via datasets api (a json object here) in published state are stored in the public S3 bucket
+  # This file validates that an XLSX file generated for a csv file and a metadata structure is 
+  # available via datasets api (a json object here) in published state are stored in the public S3 bucket
 
   Background:
-#    Given the following Csv file named: '??? fill in' is available in Public S3 bucket:
+    Given the following Csv file named: "test.csv" is available in Public S3 bucket:
+      """
+      count,City,Number of siblings (3 mappings),Sex
+      1,London,No siblings,Male
+      0,London,No siblings,Female
+      0,London,1 or 2 siblings,Male
+      0,London,1 or 2 siblings,Female
+      0,London,3 or more siblings,Male
+      1,London,3 or more siblings,Female
+      0,Liverpool,No siblings,Male
+      0,Liverpool,No siblings,Female
+      0,Liverpool,1 or 2 siblings,Male
+      0,Liverpool,1 or 2 siblings,Female
+      1,Liverpool,3 or more siblings,Male
+      0,Liverpool,3 or more siblings,Female
+      0,Belfast,No siblings,Male
+      0,Belfast,No siblings,Female
+      1,Belfast,1 or 2 siblings,Male
+      0,Belfast,1 or 2 siblings,Female
+      0,Belfast,3 or more siblings,Male
+      2,Belfast,3 or more siblings,Female
+      """
 
 #    And the following Metadata response is available from dataset api with dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01":
 
