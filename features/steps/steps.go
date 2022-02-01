@@ -24,12 +24,22 @@ import (
 
 // RegisterSteps maps the human-readable regular expressions to their corresponding functions
 func (c *Component) RegisterSteps(ctx *godog.ScenarioContext) {
+	ctx.Step(
+		`^the following metadata document with dataset id "([^"]*)", edition "([^"]*)" and version "([^"]*)" is available from dp-dataset-api:$`,
+		c.theFollowingMetadataDocumentIsAvailable,
+	)
+	ctx.Step(
+		`^the following version document with dataset id "([^"]*)", edition "([^"]*)" and version "([^"]*)" is available from dp-dataset-api:$`,
+		c.theFollowingVersionDocumentIsAvailable,
+	)
+
 	ctx.Step(`^the following Csv file named: "([^"]*)" is available in Public S3 bucket:$`, c.thisFileIsPutInPublicS3Bucket)
 	ctx.Step(`^the following instance with id "([^"]*)" is available from dp-dataset-api:$`, c.theFollowingInstanceIsAvailable)
-	ctx.Step(`^an instance with id "([^"]*)" is updated to dp-dataset-api`, c.theFollowingInstanceIsUpdated)
+	//	ctx.Step(`^an instance with id "([^"]*)" is updated to dp-dataset-api`, c.theFollowingInstanceIsUpdated)
 	ctx.Step(`^the service starts`, c.theServiceStarts)
 	ctx.Step(`^dp-dataset-api is healthy`, c.datasetAPIIsHealthy)
 	ctx.Step(`^dp-dataset-api is unhealthy`, c.datasetAPIIsUnhealthy)
+	ctx.Step(`^a dataset version with dataset-id "([^"]*)", edition "([^"]*)" and version "([^"]*)" is updated by an API call to dp-dataset-api`, c.theFollowingVersionIsUpdated)
 	ctx.Step(`^this cantabular-csv-created event is queued, to be consumed:$`, c.thisCantabularCsvCreatedEventIsQueued)
 	ctx.Step(`^a public file with filename "([^"]*)" can be seen in minio`, c.theFollowingPublicFileCanBeSeenInMinio)
 	ctx.Step(`^a private file with filename "([^"]*)" can be seen in minio`, c.theFollowingPrivateFileCanBeSeenInMinio)
@@ -42,6 +52,42 @@ func (c *Component) RegisterSteps(ctx *godog.ScenarioContext) {
 // to prevent any race condition, specially during the first healthcheck iteration.
 func (c *Component) theServiceStarts() error {
 	return c.startService(c.ctx)
+}
+
+// theFollowingMetadataDocumentIsAvailable generate a mocked response for dataset API
+// GET /datasets/{dataset_id}/editions/{edition}/versions/{version}/metadata
+func (c *Component) theFollowingMetadataDocumentIsAvailable(datasetID, edition, version string, md *godog.DocString) error {
+	url := fmt.Sprintf(
+		"/datasets/%s/editions/%s/versions/%s/metadata",
+		datasetID,
+		edition,
+		version,
+	)
+
+	c.DatasetAPI.NewHandler().
+		Get(url).
+		Reply(http.StatusOK).
+		BodyString(md.Content)
+
+	return nil
+}
+
+// theFollowingVersionDocumentIsAvailable generates a mocked response for dataset API
+// GET /datasets/{dataset_id}/editions/{edition}/versions/{version}
+func (c *Component) theFollowingVersionDocumentIsAvailable(datasetID, edition, version string, v *godog.DocString) error {
+	url := fmt.Sprintf(
+		"/datasets/%s/editions/%s/versions/%s",
+		datasetID,
+		edition,
+		version,
+	)
+
+	c.DatasetAPI.NewHandler().
+		Get(url).
+		Reply(http.StatusOK).
+		BodyString(v.Content)
+
+	return nil
 }
 
 // datasetAPIIsHealthy generates a mocked healthy response for dataset API healthcheck
@@ -78,11 +124,21 @@ func (c *Component) theFollowingInstanceIsAvailable(id string, instance *godog.D
 
 // theFollowingInstanceIsUpdated generate a mocked response for dataset API
 // PUT /instances/{id} with the provided instance response
-func (c *Component) theFollowingInstanceIsUpdated(id string) error {
+/*func (c *Component) theFollowingInstanceIsUpdated(id string) error {
 	c.DatasetAPI.NewHandler().
 		Put("/instances/"+id).
 		Reply(http.StatusOK).
 		AddHeader("Etag", c.testETag)
+
+	return nil
+}*/
+
+// theFollowingVersionIsUpdated generate a mocked response for dataset API
+// PUT /datasets/{dataset_id}/editions/{edition}/versions/{version}
+func (c *Component) theFollowingVersionIsUpdated(datasetID, edition, version string) error {
+	c.DatasetAPI.NewHandler().
+		Put("/datasets/" + datasetID + "/editions/" + edition + "/versions/" + version).
+		Reply(http.StatusOK)
 
 	return nil
 }
@@ -193,14 +249,14 @@ func (c *Component) expectMinioFile(fileName string, expected bool, bucketName s
 
 	// log file content
 	log.Info(c.ctx, "got file contents", log.Data{
-		"contents": string(f.Bytes()),
+		"contents (Note: this will look garbled for an xlsx file)": string(f.Bytes()),
 	})
 
 	return nil
 }
 
 func (c *Component) thisFileIsPutInPublicS3Bucket(fileName string, file *godog.DocString) error {
-	return c.putFileInBucket(fileName, file, c.cfg.PrivateBucketName)
+	return c.putFileInBucket(fileName, file, c.cfg.PublicBucketName)
 }
 
 func (c *Component) putFileInBucket(fileName string, file *godog.DocString, bucketName string) error {
@@ -258,7 +314,6 @@ func (c *Component) putFileInBucket(fileName string, file *godog.DocString, buck
 
 		fmt.Printf("\n\nerr: %s\n\n", s)
 	*/
-
 	// The whole file has now been uploaded OK
 	// We wait until any logs coming from the go routine have completed before doing anything
 	// else to ensure the logs appear in the log file in the correct order.

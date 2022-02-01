@@ -4,7 +4,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
   # available via datasets api (a json object here) in published state are stored in the public S3 bucket
 
   Background:
-    Given the following Csv file named: "test.csv" is available in Public S3 bucket:
+    Given the following Csv file named: "datasets/dataset-happy-01-edition-happy-01-version-happy-01.csv" is available in Public S3 bucket:
       """
       count,City,Number of siblings (3 mappings),Sex
       1,London,No siblings,Male
@@ -27,18 +27,119 @@ Feature: Cantabular-Xlsx-Exporter-Published
       2,Belfast,3 or more siblings,Female
       """
 
-#    And the following Metadata response is available from dataset api with dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01":
+# !!! may need to adjust following to state its a public document
+    And the following metadata document with dataset id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01" is available from dp-dataset-api:
+      """
+      {
+        "dimensions": [
+          {
+            "label": "City",
+            "links": {
+              "code_list": {},
+              "options": {},
+              "version": {}
+            },
+            "href": "http://api.localhost:23200/v1/code-lists/city",
+            "id": "city",
+            "name": "City"
+          },
+          {
+            "label": "Number of siblings (3 mappings)",
+            "links": {
+              "code_list": {},
+              "options": {},
+              "version": {}
+            },
+            "href": "http://api.localhost:23200/v1/code-lists/siblings",
+            "id": "siblings",
+            "name": "Number of siblings (3 mappings)"
+          },
+          {
+            "label": "Sex",
+            "links": {
+              "code_list": {},
+              "options": {},
+              "version": {}
+            },
+            "href": "http://api.localhost:23200/v1/code-lists/sex",
+            "id": "sex",
+            "name": "Sex"
+          }
+        ],
+        "distribution": [
+          "json",
+          "csvw",
+          "txt"
+        ],
+        "downloads": {},
+        "release_date": "2021-11-19T00:00:00.000Z",
+        "title": "Test Cantabular Dataset Published",
+        "headers": [
+          "cantabular_table",
+          "city",
+          "siblings_3",
+          "sex"
+        ]
+      }
+      """
 
-#    And dp-dataset-api is healthy
+    And dp-dataset-api is healthy
 
-#    And the following instance with id "instance-happy-01" is available from dp-dataset-api:
+# !!! may need to adjust following to state its a public document
+    And the following instance with id "instance-happy-01" is available from dp-dataset-api:
+      """
+      {
+        "import_tasks": {
+          "build_hierarchies": null,
+          "build_search_indexes": null,
+          "import_observations": {
+            "total_inserted_observations": 0,
+            "state": "created"
+          }
+        },
+        "id": "057cd26b-e0ae-431f-9316-913db61cec39",
+        "last_updated": "2021-07-19T09:59:28.417Z",
+        "links": {
+          "dataset": {
+            "href": "http://localhost:22000/datasets/cantabular-dataset",
+            "id": "cantabular-dataset"
+          },
+          "job": {
+            "href": "http://localhost:21800/jobs/e7f99293-44f2-47ce-b6cb-db2f6618ef40",
+            "id": "e7f99293-44f2-47ce-b6cb-db2f6618ef40"
+          },
+          "self": {
+            "href": "http://10.201.4.160:10400/instances/057cd26b-e0ae-431f-9316-913db61cec39"
+          }
+        },
+        "state": "published",
+        "headers": [
+          "ftb_table",
+          "city",
+          "siblings"
+        ],
+        "is_based_on": {
+          "@type": "cantabular_table",
+          "@id": "Example"
+        }
+      }
+      """
 
-#    Scenario: Consuming a cantabular-csv-created event with correct fields
+    Scenario: Consuming a cantabular-csv-created event with correct fields for a published instance
 
-#    When the service starts
+    When the service starts
 
-#    And this cantabular-csv-created event is queued, to be consumed:
+    And this cantabular-csv-created event is queued, to be consumed:
+      """
+      {
+        "InstanceID": "instance-happy-01",
+        "DatasetID":  "dataset-happy-01",
+        "Edition":    "edition-happy-01",
+        "Version":    "version-happy-01",
+        "RowCount":   19
+      }
+      """
 
-#    Then a public file with filename "datasets/dataset-happy-01-edition-happy-01-version-happy-01.csv" can be seen in minio
+    Then a public file with filename "datasets/dataset-happy-01-edition-happy-01-version-happy-01.xlsx" can be seen in minio
 
-#    And a dataset version with dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01" is updated by an API call to dp-dataset-api
+    And a dataset version with dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01" is updated by an API call to dp-dataset-api
