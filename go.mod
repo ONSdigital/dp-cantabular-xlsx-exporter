@@ -5,6 +5,7 @@ go 1.17
 replace github.com/coreos/etcd => github.com/coreos/etcd v3.3.24+incompatible
 
 require (
+	github.com/ONSdigital/dp-api-clients-go v1.43.0
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.7.1
 	github.com/ONSdigital/dp-component-test v0.6.4
 	github.com/ONSdigital/dp-healthcheck v1.2.3
@@ -15,7 +16,7 @@ require (
 	github.com/ONSdigital/log.go/v2 v2.0.9
 	github.com/aws/aws-sdk-go v1.42.42
 	github.com/cucumber/godog v0.12.4
-	github.com/gedge/go-spew v1.1.1
+	github.com/google/go-cmp v0.5.6
 	github.com/gorilla/mux v1.8.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/maxcnunes/httpfake v1.2.4
@@ -24,7 +25,6 @@ require (
 )
 
 require (
-	github.com/ONSdigital/dp-api-clients-go v1.43.0 // indirect
 	github.com/ONSdigital/dp-mongodb-in-memory v1.2.0 // indirect
 	github.com/Shopify/sarama v1.31.0 // indirect
 	github.com/armon/go-metrics v0.3.10 // indirect

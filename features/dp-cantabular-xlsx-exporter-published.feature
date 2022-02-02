@@ -140,4 +140,75 @@ Feature: Cantabular-Xlsx-Exporter-Published
 
     Then a public file with filename "datasets/dataset-happy-01-edition-happy-01-version-happy-01.xlsx" can be seen in minio
 
-    And a dataset version with dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01" is updated by an API call to dp-dataset-api
+    And a dataset version with dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01" is updated by an API call to dp-dataset-api:
+      """
+      {
+        "alerts": null,
+        "collection_id": "",
+        "downloads": {
+          "CSVW": {
+            "href": "http://localhost:23600/downloads/datasets/cantabular-example-1/editions/2021/versions/1.csv-metadata.json",
+            "size": "641",
+            "public": "http://minio:9000/dp-cantabular-metadata-exporter-pub/datasets/cantabular-example-1-2021-1.csvw"
+          },
+          "TXT": {
+            "href": "http://localhost:23600/downloads/datasets/cantabular-example-1/editions/2021/versions/1.txt",
+            "size": "499",
+            "public": "http://minio:9000/dp-cantabular-metadata-exporter-pub/datasets/cantabular-example-1-2021-1.txt"
+          }
+        },
+        "edition": "",
+        "dimensions": null,
+        "id": "",
+        "instance_id": "",
+        "latest_changes": null,
+        "links": {
+          "access_rights": {
+            "href": ""
+          },
+          "dataset": {
+            "href": ""
+          },
+          "dimensions": {
+            "href": ""
+          },
+          "edition": {
+            "href": ""
+          },
+          "editions": {
+            "href": ""
+          },
+          "latest_version": {
+            "href": ""
+          },
+          "versions": {
+            "href": ""
+          },
+          "self": {
+            "href": ""
+          },
+          "code_list": {
+            "href": ""
+          },
+          "options": {
+            "href": ""
+          },
+          "version": {
+            "href": ""
+          },
+          "code": {
+            "href": ""
+          },
+          "taxonomy": {
+            "href": ""
+          },
+          "job": {
+            "href": ""
+          }
+        },
+        "release_date": "",
+        "state": "",
+        "temporal": null,
+        "version": 0
+      }
+      """
