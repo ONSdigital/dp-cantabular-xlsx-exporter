@@ -15,7 +15,6 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
@@ -184,24 +183,26 @@ func (c *Component) theFollowingPrivateFileCannotBeSeenInMinio(fileName string) 
 // expectMinioFile checks that the provided fileName 'is' / 'is NOT' available in the provided bucket.
 // If it is not available it keeps checking following an exponential backoff up to MinioCheckRetries times.
 func (c *Component) expectMinioFile(filename string, expected bool, bucketName string) error {
-	var b []byte
+	var b []byte = make([]byte, 10000) // limit the number of bytes read in
 	f := aws.NewWriteAtBuffer(b)
 
 	// probe bucket with backoff to give time for event to be processed
 	retries := MinioCheckRetries
 	timeout := time.Second
-	var numBytes int64
 	var err error
+	var s3ReadCloser io.ReadCloser
 
 	for {
-		numBytes, err = c.S3Downloader.Download(f, &s3.GetObjectInput{
-			Bucket: aws.String(bucketName),
-			Key:    aws.String(filename),
-		})
+		if bucketName == c.cfg.PublicBucketName {
+			s3ReadCloser, _, err = c.s3Public.Get(filename)
+		} else {
+			// As we are only interested in knowing that the file exists, we don't need to do GetWithPSK
+			s3ReadCloser, _, err = c.s3Private.Get(filename)
+		}
+
 		if err == nil || retries <= 0 {
 			break
 		}
-
 		retries--
 
 		log.Info(c.ctx, "error obtaining file from minio. Retrying.", log.Data{
@@ -212,14 +213,13 @@ func (c *Component) expectMinioFile(filename string, expected bool, bucketName s
 		time.Sleep(timeout)
 		timeout *= 2
 	}
+
 	if err != nil {
 		if !expected {
 			// file was not expected - expected error is 'NoSuchKey'
-			if awsErr, ok := err.(awserr.Error); ok {
-				if awsErr.Code() == s3.ErrCodeNoSuchKey {
-					log.Info(c.ctx, "successfully checked that file not found in minio")
-					return nil
-				}
+			if strings.Contains(err.Error(), s3.ErrCodeNoSuchKey) {
+				log.Info(c.ctx, "successfully checked that file not found in minio")
+				return nil
 			}
 			// file was not expected but error is different than 'NoSuchKey'
 			return fmt.Errorf(
@@ -237,6 +237,15 @@ func (c *Component) expectMinioFile(filename string, expected bool, bucketName s
 	// file was not expected but it was found
 	if !expected {
 		return errors.New("found unexpected file in minio")
+	}
+
+	numBytes, err := s3ReadCloser.Read(b)
+	if errClose := s3ReadCloser.Close(); errClose != nil {
+		log.Error(c.ctx, "error closing io.Closer", errClose)
+	}
+
+	if err != nil {
+		return fmt.Errorf("file read problem: %w", err)
 	}
 
 	// file was expected and found - validate size
@@ -321,16 +330,17 @@ func (c *Component) uploadFile(fileReader io.Reader, isPublished bool, bucketNam
 
 	if isPublished {
 		// Perform an upload.
-		_, err = c.S3Uploader.Upload(upParams)
+		_, err = c.s3Public.UploadWithContext(c.ctx, upParams)
+
 	} else {
 
 		// TODO: get this section working
 
 		/*		logData := log.Data{
-					"bucket":              bucketName,
-					"filename":            filename,
-				//	"encryption_disabled": h.cfg.EncryptionDisabled,
-					"is_published":        isPublished,
+					"bucket":   bucketName,
+					"filename": filename,
+					//	"encryption_disabled": h.cfg.EncryptionDisabled,
+					"is_published": isPublished,
 				}
 
 				psk, err := h.generator.NewPSK()
