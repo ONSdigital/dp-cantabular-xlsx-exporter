@@ -27,7 +27,6 @@ Feature: Cantabular-Xlsx-Exporter-Published
       2,Belfast,3 or more siblings,Female
       """
 
-# !!! may need to adjust following to state its a public document
     And the following metadata document with dataset id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01" is available from dp-dataset-api:
       """
       {
@@ -85,8 +84,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
 
     And dp-dataset-api is healthy
 
-# !!! may need to adjust following to state its a public document
-    And the following instance with id "instance-happy-01" is available from dp-dataset-api:
+    And the following Published instance with id "instance-happy-01" is available from dp-dataset-api:
       """
       {
         "import_tasks": {

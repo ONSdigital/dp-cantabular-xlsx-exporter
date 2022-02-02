@@ -585,7 +585,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 				Key:    &filename,
 			}, psk)
 			if err != nil {
-				return "", NewError(fmt.Errorf("UploadWithPSK failed to upload encrypted file to S3: %w", err),
+				return "", NewError(fmt.Errorf("UploadWithPSKAndContext failed to upload encrypted file to S3: %w", err),
 					logData,
 				)
 			}
