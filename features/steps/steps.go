@@ -187,7 +187,7 @@ func (c *Component) theFollowingPrivateFileCannotBeSeenInMinio(fileName string) 
 // expectMinioFile checks that the provided fileName 'is' / 'is NOT' available in the provided bucket.
 // If it is not available it keeps checking following an exponential backoff up to MinioCheckRetries times.
 func (c *Component) expectMinioFile(filename string, expected bool, bucketName string) error {
-	var b []byte = make([]byte, 10000) // limit the number of bytes read in
+	var b = make([]byte, 10000) // limit the number of bytes read in
 	f := aws.NewWriteAtBuffer(b)
 
 	// probe bucket with backoff to give time for event to be processed
