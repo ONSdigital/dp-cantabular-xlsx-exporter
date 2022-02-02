@@ -1,6 +1,7 @@
 package steps
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,8 +34,11 @@ func (c *Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	)
 
 	ctx.Step(`^the following Csv file named: "([^"]*)" is available in Public S3 bucket:$`, c.thisFileIsPutInPublicS3Bucket)
-	ctx.Step(`^the following Csv file named: "([^"]*)" is available as an ENCRYPTED file in Private S3 bucket:$`, c.thisFileIsPutInPrivateS3Bucket)
+
+	ctx.Step(`^the following Csv file named: "([^"]*)" is available as an ENCRYPTED file in Private S3 bucket for dataset-id "([^"]*)", edition "([^"]*)" and version "([^"]*)":$`, c.thisFileIsPutInPrivateS3Bucket)
+
 	ctx.Step(`^the following Published instance with id "([^"]*)" is available from dp-dataset-api:$`, c.theFollowingInstanceIsAvailable)
+	ctx.Step(`^the following Associated instance with id "([^"]*)" is available from dp-dataset-api:$`, c.theFollowingInstanceIsAvailable)
 	ctx.Step(`^the service starts`, c.theServiceStarts)
 	ctx.Step(`^dp-dataset-api is healthy`, c.datasetAPIIsHealthy)
 	ctx.Step(`^dp-dataset-api is unhealthy`, c.datasetAPIIsUnhealthy)
@@ -221,7 +225,7 @@ func (c *Component) expectMinioFile(filename string, expected bool, bucketName s
 				log.Info(c.ctx, "successfully checked that file not found in minio")
 				return nil
 			}
-			// file was not expected but error is different than 'NoSuchKey'
+			// file was not expected but error is different from 'NoSuchKey'
 			return fmt.Errorf(
 				"error checking that file was not present in minio. Last error: %w",
 				err,
@@ -264,14 +268,14 @@ func (c *Component) expectMinioFile(filename string, expected bool, bucketName s
 }
 
 func (c *Component) thisFileIsPutInPublicS3Bucket(fileName string, file *godog.DocString) error {
-	return c.putFileInBucket(fileName, file, true, c.cfg.PublicBucketName)
+	return c.putFileInBucket(fileName, "", "", "", file, true, c.cfg.PublicBucketName)
 }
 
-func (c *Component) thisFileIsPutInPrivateS3Bucket(fileName string, file *godog.DocString) error {
-	return c.putFileInBucket(fileName, file, false, c.cfg.PrivateBucketName)
+func (c *Component) thisFileIsPutInPrivateS3Bucket(fileName, datasetID, edition, version string, file *godog.DocString) error {
+	return c.putFileInBucket(fileName, datasetID, edition, version, file, false, c.cfg.PrivateBucketName)
 }
 
-func (c *Component) putFileInBucket(filename string, file *godog.DocString, isPublished bool, bucketName string) error {
+func (c *Component) putFileInBucket(filename, datasetID, edition, version string, file *godog.DocString, isPublished bool, bucketName string) error {
 
 	// create mechanism to present 'S3Uploader.Upload' with a 'reader'
 	fileReader, fileWriter := io.Pipe()
@@ -281,7 +285,7 @@ func (c *Component) putFileInBucket(filename string, file *godog.DocString, isPu
 	go func() {
 		defer wgUpload.Done()
 
-		// Write the 'in memory' stringt to the given io.writer
+		// Write the 'in memory' straight to the given io.writer
 		if _, err := fileWriter.Write([]byte(file.Content)); err != nil {
 			report := handler.NewError(err,
 				log.Data{"err": err, "bucketName": bucketName, "filenameXlsx": filename})
@@ -299,7 +303,7 @@ func (c *Component) putFileInBucket(filename string, file *godog.DocString, isPu
 	}()
 
 	// Use the Upload function to read from the io.Pipe() Writer:
-	err := c.uploadFile(fileReader, isPublished, bucketName, filename)
+	err := c.uploadFile(fileReader, isPublished, bucketName, filename, datasetID, edition, version)
 	if err != nil {
 		if closeErr := fileWriter.Close(); closeErr != nil {
 			log.Error(c.ctx, "error closing upload writer", closeErr)
@@ -317,7 +321,7 @@ func (c *Component) putFileInBucket(filename string, file *godog.DocString, isPu
 	return err
 }
 
-func (c *Component) uploadFile(fileReader io.Reader, isPublished bool, bucketName string, filename string) error {
+func (c *Component) uploadFile(fileReader io.Reader, isPublished bool, bucketName, filename, datasetID, edition, version string) error {
 
 	// Upload input parameters
 	upParams := &s3manager.UploadInput{
@@ -333,50 +337,40 @@ func (c *Component) uploadFile(fileReader io.Reader, isPublished bool, bucketNam
 		_, err = c.s3Public.UploadWithContext(c.ctx, upParams)
 
 	} else {
+		logData := log.Data{
+			"bucket":       bucketName,
+			"filename":     filename,
+			"is_published": isPublished,
+		}
 
-		// TODO: get this section working
+		psk, err := c.generator.NewPSK()
+		if err != nil {
+			return handler.NewError(fmt.Errorf("NewPSK failed to generate a PSK for encryption: %w", err),
+				logData,
+			)
+		}
 
-		/*		logData := log.Data{
-					"bucket":   bucketName,
-					"filename": filename,
-					//	"encryption_disabled": h.cfg.EncryptionDisabled,
-					"is_published": isPublished,
-				}
+		vaultPath := fmt.Sprintf("%s/%s-%s-%s.csv", c.cfg.VaultPath, datasetID, edition, version)
+		vaultKey := "key"
 
-				psk, err := h.generator.NewPSK()
-				if err != nil {
-					return handler.NewError(fmt.Errorf("NewPSK failed to generate a PSK for encryption: %w", err),
-						logData,
-					)
-				}
+		log.Info(c.ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
 
-				vaultPath := fmt.Sprintf("%s/%s-%s-%s.xlsx", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
-				vaultKey := "key"
+		if err := c.vaultClient.WriteKey(vaultPath, vaultKey, hex.EncodeToString(psk)); err != nil {
+			return handler.NewError(fmt.Errorf("WriteKey failed to write key to vault: %w", err),
+				logData,
+			)
+		}
 
-				//log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
-
-				if err := h.vaultClient.WriteKey(vaultPath, vaultKey, hex.EncodeToString(psk)); err != nil {
-					return handler.NewError(fmt.Errorf("WriteKey failed to write key to vault: %w", err),
-						logData,
-					)
-				}
-
-				// This code needs to use 'UploadWithPSKAndContext', because when processing an Excel file that is
-				// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
-				// to shut down gracefully before installing a new version of this app, then without using context this
-				// could cause problems.
-				_, err := h.s3Private.UploadWithPSKAndContext(c.ctx, &s3manager.UploadInput{
-					Body:   filename,
-					Bucket: &bucketName,
-					Key:    &filename,
-				}, psk)
-				if err != nil {
-					return handler.NewError(fmt.Errorf("UploadWithPSKAndContext failed to upload encrypted file to S3: %w", err),
-						logData,
-					)
-				}
-				//resultPath = result.Location
-		*/
+		// This code needs to use 'UploadWithPSKAndContext', because when processing an Excel file that is
+		// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
+		// to shut down gracefully before installing a new version of this app, then without using context this
+		// could cause problems.
+		_, err = c.s3Private.UploadWithPSKAndContext(c.ctx, upParams, psk)
+		if err != nil {
+			return handler.NewError(fmt.Errorf("UploadWithPSKAndContext failed to upload encrypted file to S3: %w", err),
+				logData,
+			)
+		}
 	}
 
 	return err

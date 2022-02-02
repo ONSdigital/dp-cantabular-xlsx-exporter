@@ -14,6 +14,7 @@ import (
 	componenttest "github.com/ONSdigital/dp-component-test"
 	kafka "github.com/ONSdigital/dp-kafka/v3"
 	dps3 "github.com/ONSdigital/dp-s3/v2"
+	vault "github.com/ONSdigital/dp-vault"
 	"github.com/ONSdigital/log.go/v2/log"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -41,19 +42,19 @@ type Component struct {
 	DatasetAPI       *httpfake.HTTPFake
 	CantabularSrv    *httpfake.HTTPFake
 	CantabularAPIExt *httpfake.HTTPFake
-
-	s3Private *dps3.Client
-	s3Public  *dps3.Client
-
-	producer  kafka.IProducer
-	consumer  kafka.IConsumerGroup
-	errorChan chan error
-	svc       *service.Service
-	cfg       *config.Config
-	wg        *sync.WaitGroup
-	signals   chan os.Signal
-	testETag  string
-	ctx       context.Context
+	s3Private        *dps3.Client
+	s3Public         *dps3.Client
+	producer         kafka.IProducer
+	consumer         kafka.IConsumerGroup
+	errorChan        chan error
+	svc              *service.Service
+	cfg              *config.Config
+	wg               *sync.WaitGroup
+	signals          chan os.Signal
+	testETag         string
+	ctx              context.Context
+	generator        service.Generator
+	vaultClient      *vault.Client
 }
 
 func NewComponent() *Component {
@@ -142,8 +143,15 @@ func (c *Component) initService(ctx context.Context) error {
 	c.consumer.LogErrors(ctx)
 	c.producer.LogErrors(ctx)
 
+	c.generator = &generator{}
+
 	service.GetGenerator = func() service.Generator {
-		return &generator{}
+		return c.generator
+	}
+
+	c.vaultClient, err = vault.CreateClient(cfg.VaultToken, cfg.VaultAddress, service.VaultRetries)
+	if err != nil {
+		return err
 	}
 
 	// Create service and initialise it
