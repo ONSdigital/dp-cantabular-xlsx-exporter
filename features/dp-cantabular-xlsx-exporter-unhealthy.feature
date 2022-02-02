@@ -10,15 +10,16 @@ Feature: Cantabular-Xlsx-Exporter-Unhealthy
     And this cantabular-csv-created event is queued, to be consumed:
       """
       {
-        "InstanceID": "instance-happy-01",
-        "DatasetID":  "dataset-happy-01",
-        "Edition":    "edition-happy-01",
-        "Version":    "version-happy-01",
-        "RowCount":   123
+        "InstanceID": "instance-happy-02",
+        "DatasetID":  "dataset-happy-02",
+        "Edition":    "edition-happy-02",
+        "Version":    "version-happy-02",
+        "RowCount":   19
       }
       """
 
-    # we check that both public and private files do not exist, because without dp-dataset-api working we
+    # We check that both public and private files do not exist, because without dp-dataset-api working we
     # do not know what to expect
-    Then no public file with filename "datasets/dataset-happy-01-edition-happy-01-version-happy-01.xlsx" can be seen in minio
-    And no private file with filename "datasets/dataset-happy-01-edition-happy-01-version-happy-01.xlsx" can be seen in minio
+    Then no public file with filename "datasets/dataset-happy-02-edition-happy-02-version-happy-02.xlsx" can be seen in minio
+
+    And no private file with filename "datasets/dataset-happy-02-edition-happy-02-version-happy-02.xlsx" can be seen in minio

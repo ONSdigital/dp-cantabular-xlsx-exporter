@@ -4,27 +4,42 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/handler"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
 	"github.com/cucumber/godog"
 )
 
 // RegisterSteps maps the human-readable regular expressions to their corresponding functions
 func (c *Component) RegisterSteps(ctx *godog.ScenarioContext) {
+	ctx.Step(
+		`^the following metadata document with dataset id "([^"]*)", edition "([^"]*)" and version "([^"]*)" is available from dp-dataset-api:$`,
+		c.theFollowingMetadataDocumentIsAvailable,
+	)
+	ctx.Step(
+		`^the following version document with dataset id "([^"]*)", edition "([^"]*)" and version "([^"]*)" is available from dp-dataset-api:$`,
+		c.theFollowingVersionDocumentIsAvailable,
+	)
+
 	ctx.Step(`^the following Csv file named: "([^"]*)" is available in Public S3 bucket:$`, c.thisFileIsPutInPublicS3Bucket)
-	ctx.Step(`^the following instance with id "([^"]*)" is available from dp-dataset-api:$`, c.theFollowingInstanceIsAvailable)
-	ctx.Step(`^an instance with id "([^"]*)" is updated to dp-dataset-api`, c.theFollowingInstanceIsUpdated)
+	ctx.Step(`^the following Csv file named: "([^"]*)" is available as an ENCRYPTED file in Private S3 bucket:$`, c.thisFileIsPutInPrivateS3Bucket)
+	ctx.Step(`^the following Published instance with id "([^"]*)" is available from dp-dataset-api:$`, c.theFollowingInstanceIsAvailable)
 	ctx.Step(`^the service starts`, c.theServiceStarts)
 	ctx.Step(`^dp-dataset-api is healthy`, c.datasetAPIIsHealthy)
 	ctx.Step(`^dp-dataset-api is unhealthy`, c.datasetAPIIsUnhealthy)
+	ctx.Step(`^a dataset version with dataset-id "([^"]*)", edition "([^"]*)" and version "([^"]*)" is updated by an API call to dp-dataset-api`, c.theFollowingVersionIsUpdated)
 	ctx.Step(`^this cantabular-csv-created event is queued, to be consumed:$`, c.thisCantabularCsvCreatedEventIsQueued)
 	ctx.Step(`^a public file with filename "([^"]*)" can be seen in minio`, c.theFollowingPublicFileCanBeSeenInMinio)
 	ctx.Step(`^a private file with filename "([^"]*)" can be seen in minio`, c.theFollowingPrivateFileCanBeSeenInMinio)
@@ -37,6 +52,42 @@ func (c *Component) RegisterSteps(ctx *godog.ScenarioContext) {
 // to prevent any race condition, specially during the first healthcheck iteration.
 func (c *Component) theServiceStarts() error {
 	return c.startService(c.ctx)
+}
+
+// theFollowingMetadataDocumentIsAvailable generate a mocked response for dataset API
+// GET /datasets/{dataset_id}/editions/{edition}/versions/{version}/metadata
+func (c *Component) theFollowingMetadataDocumentIsAvailable(datasetID, edition, version string, md *godog.DocString) error {
+	url := fmt.Sprintf(
+		"/datasets/%s/editions/%s/versions/%s/metadata",
+		datasetID,
+		edition,
+		version,
+	)
+
+	c.DatasetAPI.NewHandler().
+		Get(url).
+		Reply(http.StatusOK).
+		BodyString(md.Content)
+
+	return nil
+}
+
+// theFollowingVersionDocumentIsAvailable generates a mocked response for dataset API
+// GET /datasets/{dataset_id}/editions/{edition}/versions/{version}
+func (c *Component) theFollowingVersionDocumentIsAvailable(datasetID, edition, version string, v *godog.DocString) error {
+	url := fmt.Sprintf(
+		"/datasets/%s/editions/%s/versions/%s",
+		datasetID,
+		edition,
+		version,
+	)
+
+	c.DatasetAPI.NewHandler().
+		Get(url).
+		Reply(http.StatusOK).
+		BodyString(v.Content)
+
+	return nil
 }
 
 // datasetAPIIsHealthy generates a mocked healthy response for dataset API healthcheck
@@ -71,13 +122,12 @@ func (c *Component) theFollowingInstanceIsAvailable(id string, instance *godog.D
 	return nil
 }
 
-// theFollowingInstanceIsUpdated generate a mocked response for dataset API
-// PUT /instances/{id} with the provided instance response
-func (c *Component) theFollowingInstanceIsUpdated(id string) error {
+// theFollowingVersionIsUpdated generate a mocked response for dataset API
+// PUT /datasets/{dataset_id}/editions/{edition}/versions/{version}
+func (c *Component) theFollowingVersionIsUpdated(datasetID, edition, version string) error {
 	c.DatasetAPI.NewHandler().
-		Put("/instances/"+id).
-		Reply(http.StatusOK).
-		AddHeader("Etag", c.testETag)
+		Put("/datasets/" + datasetID + "/editions/" + edition + "/versions/" + version).
+		Reply(http.StatusOK)
 
 	return nil
 }
@@ -125,7 +175,7 @@ func (c *Component) theFollowingPrivateFileCannotBeSeenInMinio(fileName string) 
 
 // expectMinioFile checks that the provided fileName 'is' / 'is NOT' available in the provided bucket.
 // If it is not available it keeps checking following an exponential backoff up to MinioCheckRetries times.
-func (c *Component) expectMinioFile(fileName string, expected bool, bucketName string) error {
+func (c *Component) expectMinioFile(filename string, expected bool, bucketName string) error {
 	var b []byte
 	f := aws.NewWriteAtBuffer(b)
 
@@ -138,7 +188,7 @@ func (c *Component) expectMinioFile(fileName string, expected bool, bucketName s
 	for {
 		numBytes, err = c.S3Downloader.Download(f, &s3.GetObjectInput{
 			Bucket: aws.String(bucketName),
-			Key:    aws.String(fileName),
+			Key:    aws.String(filename),
 		})
 		if err == nil || retries <= 0 {
 			break
@@ -186,18 +236,130 @@ func (c *Component) expectMinioFile(fileName string, expected bool, bucketName s
 		return errors.New("file length zero")
 	}
 
-	// log file content
-	log.Info(c.ctx, "got file contents", log.Data{
-		"contents": string(f.Bytes()),
-	})
+	if !strings.Contains(filename, "xlsx") { // skip Excel files as they look garbled
+		// log file content
+		log.Info(c.ctx, "got file contents", log.Data{
+			"contents": string(f.Bytes()),
+		})
+	}
 
 	return nil
 }
 
-func (c *Component) thisFileIsPutInPublicS3Bucket(fileName string) error {
-	return c.putFileInBucket(fileName, c.cfg.PrivateBucketName)
+func (c *Component) thisFileIsPutInPublicS3Bucket(fileName string, file *godog.DocString) error {
+	return c.putFileInBucket(fileName, file, true, c.cfg.PublicBucketName)
 }
 
-func (c *Component) putFileInBucket(fileName string, bucketName string) error {
-	return nil
+func (c *Component) thisFileIsPutInPrivateS3Bucket(fileName string, file *godog.DocString) error {
+	return c.putFileInBucket(fileName, file, false, c.cfg.PrivateBucketName)
+}
+
+func (c *Component) putFileInBucket(filename string, file *godog.DocString, isPublished bool, bucketName string) error {
+
+	// create mechanism to present 'S3Uploader.Upload' with a 'reader'
+	fileReader, fileWriter := io.Pipe()
+
+	wgUpload := sync.WaitGroup{}
+	wgUpload.Add(1)
+	go func() {
+		defer wgUpload.Done()
+
+		// Write the 'in memory' stringt to the given io.writer
+		if _, err := fileWriter.Write([]byte(file.Content)); err != nil {
+			report := handler.NewError(err,
+				log.Data{"err": err, "bucketName": bucketName, "filenameXlsx": filename})
+
+			if closeErr := fileWriter.CloseWithError(report); closeErr != nil {
+				log.Error(c.ctx, "error closing upload writerWithError", closeErr)
+			}
+		} else {
+			log.Info(c.ctx, fmt.Sprintf("finished writing file: %s, to pipe for bucket: %s", filename, bucketName))
+
+			if closeErr := fileWriter.Close(); closeErr != nil {
+				log.Error(c.ctx, "error closing upload writer", closeErr)
+			}
+		}
+	}()
+
+	// Use the Upload function to read from the io.Pipe() Writer:
+	err := c.uploadFile(fileReader, isPublished, bucketName, filename)
+	if err != nil {
+		if closeErr := fileWriter.Close(); closeErr != nil {
+			log.Error(c.ctx, "error closing upload writer", closeErr)
+		}
+
+		err = handler.NewError(fmt.Errorf("failed to upload .xlsx file to S3 bucket: %w", err),
+			log.Data{"bucket": bucketName})
+	}
+
+	// The whole file has now been uploaded OK
+	// We wait until any logs coming from the go routine have completed before doing anything
+	// else to ensure the logs appear in the log file in the correct order.
+	wgUpload.Wait()
+
+	return err
+}
+
+func (c *Component) uploadFile(fileReader io.Reader, isPublished bool, bucketName string, filename string) error {
+
+	// Upload input parameters
+	upParams := &s3manager.UploadInput{
+		Bucket: &bucketName,
+		Key:    &filename,
+		Body:   fileReader,
+	}
+
+	var err error
+
+	if isPublished {
+		// Perform an upload.
+		_, err = c.S3Uploader.Upload(upParams)
+	} else {
+
+		// TODO: get this section working
+
+		/*		logData := log.Data{
+					"bucket":              bucketName,
+					"filename":            filename,
+				//	"encryption_disabled": h.cfg.EncryptionDisabled,
+					"is_published":        isPublished,
+				}
+
+				psk, err := h.generator.NewPSK()
+				if err != nil {
+					return handler.NewError(fmt.Errorf("NewPSK failed to generate a PSK for encryption: %w", err),
+						logData,
+					)
+				}
+
+				vaultPath := fmt.Sprintf("%s/%s-%s-%s.xlsx", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
+				vaultKey := "key"
+
+				//log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
+
+				if err := h.vaultClient.WriteKey(vaultPath, vaultKey, hex.EncodeToString(psk)); err != nil {
+					return handler.NewError(fmt.Errorf("WriteKey failed to write key to vault: %w", err),
+						logData,
+					)
+				}
+
+				// This code needs to use 'UploadWithPSKAndContext', because when processing an Excel file that is
+				// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
+				// to shut down gracefully before installing a new version of this app, then without using context this
+				// could cause problems.
+				_, err := h.s3Private.UploadWithPSKAndContext(c.ctx, &s3manager.UploadInput{
+					Body:   filename,
+					Bucket: &bucketName,
+					Key:    &filename,
+				}, psk)
+				if err != nil {
+					return handler.NewError(fmt.Errorf("UploadWithPSKAndContext failed to upload encrypted file to S3: %w", err),
+						logData,
+					)
+				}
+				//resultPath = result.Location
+		*/
+	}
+
+	return err
 }
