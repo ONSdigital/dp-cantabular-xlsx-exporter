@@ -125,22 +125,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
 
     Scenario: Consuming a cantabular-csv-created event with correct fields for a published instance
 
-    When the service starts
-
-    And this cantabular-csv-created event is queued, to be consumed:
-      """
-      {
-        "InstanceID": "instance-happy-01",
-        "DatasetID":  "dataset-happy-01",
-        "Edition":    "edition-happy-01",
-        "Version":    "version-happy-01",
-        "RowCount":   19
-      }
-      """
-
-    Then a public file with filename "datasets/dataset-happy-01-edition-happy-01-version-happy-01.xlsx" can be seen in minio
-
-    And a dataset version with dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01" is updated by an API call to dp-dataset-api:
+    Given a PUT endpoint exists in dataset-API for dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01" to be later updated by an API call with:
       """
       {
         "alerts": null,
@@ -212,3 +197,18 @@ Feature: Cantabular-Xlsx-Exporter-Published
         "version": 0
       }
       """
+
+    When the service starts
+
+    Then this cantabular-csv-created event is queued, to be consumed:
+      """
+      {
+        "InstanceID": "instance-happy-01",
+        "DatasetID":  "dataset-happy-01",
+        "Edition":    "edition-happy-01",
+        "Version":    "version-happy-01",
+        "RowCount":   19
+      }
+      """
+
+    And a public file with filename "datasets/dataset-happy-01-edition-happy-01-version-happy-01.xlsx" can be seen in minio

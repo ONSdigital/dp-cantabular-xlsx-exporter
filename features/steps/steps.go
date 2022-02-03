@@ -42,7 +42,7 @@ func (c *Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the service starts`, c.theServiceStarts)
 	ctx.Step(`^dp-dataset-api is healthy`, c.datasetAPIIsHealthy)
 	ctx.Step(`^dp-dataset-api is unhealthy`, c.datasetAPIIsUnhealthy)
-	ctx.Step(`^a dataset version with dataset-id "([^"]*)", edition "([^"]*)" and version "([^"]*)" is updated by an API call to dp-dataset-api:$`, c.theFollowingVersionIsUpdated)
+	ctx.Step(`^a PUT endpoint exists in dataset-API for dataset-id "([^"]*)", edition "([^"]*)" and version "([^"]*)" to be later updated by an API call with:$`, c.theFollowingVersionIsUpdated)
 	ctx.Step(`^this cantabular-csv-created event is queued, to be consumed:$`, c.thisCantabularCsvCreatedEventIsQueued)
 	ctx.Step(`^a public file with filename "([^"]*)" can be seen in minio`, c.theFollowingPublicFileCanBeSeenInMinio)
 	ctx.Step(`^a private file with filename "([^"]*)" can be seen in minio`, c.theFollowingPrivateFileCanBeSeenInMinio)
