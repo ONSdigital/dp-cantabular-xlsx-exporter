@@ -32,3 +32,5 @@ services:
             KAFKA_CONSUMER_MIN_BROKERS_HEALTHY: 1
             KAFKA_PRODUCER_MIN_BROKERS_HEALTHY: 1
             KAFKA_SEC_PROTO:                    ""
+            VAULT_ADDR:                         "http://vault:8200"
+            VAULT_TOKEN:                        "0000-0000-0000-0000"

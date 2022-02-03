@@ -49,7 +49,7 @@ type KafkaConfig struct {
 	SecSkipVerify                bool     `envconfig:"KAFKA_SEC_SKIP_VERIFY"`
 	CsvCreatedGroup              string   `envconfig:"CSV_CREATED_GROUP"`               // this is the consumed group, and is only defined for the consumer(s)
 	CsvCreatedTopic              string   `envconfig:"CSV_CREATED_TOPIC"`               // this is the consumed topic
-	CantabularOutputCreatedTopic string   `envconfig:"CANTABULAR_OUTPUT_CREATED_TOPIC"` // this is produced ... This may get used if we have a export manager service - TBD
+	CantabularOutputCreatedTopic string   `envconfig:"CANTABULAR_OUTPUT_CREATED_TOPIC"` // this is produced ... This may get used if we have an export manager service - TBD
 }
 
 var cfg *Config
@@ -63,7 +63,7 @@ func Get() (*Config, error) {
 
 	cfg = &Config{
 		BindAddr:                   "localhost:26800",
-		GracefulShutdownTimeout:    5 * time.Second,
+		GracefulShutdownTimeout:    15 * time.Second, // needs to be more than 5 for component tests
 		HealthCheckInterval:        30 * time.Second,
 		HealthCheckCriticalTimeout: 90 * time.Second,
 		ServiceAuthToken:           "",

@@ -1,10 +1,10 @@
 Feature: Cantabular-Xlsx-Exporter-Published
 
-  # This file validates that an XLSX file generated for a csv file and a metadata structure is 
+  # This file validates that an XLSX file generated for a ENCRYPTED csv file and a metadata structure is 
   # available via datasets api (a json object here) in published state are stored in the public S3 bucket
 
   Background:
-    Given the following Csv file named: "datasets/dataset-happy-01-edition-happy-01-version-happy-01.csv" is available in Public S3 bucket:
+	  Given the following Csv file named: "datasets/dataset-happy-01-edition-happy-01-version-happy-01.csv" is available as an ENCRYPTED file in Private S3 bucket for dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01":
       """
       count,City,Number of siblings (3 mappings),Sex
       1,London,No siblings,Male
@@ -84,7 +84,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
 
     And dp-dataset-api is healthy
 
-    And the following Published instance with id "instance-happy-01" is available from dp-dataset-api:
+    And the following Associated instance with id "instance-happy-01" is available from dp-dataset-api:
       """
       {
         "import_tasks": {
@@ -110,7 +110,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
             "href": "http://10.201.4.160:10400/instances/057cd26b-e0ae-431f-9316-913db61cec39"
           }
         },
-        "state": "published",
+        "state": "associated",
         "headers": [
           "ftb_table",
           "city",
@@ -123,7 +123,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
       }
       """
 
-    Scenario: Consuming a cantabular-csv-created event with correct fields for a published instance
+    Scenario: Consuming a cantabular-csv-created event with correct fields for a associated (unpublished/private) instance
 
     Given a PUT endpoint exists in dataset-API for dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01" to be later updated by an API call with:
       """
@@ -211,4 +211,4 @@ Feature: Cantabular-Xlsx-Exporter-Published
       }
       """
 
-    And a public file with filename "datasets/dataset-happy-01-edition-happy-01-version-happy-01.xlsx" can be seen in minio
+    And a private file with filename "datasets/dataset-happy-01-edition-happy-01-version-happy-01.xlsx" can be seen in minio

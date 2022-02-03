@@ -13,12 +13,13 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/service"
 	componenttest "github.com/ONSdigital/dp-component-test"
 	kafka "github.com/ONSdigital/dp-kafka/v3"
+	dps3 "github.com/ONSdigital/dp-s3/v2"
+	vault "github.com/ONSdigital/dp-vault"
 	"github.com/ONSdigital/log.go/v2/log"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/maxcnunes/httpfake"
 )
 
@@ -41,8 +42,8 @@ type Component struct {
 	DatasetAPI       *httpfake.HTTPFake
 	CantabularSrv    *httpfake.HTTPFake
 	CantabularAPIExt *httpfake.HTTPFake
-	S3Downloader     *s3manager.Downloader
-	S3Uploader       *s3manager.Uploader
+	s3Private        *dps3.Client
+	s3Public         *dps3.Client
 	producer         kafka.IProducer
 	consumer         kafka.IConsumerGroup
 	errorChan        chan error
@@ -52,6 +53,8 @@ type Component struct {
 	signals          chan os.Signal
 	testETag         string
 	ctx              context.Context
+	generator        service.Generator
+	vaultClient      *vault.Client
 }
 
 func NewComponent() *Component {
@@ -95,8 +98,9 @@ func (c *Component) initService(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error creating aws session: %w", err)
 	}
-	c.S3Downloader = s3manager.NewDownloader(s)
-	c.S3Uploader = s3manager.NewUploader(s)
+
+	c.s3Private = dps3.NewClientWithSession(cfg.PrivateBucketName, s)
+	c.s3Public = dps3.NewClientWithSession(cfg.PublicBucketName, s)
 
 	// producer for triggering test events that will be consumed by the service
 	if c.producer, err = kafka.NewProducer(
@@ -139,8 +143,15 @@ func (c *Component) initService(ctx context.Context) error {
 	c.consumer.LogErrors(ctx)
 	c.producer.LogErrors(ctx)
 
+	c.generator = &generator{}
+
 	service.GetGenerator = func() service.Generator {
-		return &generator{}
+		return c.generator
+	}
+
+	c.vaultClient, err = vault.CreateClient(cfg.VaultToken, cfg.VaultAddress, service.VaultRetries)
+	if err != nil {
+		return err
 	}
 
 	// Create service and initialise it
