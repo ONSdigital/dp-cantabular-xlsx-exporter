@@ -108,6 +108,7 @@ func closeAndLogError(ctx context.Context, closer io.Closer) {
 	}
 }
 
+//!!! unit test this
 func (h *XlsxCreate) getVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([]byte, error) {
 	vaultPath := fmt.Sprintf("%s/%s-%s-%s.csv", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
 
@@ -122,6 +123,36 @@ func (h *XlsxCreate) getVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([
 	}
 
 	return psk, nil
+}
+
+//!!! unit test this
+func validateEvent(kafkaEvent *event.CantabularCsvCreated) error {
+	if kafkaEvent.RowCount > maxAllowedRowCount {
+		return fmt.Errorf("full download too large to export to .xlsx file")
+	}
+
+	if kafkaEvent.InstanceID == "" {
+		return fmt.Errorf("instanceID is empty")
+	}
+
+	return nil
+}
+
+//!!! unit test this
+func (h *XlsxCreate) isInstancePublished(ctx context.Context, instanceID string) (bool, error) {
+	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", instanceID, headers.IfMatchAnyETag)
+	if err != nil {
+		return true, fmt.Errorf("failed to get instance: %w", err)
+	}
+
+	log.Info(ctx, "instance obtained from dataset API", log.Data{
+		"instance_id":    instance.ID,
+		"instance_state": instance.State,
+	})
+
+	isPublished := instance.State == dataset.StatePublished.String()
+
+	return isPublished, nil
 }
 
 // Handle takes a single event.
@@ -142,32 +173,18 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	logData := log.Data{"event": kafkaEvent}
 	log.Info(ctx, "event received", logData)
 
-	if kafkaEvent.RowCount > maxAllowedRowCount {
-		return &Error{err: fmt.Errorf("full download too large to export to .xlsx file"),
+	if err := validateEvent(kafkaEvent); err != nil {
+		return &Error{err: err,
 			logData: logData,
 		}
 	}
 
-	if kafkaEvent.InstanceID == "" {
-		return &Error{err: fmt.Errorf("instanceID is empty"),
-			logData: logData,
-		}
-	}
-
-	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", kafkaEvent.InstanceID, headers.IfMatchAnyETag)
+	isPublished, err := h.isInstancePublished(ctx, kafkaEvent.InstanceID)
 	if err != nil {
-		return &Error{
-			err:     fmt.Errorf("failed to get instance: %w", err),
+		return &Error{err: err,
 			logData: logData,
 		}
 	}
-
-	log.Info(ctx, "instance obtained from dataset API", log.Data{
-		"instance_id":    instance.ID,
-		"instance_state": instance.State,
-	})
-
-	isPublished := instance.State == dataset.StatePublished.String()
 
 	doLargeSheet := true
 
@@ -184,57 +201,15 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 		doLargeSheet = false
 	}
 
+	// Whilst running hundreds of full integration tests and observing memory usage on local macbook
+	// by using 'docker stats' it was found that doing the following garbage collector call
+	// helped imensely in keeping the HEAP memory down, thus putting the available memory for
+	// the next run of this code in a better place to cope with a large file.
 	defer runtime.GC()
 
-	// start creating the Excel file in its "in memory structure"
-	excelInMemoryStructure := excelize.NewFile()
-	sheet1 := "Sheet1"
-	var efficientExcelAPIWriter *excelize.StreamWriter
-
-	if doLargeSheet {
-		efficientExcelAPIWriter, err = excelInMemoryStructure.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
-		if err != nil {
-			return &Error{err: fmt.Errorf("excel stream writer creation problem"),
-				logData: logData,
-			}
-		}
-	}
-
-	excelInMemoryStructure.SetDefaultFont("Aerial")
-
-	// Write header on first sheet, just to demonstrate ... this may not be needed - TBD
-	if err = ApplyMainSheetHeader(excelInMemoryStructure, doLargeSheet, efficientExcelAPIWriter, sheet1); err != nil {
-		if err != nil {
-			return &Error{err: fmt.Errorf("ApplyMainSheetHeader failed: %w", err),
-				logData: logData,
-			}
-		}
-	}
-
-	if err = h.GetCSVtoExcelStructure(ctx, excelInMemoryStructure, kafkaEvent, doLargeSheet, efficientExcelAPIWriter, sheet1, isPublished); err != nil {
-		if err != nil {
-			return &Error{err: fmt.Errorf("GetCSVtoExcelStructure failed: %w", err),
-				logData: logData,
-			}
-		}
-	}
-
-	if err = h.AddMetaDataToExcelStructure(ctx, excelInMemoryStructure, kafkaEvent); err != nil {
-		return &Error{err: fmt.Errorf("AddMetaDataToExcelStructure failed: %w", err),
-			logData: logData,
-		}
-	}
-
-	// Rename the main sheet to 'Dataset'
-	sheetDataset := "Dataset"
-	excelInMemoryStructure.SetSheetName(sheet1, sheetDataset)
-
-	// Set active sheet of the workbook.
-	excelInMemoryStructure.SetActiveSheet(excelInMemoryStructure.GetSheetIndex(sheetDataset))
-
-	s3Path, err := h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, kafkaEvent, isPublished)
+	s3Path, err := h.processEventIntoXlsxFileOnS3(ctx, kafkaEvent, doLargeSheet, isPublished)
 	if err != nil {
-		return &Error{err: fmt.Errorf("SaveExcelStructureToExcelFile failed: %w", err),
+		return &Error{err: fmt.Errorf("faile in processEventIntoExcelFileOnS3"),
 			logData: logData,
 		}
 	}
@@ -253,6 +228,56 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	}
 
 	return nil
+}
+
+// processEventIntoXlsxFileOnS3 runs through the steps to stream in a csv file into an in memory representation of an xlsx file.
+// This is then streamed out to an xlsx file on S3.
+func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEvent *event.CantabularCsvCreated, doLargeSheet bool, isPublished bool) (string, error) {
+	// start creating the Excel file in its "in memory structure"
+	excelInMemoryStructure := excelize.NewFile()
+	sheet1 := "Sheet1"
+	var efficientExcelAPIWriter *excelize.StreamWriter
+	var err error
+
+	if doLargeSheet {
+		efficientExcelAPIWriter, err = excelInMemoryStructure.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
+		if err != nil {
+			return "", fmt.Errorf("excel stream writer creation problem")
+		}
+	}
+
+	excelInMemoryStructure.SetDefaultFont("Aerial")
+
+	// Write header on first sheet, just to demonstrate ... this may not be needed - TBD
+	if err = ApplyMainSheetHeader(excelInMemoryStructure, doLargeSheet, efficientExcelAPIWriter, sheet1); err != nil {
+		if err != nil {
+			return "", fmt.Errorf("ApplyMainSheetHeader failed: %w", err)
+		}
+	}
+
+	if err = h.GetCSVtoExcelStructure(ctx, excelInMemoryStructure, kafkaEvent, doLargeSheet, efficientExcelAPIWriter, sheet1, isPublished); err != nil {
+		if err != nil {
+			return "", fmt.Errorf("GetCSVtoExcelStructure failed: %w", err)
+		}
+	}
+
+	if err = h.AddMetaDataToExcelStructure(ctx, excelInMemoryStructure, kafkaEvent); err != nil {
+		return "", fmt.Errorf("AddMetaDataToExcelStructure failed: %w", err)
+	}
+
+	// Rename the main sheet to 'Dataset'
+	sheetDataset := "Dataset"
+	excelInMemoryStructure.SetSheetName(sheet1, sheetDataset)
+
+	// Set active sheet of the workbook.
+	excelInMemoryStructure.SetActiveSheet(excelInMemoryStructure.GetSheetIndex(sheetDataset))
+
+	s3Path, err := h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, kafkaEvent, isPublished)
+	if err != nil {
+		return "", fmt.Errorf("SaveExcelStructureToExcelFile failed: %w", err)
+	}
+
+	return s3Path, nil
 }
 
 // GetCSVtoExcelStructure streams in a line at a time from csv file from S3 bucket and
@@ -603,6 +628,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 	return s3Location, nil
 }
 
+//!!! unit test this
 // GetS3ContentLength obtains an S3 file size (in number of bytes) by calling Head Object
 func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPublished bool) (int, error) {
 	filename := generateS3FilenameXLSX(event)
@@ -620,6 +646,7 @@ func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPub
 	return int(*headOutput.ContentLength), nil
 }
 
+//!!! unit test this
 // UpdateInstance updates the instance download CSV link using dataset API PUT /instances/{id} endpoint
 // if the instance is published, then the s3Url will be set as public link and the instance state will be set to published
 // otherwise, a private url will be generated and the state will not be changed
