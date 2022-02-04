@@ -136,32 +136,21 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	return nil
 }
 
-//!!! unit test this
-func (h *XlsxCreate) getVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([]byte, error) {
-	vaultPath := fmt.Sprintf("%s/%s-%s-%s.csv", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
-
-	pskStr, err := h.vaultClient.ReadKey(vaultPath, "key")
-	if err != nil {
-		return nil, errors.Wrapf(err, "for 'vaultPath': %s, failed in ReadKey", vaultPath)
-	}
-
-	psk, err := hex.DecodeString(pskStr)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed in DecodeString")
-	}
-
-	return psk, nil
+// ErrorStack wraps the mesage with a stack trace
+func ErrorStack(message string) error {
+	return errors.Wrapf(fmt.Errorf(message), "")
 }
 
 //!!! unit test this
 func validateEvent(kafkaEvent *event.CantabularCsvCreated) error {
 	if kafkaEvent.RowCount > maxAllowedRowCount {
-		return errors.Wrapf(fmt.Errorf("full download too large to export to .xlsx file"), "")
-		//!!! do we need a helper function to make the above shorter ?
+		//		return ErrorStack("full download too large to export to .xlsx file")
+		//!!! try the following with an integration test when 'maxAllowedRowCount' is 9
+		return errors.Errorf("full download too large to export to .xlsx file")
 	}
 
 	if kafkaEvent.InstanceID == "" {
-		return errors.Wrapf(fmt.Errorf("instanceID is empty"), "")
+		return ErrorStack("instanceID is empty")
 	}
 
 	return nil
@@ -646,55 +635,6 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 	}
 
 	return nil
-}
-
-// StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
-func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, event *event.CantabularCsvCreated, w io.Writer, isPublished bool) (length int64, err error) {
-	var s3ReadCloser io.ReadCloser
-	var lengthPtr *int64
-
-	if isPublished {
-		s3ReadCloser, lengthPtr, err = h.s3Public.Get(filenameCsv)
-		if err != nil {
-			return 0, errors.Wrapf(err, "failed in Published Get")
-		}
-	} else {
-		if h.cfg.EncryptionDisabled {
-			s3ReadCloser, lengthPtr, err = h.s3Private.Get(filenameCsv)
-			if err != nil {
-				return 0, errors.Wrapf(err, "failed in Get")
-			}
-		} else {
-			psk, err := h.getVaultKeyForCSVFile(event)
-			if err != nil {
-				return 0, errors.Wrapf(err, "failed in getVaultKeyForCSVFile")
-			}
-
-			s3ReadCloser, lengthPtr, err = h.s3Private.GetWithPSK(filenameCsv, psk)
-			if err != nil {
-				return 0, errors.Wrapf(err, "failed in GetWithPSK")
-			}
-		}
-	}
-
-	if lengthPtr != nil {
-		length = *lengthPtr
-	}
-
-	defer closeAndLogError(ctx, s3ReadCloser)
-
-	_, err = io.Copy(w, s3ReadCloser)
-	if err != nil {
-		return 0, errors.Wrapf(err, "failed in io.Copy")
-	}
-
-	return length, nil
-}
-
-func closeAndLogError(ctx context.Context, closer io.Closer) {
-	if err := closer.Close(); err != nil {
-		log.Error(ctx, "error closing io.Closer", err)
-	}
 }
 
 // generateS3FilenameCSV generates the S3 key (filename including `subpaths` after the bucket)
