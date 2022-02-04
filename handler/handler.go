@@ -567,7 +567,6 @@ func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPub
 	return int(*headOutput.ContentLength), nil
 }
 
-//!!! unit test this
 // UpdateInstance updates the instance download CSV link using dataset API PUT /instances/{id} endpoint
 // if the instance is published, then the s3Url will be set as public link and the instance state will be set to published
 // otherwise, a private url will be generated and the state will not be changed
