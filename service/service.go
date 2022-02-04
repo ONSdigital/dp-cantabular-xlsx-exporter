@@ -50,10 +50,8 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 	if svc.S3Private, svc.S3Public, err = GetS3Clients(cfg); err != nil {
 		return fmt.Errorf("failed to initialise s3 client: %w", err)
 	}
-	if !cfg.EncryptionDisabled {
-		if svc.VaultClient, err = GetVault(cfg); err != nil {
-			return fmt.Errorf("failed to initialise vault client: %w", err)
-		}
+	if svc.VaultClient, err = GetVault(cfg); err != nil {
+		return fmt.Errorf("failed to initialise vault client: %w", err)
 	}
 
 	svc.DatasetAPIClient = GetDatasetAPIClient(cfg)
@@ -85,7 +83,7 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 
 	r := mux.NewRouter()
 	r.StrictSlash(true).Path("/health").HandlerFunc(svc.HealthCheck.Handler)
-	svc.Server = GetHTTPServer(cfg.BindAddr, r) //!!! what starts the server ?
+	svc.Server = GetHTTPServer(cfg.BindAddr, r)
 
 	return nil
 }
@@ -201,10 +199,8 @@ func (svc *Service) registerCheckers() error {
 		return fmt.Errorf("error adding check for s3 public client: %w", err)
 	}
 
-	if !svc.Cfg.EncryptionDisabled {
-		if err := svc.HealthCheck.AddCheck("Vault", svc.VaultClient.Checker); err != nil {
-			return fmt.Errorf("error adding check for vault client: %w", err)
-		}
+	if err := svc.HealthCheck.AddCheck("Vault", svc.VaultClient.Checker); err != nil {
+		return fmt.Errorf("error adding check for vault client: %w", err)
 	}
 
 	if svc.Cfg.StopConsumingOnUnhealthy {

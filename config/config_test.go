@@ -36,7 +36,6 @@ func TestConfig(t *testing.T) {
 				So(cfg.VaultPath, ShouldEqual, "secret/shared/psk")
 				So(cfg.VaultAddress, ShouldEqual, "http://localhost:8200")
 				So(cfg.VaultToken, ShouldEqual, "")
-				So(cfg.EncryptionDisabled, ShouldBeFalse)
 				So(cfg.StopConsumingOnUnhealthy, ShouldBeTrue)
 				So(cfg.KafkaConfig.Addr, ShouldResemble, []string{"localhost:9092", "localhost:9093", "localhost:9094"})
 				So(cfg.KafkaConfig.ConsumerMinBrokersHealthy, ShouldEqual, 1)

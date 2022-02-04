@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
-	"errors"
+
 	"fmt"
 	"io"
 	"net/url"
@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/headers"
@@ -59,71 +61,6 @@ func NewXlsxCreate(cfg config.Config, d DatasetAPIClient, sPrivate S3Client, sPu
 	}
 }
 
-// StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
-func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, event *event.CantabularCsvCreated, w io.Writer, isPublished bool) (length int64, err error) {
-	var s3ReadCloser io.ReadCloser
-	var lengthPtr *int64
-
-	if isPublished {
-		s3ReadCloser, lengthPtr, err = h.s3Public.Get(filenameCsv)
-		if err != nil {
-			return 0, fmt.Errorf("failed in Published Get: %w", err)
-		}
-	} else {
-		if h.cfg.EncryptionDisabled {
-			s3ReadCloser, lengthPtr, err = h.s3Private.Get(filenameCsv)
-			if err != nil {
-				return 0, fmt.Errorf("failed in Get: %w", err)
-			}
-		} else {
-			psk, err := h.getVaultKeyForCSVFile(event)
-			if err != nil {
-				return 0, fmt.Errorf("failed in getVaultKeyForCSVFile: %w", err)
-			}
-
-			s3ReadCloser, lengthPtr, err = h.s3Private.GetWithPSK(filenameCsv, psk)
-			if err != nil {
-				return 0, fmt.Errorf("failed in GetWithPSK: %w", err)
-			}
-		}
-	}
-
-	if lengthPtr != nil {
-		length = *lengthPtr
-	}
-
-	defer closeAndLogError(ctx, s3ReadCloser)
-
-	_, err = io.Copy(w, s3ReadCloser)
-	if err != nil {
-		return 0, fmt.Errorf("failed in io.Copy: %w", err)
-	}
-
-	return length, nil
-}
-
-func closeAndLogError(ctx context.Context, closer io.Closer) {
-	if err := closer.Close(); err != nil {
-		log.Error(ctx, "error closing io.Closer", err)
-	}
-}
-
-func (h *XlsxCreate) getVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([]byte, error) {
-	vaultPath := fmt.Sprintf("%s/%s-%s-%s.csv", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
-
-	pskStr, err := h.vaultClient.ReadKey(vaultPath, "key")
-	if err != nil {
-		return nil, fmt.Errorf("for 'vaultPath': %s,  failed in ReadKey: %w", vaultPath, err)
-	}
-
-	psk, err := hex.DecodeString(pskStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed in DecodeString: %w", err)
-	}
-
-	return psk, nil
-}
-
 // Handle takes a single event.
 func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message) error {
 	_ = workerID // to shut linter up
@@ -132,7 +69,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 
 	if err := s.Unmarshal(msg.GetData(), kafkaEvent); err != nil {
 		return &Error{
-			err: fmt.Errorf("failed to unmarshal event: %w", err),
+			err: errors.Wrapf(err, "failed to unmarshal event"),
 			logData: map[string]interface{}{
 				"msg_data": msg.GetData(),
 			},
@@ -142,32 +79,18 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	logData := log.Data{"event": kafkaEvent}
 	log.Info(ctx, "event received", logData)
 
-	if kafkaEvent.RowCount > maxAllowedRowCount {
-		return &Error{err: fmt.Errorf("full download too large to export to .xlsx file"),
+	if err := validateEvent(kafkaEvent); err != nil {
+		return &Error{err: err,
 			logData: logData,
 		}
 	}
 
-	if kafkaEvent.InstanceID == "" {
-		return &Error{err: fmt.Errorf("instanceID is empty"),
-			logData: logData,
-		}
-	}
-
-	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", kafkaEvent.InstanceID, headers.IfMatchAnyETag)
+	isPublished, err := h.isInstancePublished(ctx, kafkaEvent.InstanceID)
 	if err != nil {
-		return &Error{
-			err:     fmt.Errorf("failed to get instance: %w", err),
+		return &Error{err: err,
 			logData: logData,
 		}
 	}
-
-	log.Info(ctx, "instance obtained from dataset API", log.Data{
-		"instance_id":    instance.ID,
-		"instance_state": instance.State,
-	})
-
-	isPublished := instance.State == dataset.StatePublished.String()
 
 	doLargeSheet := true
 
@@ -184,19 +107,85 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 		doLargeSheet = false
 	}
 
+	// Whilst running hundreds of full integration tests and observing memory usage on local macbook
+	// by using 'docker stats' it was found that doing the following garbage collector call
+	// helped imensely in keeping the HEAP memory down, thus putting the available memory for
+	// the next run of this code in a better place to cope with a large file.
 	defer runtime.GC()
 
+	s3Path, err := h.processEventIntoXlsxFileOnS3(ctx, kafkaEvent, doLargeSheet, isPublished)
+	if err != nil {
+		return &Error{err: errors.Wrapf(err, "failed in processEventIntoExcelFileOnS3"),
+			logData: logData,
+		}
+	}
+
+	numBytes, err := h.GetS3ContentLength(kafkaEvent, isPublished)
+	if err != nil {
+		return &Error{
+			err:     errors.Wrapf(err, "failed to get S3 content length"),
+			logData: logData,
+		}
+	}
+
+	// Update instance with link to file
+	if err := h.UpdateInstance(ctx, kafkaEvent, numBytes, isPublished, s3Path); err != nil {
+		return errors.Wrapf(err, "failed to update instance")
+	}
+
+	return nil
+}
+
+// ErrorStack wraps the mesage with a stack trace
+func ErrorStack(message string) error {
+	return errors.Wrapf(fmt.Errorf(message), "")
+}
+
+//!!! unit test this
+func validateEvent(kafkaEvent *event.CantabularCsvCreated) error {
+	if kafkaEvent.RowCount > maxAllowedRowCount {
+		//		return ErrorStack("full download too large to export to .xlsx file")
+		//!!! try the following with an integration test when 'maxAllowedRowCount' is 9
+		return errors.Errorf("full download too large to export to .xlsx file")
+	}
+
+	if kafkaEvent.InstanceID == "" {
+		return ErrorStack("instanceID is empty")
+	}
+
+	return nil
+}
+
+//!!! unit test this
+func (h *XlsxCreate) isInstancePublished(ctx context.Context, instanceID string) (bool, error) {
+	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", instanceID, headers.IfMatchAnyETag)
+	if err != nil {
+		return true, errors.Wrapf(err, "failed to get instance")
+	}
+
+	log.Info(ctx, "instance obtained from dataset API", log.Data{
+		"instance_id":    instance.ID,
+		"instance_state": instance.State,
+	})
+
+	isPublished := instance.State == dataset.StatePublished.String()
+
+	return isPublished, nil
+}
+
+// processEventIntoXlsxFileOnS3 runs through the steps to stream in a csv file into an in memory representation of an xlsx file.
+// This is then streamed out to an xlsx file on S3.
+func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEvent *event.CantabularCsvCreated, doLargeSheet bool, isPublished bool) (string, error) {
 	// start creating the Excel file in its "in memory structure"
 	excelInMemoryStructure := excelize.NewFile()
 	sheet1 := "Sheet1"
 	var efficientExcelAPIWriter *excelize.StreamWriter
+	var err error
 
 	if doLargeSheet {
 		efficientExcelAPIWriter, err = excelInMemoryStructure.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
 		if err != nil {
-			return &Error{err: fmt.Errorf("excel stream writer creation problem"),
-				logData: logData,
-			}
+			return "", errors.Wrapf(fmt.Errorf("excel stream writer creation problem"), "")
 		}
 	}
 
@@ -205,24 +194,18 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	// Write header on first sheet, just to demonstrate ... this may not be needed - TBD
 	if err = ApplyMainSheetHeader(excelInMemoryStructure, doLargeSheet, efficientExcelAPIWriter, sheet1); err != nil {
 		if err != nil {
-			return &Error{err: fmt.Errorf("ApplyMainSheetHeader failed: %w", err),
-				logData: logData,
-			}
+			return "", fmt.Errorf("ApplyMainSheetHeader failed: %w", err)
 		}
 	}
 
 	if err = h.GetCSVtoExcelStructure(ctx, excelInMemoryStructure, kafkaEvent, doLargeSheet, efficientExcelAPIWriter, sheet1, isPublished); err != nil {
 		if err != nil {
-			return &Error{err: fmt.Errorf("GetCSVtoExcelStructure failed: %w", err),
-				logData: logData,
-			}
+			return "", fmt.Errorf("GetCSVtoExcelStructure failed: %w", err)
 		}
 	}
 
 	if err = h.AddMetaDataToExcelStructure(ctx, excelInMemoryStructure, kafkaEvent); err != nil {
-		return &Error{err: fmt.Errorf("AddMetaDataToExcelStructure failed: %w", err),
-			logData: logData,
-		}
+		return "", fmt.Errorf("AddMetaDataToExcelStructure failed: %w", err)
 	}
 
 	// Rename the main sheet to 'Dataset'
@@ -234,25 +217,10 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 
 	s3Path, err := h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, kafkaEvent, isPublished)
 	if err != nil {
-		return &Error{err: fmt.Errorf("SaveExcelStructureToExcelFile failed: %w", err),
-			logData: logData,
-		}
+		return "", fmt.Errorf("SaveExcelStructureToExcelFile failed: %w", err)
 	}
 
-	numBytes, err := h.GetS3ContentLength(kafkaEvent, isPublished)
-	if err != nil {
-		return &Error{
-			err:     fmt.Errorf("failed to get S3 content length: %w", err),
-			logData: logData,
-		}
-	}
-
-	// Update instance with link to file
-	if err := h.UpdateInstance(ctx, kafkaEvent, numBytes, isPublished, s3Path); err != nil {
-		return fmt.Errorf("failed to update instance: %w", err)
-	}
-
-	return nil
+	return s3Path, nil
 }
 
 // GetCSVtoExcelStructure streams in a line at a time from csv file from S3 bucket and
@@ -512,10 +480,9 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 
 	resultPath := ""
 	logData := log.Data{
-		"bucket":              bucketName,
-		"filename":            filename,
-		"encryption_disabled": h.cfg.EncryptionDisabled,
-		"is_published":        isPublished,
+		"bucket":       bucketName,
+		"filename":     filename,
+		"is_published": isPublished,
 	}
 
 	// As the code is now it is assumed that the file is always published - TODO, this function needs rationalising once full system is in place
@@ -537,60 +504,41 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 		}
 		resultPath = result.Location
 	} else {
-		logData := log.Data{
-			"encryption_disabled": h.cfg.EncryptionDisabled,
+		log.Info(ctx, "uploading encrypted file to S3", logData)
+
+		psk, err := h.generator.NewPSK()
+		if err != nil {
+			return "", NewError(fmt.Errorf("NewPSK failed to generate a PSK for encryption: %w", err),
+				logData,
+			)
 		}
-		if h.cfg.EncryptionDisabled {
-			log.Info(ctx, "uploading unencrypted file to S3", logData)
 
-			result, err := h.s3Private.UploadWithContext(ctx, &s3manager.UploadInput{
-				Body:   file,
-				Bucket: &bucketName,
-				Key:    &filename,
-			})
-			if err != nil {
-				return "", NewError(fmt.Errorf("UploadWithContext failed to upload unencrypted file to S3: %w", err),
-					logData,
-				)
-			}
-			resultPath = result.Location
-		} else {
-			log.Info(ctx, "uploading encrypted file to S3", logData)
+		vaultPath := fmt.Sprintf("%s/%s-%s-%s.xlsx", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
+		vaultKey := "key"
 
-			psk, err := h.generator.NewPSK()
-			if err != nil {
-				return "", NewError(fmt.Errorf("NewPSK failed to generate a PSK for encryption: %w", err),
-					logData,
-				)
-			}
+		log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
 
-			vaultPath := fmt.Sprintf("%s/%s-%s-%s.xlsx", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
-			vaultKey := "key"
-
-			log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
-
-			if err := h.vaultClient.WriteKey(vaultPath, vaultKey, hex.EncodeToString(psk)); err != nil {
-				return "", NewError(fmt.Errorf("WriteKey failed to write key to vault: %w", err),
-					logData,
-				)
-			}
-
-			// This code needs to use 'UploadWithPSKAndContext', because when processing an Excel file that is
-			// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
-			// to shut down gracefully before installing a new version of this app, then without using context this
-			// could cause problems.
-			result, err := h.s3Private.UploadWithPSKAndContext(ctx, &s3manager.UploadInput{
-				Body:   file,
-				Bucket: &bucketName,
-				Key:    &filename,
-			}, psk)
-			if err != nil {
-				return "", NewError(fmt.Errorf("UploadWithPSKAndContext failed to upload encrypted file to S3: %w", err),
-					logData,
-				)
-			}
-			resultPath = result.Location
+		if err := h.vaultClient.WriteKey(vaultPath, vaultKey, hex.EncodeToString(psk)); err != nil {
+			return "", NewError(fmt.Errorf("WriteKey failed to write key to vault: %w", err),
+				logData,
+			)
 		}
+
+		// This code needs to use 'UploadWithPSKAndContext', because when processing an Excel file that is
+		// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
+		// to shut down gracefully before installing a new version of this app, then without using context this
+		// could cause problems.
+		result, err := h.s3Private.UploadWithPSKAndContext(ctx, &s3manager.UploadInput{
+			Body:   file,
+			Bucket: &bucketName,
+			Key:    &filename,
+		}, psk)
+		if err != nil {
+			return "", NewError(fmt.Errorf("UploadWithPSKAndContext failed to upload encrypted file to S3: %w", err),
+				logData,
+			)
+		}
+		resultPath = result.Location
 	}
 
 	s3Location, err := url.PathUnescape(resultPath)
@@ -603,6 +551,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 	return s3Location, nil
 }
 
+//!!! unit test this
 // GetS3ContentLength obtains an S3 file size (in number of bytes) by calling Head Object
 func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPublished bool) (int, error) {
 	filename := generateS3FilenameXLSX(event)
@@ -620,6 +569,7 @@ func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPub
 	return int(*headOutput.ContentLength), nil
 }
 
+//!!! unit test this
 // UpdateInstance updates the instance download CSV link using dataset API PUT /instances/{id} endpoint
 // if the instance is published, then the s3Url will be set as public link and the instance state will be set to published
 // otherwise, a private url will be generated and the state will not be changed

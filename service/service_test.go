@@ -153,7 +153,6 @@ func TestInit(t *testing.T) {
 		})
 
 		Convey("Given that all dependencies are successfully initialised with encryption enabled", func() {
-			cfg.EncryptionDisabled = false
 
 			Convey("Then service Init succeeds, all dependencies are initialised", func() {
 				err := svc.Init(ctx, cfg, testBuildTime, testGitCommit, testVersion)
@@ -176,41 +175,6 @@ func TestInit(t *testing.T) {
 					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "S3 private client")
 					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "S3 public client")
 					So(hcMock.AddCheckCalls()[5].Name, ShouldResemble, "Vault")
-				})
-
-				Convey("And kafka consumer subscribes to all the healthcheck checkers", func() {
-					So(hcMock.SubscribeAllCalls(), ShouldHaveLength, 1)
-					So(hcMock.SubscribeAllCalls()[0].S, ShouldEqual, svc.Consumer)
-				})
-
-				Convey("And the kafka handler handler is registered to the consumer", func() {
-					So(consumerMock.RegisterHandlerCalls(), ShouldHaveLength, 1)
-				})
-			})
-		})
-
-		Convey("Given that all dependencies are successfully initialised with encryption disabled", func() {
-			cfg.EncryptionDisabled = true
-
-			Convey("Then service Init succeeds, all dependencies are initialised, except Vault", func() {
-				err := svc.Init(ctx, cfg, testBuildTime, testGitCommit, testVersion)
-				So(err, ShouldBeNil)
-				So(svc.Cfg, ShouldResemble, cfg)
-				So(svc.Server, ShouldEqual, serverMock)
-				So(svc.HealthCheck, ShouldResemble, hcMock)
-				So(svc.Consumer, ShouldResemble, consumerMock)
-				So(svc.Producer, ShouldResemble, producerMock)
-				So(svc.DatasetAPIClient, ShouldResemble, datasetApiMock)
-				So(svc.S3Private, ShouldResemble, s3PrivateClientMock)
-				So(svc.S3Public, ShouldResemble, s3PublicClientMock)
-
-				Convey("And all checks are registered, except Vault", func() {
-					So(hcMock.AddCheckCalls(), ShouldHaveLength, 5)
-					So(hcMock.AddCheckCalls()[0].Name, ShouldResemble, "Kafka consumer")
-					So(hcMock.AddCheckCalls()[1].Name, ShouldResemble, "Kafka producer")
-					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "Dataset API client")
-					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "S3 private client")
-					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "S3 public client")
 				})
 
 				Convey("And kafka consumer subscribes to all the healthcheck checkers", func() {
