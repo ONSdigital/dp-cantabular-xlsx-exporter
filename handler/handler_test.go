@@ -5,10 +5,16 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"testing"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/cantabular"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
-	//	. "github.com/smartystreets/goconvey/convey" !!! put back in when a test has been done
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/handler"
+	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/handler/mock"
+	"github.com/aws/aws-sdk-go/service/s3"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 const (
@@ -25,6 +31,13 @@ const (
 )
 
 var (
+	testExportStartEvent = &event.CantabularCsvCreated{
+		InstanceID: testInstanceID,
+		DatasetID:  testDatasetID,
+		Edition:    testEdition,
+		Version:    testVersion,
+	}
+
 	testCsvBody = bufio.NewReader(bytes.NewReader([]byte("a,b,c,d,e,f,g,h,i,j,k,l")))
 	testPsk     = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 	testReq     = cantabular.StaticDatasetQueryRequest{
@@ -452,7 +465,7 @@ func TestUploadPublishedCSVFile(t *testing.T) {
 }
 */
 
-/*!!! sort this
+//!!! sort this
 func TestGetS3ContentLength(t *testing.T) {
 	var ContentLength int64 = testNumBytes
 	headOk := func(key string) (*s3.HeadObjectOutput, error) {
@@ -466,10 +479,9 @@ func TestGetS3ContentLength(t *testing.T) {
 
 	Convey("Given an event handler with a successful s3 private client", t, func() {
 		sPrivate := mock.S3ClientMock{HeadFunc: headOk}
-		eventHandler := handler.NewInstanceComplete(testCfg(), nil, nil, &sPrivate, nil, nil, nil, nil)
-
+		eventHandler := handler.NewXlsxCreate(testCfg(), nil, &sPrivate, nil, nil, nil, nil)
 		Convey("Then GetS3ContentLength returns the expected size with no error", func() {
-			numBytes, err := eventHandler.GetS3ContentLength(ctx, testExportStartEvent, false)
+			numBytes, err := eventHandler.GetS3ContentLength(testExportStartEvent, false)
 			So(err, ShouldBeNil)
 			So(numBytes, ShouldEqual, testNumBytes)
 		})
@@ -477,20 +489,20 @@ func TestGetS3ContentLength(t *testing.T) {
 
 	Convey("Given an event handler with a failing s3 private client", t, func() {
 		sPrivate := mock.S3ClientMock{HeadFunc: headErr}
-		eventHandler := handler.NewInstanceComplete(testCfg(), nil, nil, &sPrivate, nil, nil, nil, nil)
+		eventHandler := handler.NewXlsxCreate(testCfg(), nil, &sPrivate, nil, nil, nil, nil)
 
 		Convey("Then GetS3ContentLength returns the expected error", func() {
-			_, err := eventHandler.GetS3ContentLength(ctx, testExportStartEvent, false)
+			_, err := eventHandler.GetS3ContentLength(testExportStartEvent, false)
 			So(err, ShouldResemble, fmt.Errorf("private s3 head object error: %w", errS3))
 		})
 	})
 
 	Convey("Given an event handler with a successful s3 public client", t, func() {
 		sPublic := mock.S3ClientMock{HeadFunc: headOk}
-		eventHandler := handler.NewInstanceComplete(testCfg(), nil, nil, nil, &sPublic, nil, nil, nil)
+		eventHandler := handler.NewXlsxCreate(testCfg(), nil, nil, &sPublic, nil, nil, nil)
 
 		Convey("Then GetS3ContentLength returns the expected size with no error", func() {
-			numBytes, err := eventHandler.GetS3ContentLength(ctx, testExportStartEvent, true)
+			numBytes, err := eventHandler.GetS3ContentLength(testExportStartEvent, true)
 			So(err, ShouldBeNil)
 			So(numBytes, ShouldEqual, testNumBytes)
 		})
@@ -498,15 +510,14 @@ func TestGetS3ContentLength(t *testing.T) {
 
 	Convey("Given an event handler with a failing s3 public client", t, func() {
 		sPublic := mock.S3ClientMock{HeadFunc: headErr}
-		eventHandler := handler.NewInstanceComplete(testCfg(), nil, nil, nil, &sPublic, nil, nil, nil)
+		eventHandler := handler.NewXlsxCreate(testCfg(), nil, nil, &sPublic, nil, nil, nil)
 
 		Convey("Then GetS3ContentLength returns the expected error", func() {
-			_, err := eventHandler.GetS3ContentLength(ctx, testExportStartEvent, true)
+			_, err := eventHandler.GetS3ContentLength(testExportStartEvent, true)
 			So(err, ShouldResemble, fmt.Errorf("public s3 head object error: %w", errS3))
 		})
 	})
 }
-*/
 
 /*!!! sort this
 func TestUpdateInstance(t *testing.T) {
