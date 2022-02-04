@@ -85,7 +85,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 		}
 	}
 
-	isPublished, err := h.isInstancePublished(ctx, kafkaEvent.InstanceID)
+	isPublished, err := h.IsInstancePublished(ctx, kafkaEvent.InstanceID)
 	if err != nil {
 		return &Error{err: err,
 			logData: logData,
@@ -156,8 +156,7 @@ func validateEvent(kafkaEvent *event.CantabularCsvCreated) error {
 	return nil
 }
 
-//!!! unit test this
-func (h *XlsxCreate) isInstancePublished(ctx context.Context, instanceID string) (bool, error) {
+func (h *XlsxCreate) IsInstancePublished(ctx context.Context, instanceID string) (bool, error) {
 	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", instanceID, headers.IfMatchAnyETag)
 	if err != nil {
 		return true, errors.Wrapf(err, "failed to get instance")
@@ -551,7 +550,6 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 	return s3Location, nil
 }
 
-//!!! unit test this
 // GetS3ContentLength obtains an S3 file size (in number of bytes) by calling Head Object
 func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPublished bool) (int, error) {
 	filename := generateS3FilenameXLSX(event)
@@ -569,7 +567,6 @@ func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPub
 	return int(*headOutput.ContentLength), nil
 }
 
-//!!! unit test this
 // UpdateInstance updates the instance download CSV link using dataset API PUT /instances/{id} endpoint
 // if the instance is published, then the s3Url will be set as public link and the instance state will be set to published
 // otherwise, a private url will be generated and the state will not be changed
