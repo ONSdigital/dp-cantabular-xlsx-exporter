@@ -551,7 +551,6 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 	return s3Location, nil
 }
 
-//!!! unit test this
 // GetS3ContentLength obtains an S3 file size (in number of bytes) by calling Head Object
 func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPublished bool) (int, error) {
 	filename := generateS3FilenameXLSX(event)

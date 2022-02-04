@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/cantabular"
+	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/handler"
@@ -465,7 +466,6 @@ func TestUploadPublishedCSVFile(t *testing.T) {
 }
 */
 
-//!!! sort this
 func TestGetS3ContentLength(t *testing.T) {
 	var ContentLength int64 = testNumBytes
 	headOk := func(key string) (*s3.HeadObjectOutput, error) {
@@ -519,13 +519,12 @@ func TestGetS3ContentLength(t *testing.T) {
 	})
 }
 
-/*!!! sort this
 func TestUpdateInstance(t *testing.T) {
 	testSize := testCsvBody.Size()
 
 	Convey("Given an event handler with a successful dataset API mock", t, func() {
 		datasetAPIMock := datasetAPIClientHappy()
-		eventHandler := handler.NewInstanceComplete(testCfg(), nil, &datasetAPIMock, nil, nil, nil, nil, nil)
+		eventHandler := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil, nil)
 
 		Convey("When UpdateInstance is called for a private csv file", func() {
 			err := eventHandler.UpdateInstance(ctx, testExportStartEvent, testSize, false, "")
@@ -535,15 +534,15 @@ func TestUpdateInstance(t *testing.T) {
 			})
 
 			Convey("Then the expected UpdateInstance call is executed with the expected paramters", func() {
-				expectedURL := fmt.Sprintf("%s/downloads/datasets/%s/editions/%s/versions/%s.csv", testDownloadServiceURL, testDatasetID, testEdition, testVersion)
+				expectedURL := fmt.Sprintf("%s/downloads/datasets/%s/editions/%s/versions/%s.xlsx", testDownloadServiceURL, testDatasetID, testEdition, testVersion)
 				So(datasetAPIMock.GetInstanceCalls(), ShouldHaveLength, 0)
 				So(datasetAPIMock.PutVersionCalls(), ShouldHaveLength, 1)
 				So(datasetAPIMock.PutVersionCalls()[0].DatasetID, ShouldEqual, testDatasetID)
 				So(datasetAPIMock.PutVersionCalls()[0].Edition, ShouldEqual, testEdition)
 				So(datasetAPIMock.PutVersionCalls()[0].Version, ShouldEqual, testVersion)
-				So(datasetAPIMock.PutVersionCalls()[0].V, ShouldResemble, dataset.Version{
+				So(datasetAPIMock.PutVersionCalls()[0].M, ShouldResemble, dataset.Version{
 					Downloads: map[string]dataset.Download{
-						"CSV": {
+						"XLS": {
 							URL:  expectedURL,
 							Size: fmt.Sprintf("%d", testSize),
 						},
@@ -560,15 +559,15 @@ func TestUpdateInstance(t *testing.T) {
 			})
 
 			Convey("Then the expected UpdateInstance call is executed once to update the public download link and associate it, and once more to publish it", func() {
-				expectedURL := fmt.Sprintf("%s/downloads/datasets/%s/editions/%s/versions/%s.csv", testDownloadServiceURL, testDatasetID, testEdition, testVersion)
+				expectedURL := fmt.Sprintf("%s/downloads/datasets/%s/editions/%s/versions/%s.xlsx", testDownloadServiceURL, testDatasetID, testEdition, testVersion)
 				So(datasetAPIMock.GetInstanceCalls(), ShouldHaveLength, 0)
 				So(datasetAPIMock.PutVersionCalls(), ShouldHaveLength, 1)
 				So(datasetAPIMock.PutVersionCalls()[0].DatasetID, ShouldEqual, testDatasetID)
 				So(datasetAPIMock.PutVersionCalls()[0].Edition, ShouldEqual, testEdition)
 				So(datasetAPIMock.PutVersionCalls()[0].Version, ShouldEqual, testVersion)
-				So(datasetAPIMock.PutVersionCalls()[0].V, ShouldResemble, dataset.Version{
+				So(datasetAPIMock.PutVersionCalls()[0].M, ShouldResemble, dataset.Version{
 					Downloads: map[string]dataset.Download{
-						"CSV": {
+						"XLS": {
 							Public: "publicURL",
 							URL:    expectedURL,
 							Size:   fmt.Sprintf("%d", testSize),
@@ -581,7 +580,7 @@ func TestUpdateInstance(t *testing.T) {
 
 	Convey("Given an event handler with a failing dataset API mock", t, func() {
 		datasetAPIMock := datasetAPIClientUnhappy()
-		eventHandler := handler.NewInstanceComplete(testCfg(), nil, &datasetAPIMock, nil, nil, nil, nil, nil)
+		eventHandler := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil, nil)
 
 		Convey("When UpdateInstance is called", func() {
 			err := eventHandler.UpdateInstance(ctx, testExportStartEvent, testSize, false, "")
@@ -592,7 +591,6 @@ func TestUpdateInstance(t *testing.T) {
 		})
 	})
 }
-*/
 
 /*!!! sort this
 func s3ClientHappy(encryptionEnabled bool) mock.S3ClientMock {
@@ -664,7 +662,6 @@ func s3ClientUnhappy(encryptionEnabled bool) mock.S3ClientMock {
 }
 */
 
-/*!!! sort this
 func datasetAPIClientHappy() mock.DatasetAPIClientMock {
 	return mock.DatasetAPIClientMock{
 		GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error) {
@@ -675,9 +672,7 @@ func datasetAPIClientHappy() mock.DatasetAPIClientMock {
 		},
 	}
 }
-*/
 
-/*!!! sort this
 func datasetAPIClientUnhappy() mock.DatasetAPIClientMock {
 	return mock.DatasetAPIClientMock{
 		GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error) {
@@ -688,4 +683,3 @@ func datasetAPIClientUnhappy() mock.DatasetAPIClientMock {
 		},
 	}
 }
-*/
