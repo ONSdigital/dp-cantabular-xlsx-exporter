@@ -69,7 +69,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 
 	if err := s.Unmarshal(msg.GetData(), kafkaEvent); err != nil {
 		return &Error{
-			err: fmt.Errorf("failed to unmarshal event: %w", err),
+			err: errors.Wrapf(err, "failed to unmarshal event"),
 			logData: map[string]interface{}{
 				"msg_data": msg.GetData(),
 			},
@@ -115,7 +115,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 
 	s3Path, err := h.processEventIntoXlsxFileOnS3(ctx, kafkaEvent, doLargeSheet, isPublished)
 	if err != nil {
-		return &Error{err: fmt.Errorf("faile in processEventIntoExcelFileOnS3"),
+		return &Error{err: errors.Wrapf(err, "failed in processEventIntoExcelFileOnS3"),
 			logData: logData,
 		}
 	}
@@ -123,7 +123,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	numBytes, err := h.GetS3ContentLength(kafkaEvent, isPublished)
 	if err != nil {
 		return &Error{
-			err:     fmt.Errorf("failed to get S3 content length: %w", err),
+			err:     errors.Wrapf(err, "failed to get S3 content length"),
 			logData: logData,
 		}
 	}
@@ -134,55 +134,6 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	}
 
 	return nil
-}
-
-// StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
-func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, event *event.CantabularCsvCreated, w io.Writer, isPublished bool) (length int64, err error) {
-	var s3ReadCloser io.ReadCloser
-	var lengthPtr *int64
-
-	if isPublished {
-		s3ReadCloser, lengthPtr, err = h.s3Public.Get(filenameCsv)
-		if err != nil {
-			return 0, errors.Wrapf(err, "failed in Published Get")
-		}
-	} else {
-		if h.cfg.EncryptionDisabled {
-			s3ReadCloser, lengthPtr, err = h.s3Private.Get(filenameCsv)
-			if err != nil {
-				return 0, errors.Wrapf(err, "failed in Get")
-			}
-		} else {
-			psk, err := h.getVaultKeyForCSVFile(event)
-			if err != nil {
-				return 0, errors.Wrapf(err, "failed in getVaultKeyForCSVFile")
-			}
-
-			s3ReadCloser, lengthPtr, err = h.s3Private.GetWithPSK(filenameCsv, psk)
-			if err != nil {
-				return 0, errors.Wrapf(err, "failed in GetWithPSK")
-			}
-		}
-	}
-
-	if lengthPtr != nil {
-		length = *lengthPtr
-	}
-
-	defer closeAndLogError(ctx, s3ReadCloser)
-
-	_, err = io.Copy(w, s3ReadCloser)
-	if err != nil {
-		return 0, errors.Wrapf(err, "failed in io.Copy")
-	}
-
-	return length, nil
-}
-
-func closeAndLogError(ctx context.Context, closer io.Closer) {
-	if err := closer.Close(); err != nil {
-		log.Error(ctx, "error closing io.Closer", err)
-	}
 }
 
 //!!! unit test this
@@ -205,11 +156,12 @@ func (h *XlsxCreate) getVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([
 //!!! unit test this
 func validateEvent(kafkaEvent *event.CantabularCsvCreated) error {
 	if kafkaEvent.RowCount > maxAllowedRowCount {
-		return fmt.Errorf("full download too large to export to .xlsx file")
+		return errors.Wrapf(fmt.Errorf("full download too large to export to .xlsx file"), "")
+		//!!! do we need a helper function to make the above shorter ?
 	}
 
 	if kafkaEvent.InstanceID == "" {
-		return fmt.Errorf("instanceID is empty")
+		return errors.Wrapf(fmt.Errorf("instanceID is empty"), "")
 	}
 
 	return nil
@@ -219,7 +171,7 @@ func validateEvent(kafkaEvent *event.CantabularCsvCreated) error {
 func (h *XlsxCreate) isInstancePublished(ctx context.Context, instanceID string) (bool, error) {
 	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", instanceID, headers.IfMatchAnyETag)
 	if err != nil {
-		return true, fmt.Errorf("failed to get instance: %w", err)
+		return true, errors.Wrapf(err, "failed to get instance")
 	}
 
 	log.Info(ctx, "instance obtained from dataset API", log.Data{
@@ -244,7 +196,7 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 	if doLargeSheet {
 		efficientExcelAPIWriter, err = excelInMemoryStructure.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
 		if err != nil {
-			return "", fmt.Errorf("excel stream writer creation problem")
+			return "", errors.Wrapf(fmt.Errorf("excel stream writer creation problem"), "")
 		}
 	}
 
@@ -694,6 +646,55 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 	}
 
 	return nil
+}
+
+// StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
+func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, event *event.CantabularCsvCreated, w io.Writer, isPublished bool) (length int64, err error) {
+	var s3ReadCloser io.ReadCloser
+	var lengthPtr *int64
+
+	if isPublished {
+		s3ReadCloser, lengthPtr, err = h.s3Public.Get(filenameCsv)
+		if err != nil {
+			return 0, errors.Wrapf(err, "failed in Published Get")
+		}
+	} else {
+		if h.cfg.EncryptionDisabled {
+			s3ReadCloser, lengthPtr, err = h.s3Private.Get(filenameCsv)
+			if err != nil {
+				return 0, errors.Wrapf(err, "failed in Get")
+			}
+		} else {
+			psk, err := h.getVaultKeyForCSVFile(event)
+			if err != nil {
+				return 0, errors.Wrapf(err, "failed in getVaultKeyForCSVFile")
+			}
+
+			s3ReadCloser, lengthPtr, err = h.s3Private.GetWithPSK(filenameCsv, psk)
+			if err != nil {
+				return 0, errors.Wrapf(err, "failed in GetWithPSK")
+			}
+		}
+	}
+
+	if lengthPtr != nil {
+		length = *lengthPtr
+	}
+
+	defer closeAndLogError(ctx, s3ReadCloser)
+
+	_, err = io.Copy(w, s3ReadCloser)
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed in io.Copy")
+	}
+
+	return length, nil
+}
+
+func closeAndLogError(ctx context.Context, closer io.Closer) {
+	if err := closer.Close(); err != nil {
+		log.Error(ctx, "error closing io.Closer", err)
+	}
 }
 
 // generateS3FilenameCSV generates the S3 key (filename including `subpaths` after the bucket)
