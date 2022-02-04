@@ -83,7 +83,7 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 
 	r := mux.NewRouter()
 	r.StrictSlash(true).Path("/health").HandlerFunc(svc.HealthCheck.Handler)
-	svc.Server = GetHTTPServer(cfg.BindAddr, r) //!!! what starts the server ?
+	svc.Server = GetHTTPServer(cfg.BindAddr, r)
 
 	return nil
 }

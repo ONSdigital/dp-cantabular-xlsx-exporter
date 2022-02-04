@@ -1,7 +1,11 @@
 package handler_test
 
 import (
+	"context"
 	"errors"
+	"io"
+	"io/ioutil"
+	"strings"
 	"testing"
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
@@ -26,158 +30,192 @@ func (w *StubWriter) Write(p []byte) (n int, err error) {
 	return len(w.data), nil
 }
 
+type ioReadCloserMock struct {
+	returnedBytes []byte
+	returnedError error
+}
+
+func (r *ioReadCloserMock) Read(p []byte) (n int, err error) {
+	p = r.returnedBytes
+	n = len(r.returnedBytes)
+	return n, r.returnedError
+}
+
+func (r *ioReadCloserMock) Close() error {
+	return nil
+}
+
+type ioWriterMock struct {
+	receivedBytes []byte
+	returnedError error
+}
+
+func (w *ioWriterMock) Write(p []byte) (n int, err error) {
+	w.receivedBytes = p
+	n = len(w.receivedBytes)
+	return n, w.returnedError
+}
+
 func TestStreamWriter_WriteContent(t *testing.T) {
-	/*	ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
 
-		var event = &event.CantabularCsvCreated{"", "", "", "", 1}
+	var event = &event.CantabularCsvCreated{
+		InstanceID: "",
+		DatasetID:  "",
+		Edition:    "",
+		Version:    "",
+		RowCount:   1}
 
-		Convey("should return expected error if s3 and vault paths are empty", t, func() {
-			w := writerNeverInvoked(ctrl)
-			vaultCli := vaultClientNeverInvoked(ctrl)
+	ctx := context.Background()
 
-			s := &S3StreamWriter{VaultCli: vaultCli}
+	Convey("should return expected error if s3 Get fails for published path", t, func() {
+		s3Mock := &mock.S3ClientMock{
+			GetFunc: func(filename string) (io.ReadCloser, *int64, error) {
+				return nil, nil, errors.New("S3 error")
+			},
+		}
 
-			err := s.StreamAndWrite(nil, "", "", w)
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil, nil)
 
-			So(errors.Is(err, VaultFilenameEmptyErr), ShouldBeTrue)
-		})*/
+		length, err := h.StreamAndWrite(ctx, "", event, nil, true)
 
-	/*	Convey("should return expected error if vault client read key returns and error", t, func() {
-			w := writerNeverInvoked(ctrl)
-			vaultCli, expectedErr := vaultClientErrorOnReadKey(ctrl)
+		So(err.Error(), ShouldContainSubstring, "S3 error")
+		So(length, ShouldEqual, 0)
+	})
 
-			s := &S3StreamWriter{
-				VaultPath: testVaultPath,
-				VaultCli:  vaultCli,
-			}
+	Convey("should return expected error if vault client read key returns and error for non published path", t, func() {
+		vaultMock := &mock.VaultClientMock{
+			ReadKeyFunc: func(path, key string) (string, error) {
+				return "", errors.New("key not found")
+			},
+		}
 
-			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, vaultMock, nil, nil)
 
-			So(errors.Is(err, expectedErr), ShouldBeTrue)
-		})
+		length, err := h.StreamAndWrite(ctx, "", event, nil, false)
 
-		Convey("should return expected error if vault client read key returns non hex value", t, func() {
-			w := writerNeverInvoked(ctrl)
-			vaultCli := vaultClientReturningInvalidHexString(ctrl)
+		So(err.Error(), ShouldContainSubstring, "key not found")
+		So(length, ShouldEqual, 0)
+	})
 
-			s := &S3StreamWriter{
-				VaultPath: testVaultPath,
-				VaultCli:  vaultCli,
-			}
+	Convey("should return expected error if s3 client GetWithPSK returns an error for non published path", t, func() {
+		s3Mock := &mock.S3ClientMock{
+			GetWithPSKFunc: func(filename string, psk []byte) (io.ReadCloser, *int64, error) {
+				return nil, nil, errors.New("PSK error")
+			},
+		}
 
-			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
+		vaultMock := &mock.VaultClientMock{
+			ReadKeyFunc: func(path, key string) (string, error) {
+				return "0123456789ABCDEF", nil
+			},
+		}
 
-			So(err, ShouldNotBeNil)
-		})
+		h := handler.NewXlsxCreate(testCfg(), nil, s3Mock, nil, vaultMock, nil, nil)
 
-		Convey("should return expected error if s3 client GetWithPSK returns an error", t, func() {
-			w := writerNeverInvoked(ctrl)
-			vaultCli, expectedPSK := vaultClientAndValidKey(ctrl)
-			s3Cli, expectedErr := s3ClientGetWithPSKReturnsError(ctrl, testS3Path, expectedPSK)
+		length, err := h.StreamAndWrite(ctx, "", event, nil, false)
 
-			s := &S3StreamWriter{
-				VaultPath: testVaultPath,
-				VaultCli:  vaultCli,
-				S3Client:  s3Cli,
-			}
+		So(err.Error(), ShouldContainSubstring, "PSK error")
+		So(length, ShouldEqual, 0)
+	})
 
-			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
+	Convey("should return expected error if s3reader returns an error for published path", t, func() {
+		s3Mock := &mock.S3ClientMock{
+			GetFunc: func(filename string) (io.ReadCloser, *int64, error) {
+				return &ioReadCloserMock{
+						[]byte{},
+						errors.New("ioReadClose Read mock fail"),
+					},
+					nil,
+					nil
+			},
+		}
 
-			So(errors.Is(err, expectedErr), ShouldBeTrue)
-		})
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil, nil)
 
-		Convey("should return expected error if s3 client Get returns an error when encryption disabled", t, func() {
-			w := writerNeverInvoked(ctrl)
-			vaultCli := vaultClientNeverInvoked(ctrl)
-			s3Cli, expectedErr := s3ClientGetReturnsError(ctrl, testS3Path)
+		length, err := h.StreamAndWrite(ctx, "", event, nil, true)
 
-			s := &S3StreamWriter{
-				VaultPath:          testVaultPath,
-				VaultCli:           vaultCli,
-				S3Client:           s3Cli,
-			}
+		So(err.Error(), ShouldContainSubstring, "ioReadClose Read mock fail")
+		So(length, ShouldEqual, 0)
+	})
 
-			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
+	Convey("should return expected error if writer.write in io.Copy returns an error for published path", t, func() {
+		s3Mock := &mock.S3ClientMock{
+			GetFunc: func(filename string) (io.ReadCloser, *int64, error) {
+				return ioutil.NopCloser(strings.NewReader("Test")), nil, nil
+			},
+		}
 
-			So(errors.Is(err, expectedErr), ShouldBeTrue)
-		})
+		w := &ioWriterMock{
+			returnedError: errors.New("Writer error"),
+		}
 
-		Convey("should return expected error if s3reader returns an error", t, func() {
-			w := writerNeverInvoked(ctrl)
-			vaultCli, expectedPSK := vaultClientAndValidKey(ctrl)
-			s3ReadCloser, expectedErr := s3ReadCloserErroringOnRead(ctrl)
-			s3Cli := s3ClientGetWithPSKReturnsReader(ctrl, testS3Path, expectedPSK, s3ReadCloser)
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil, nil)
 
-			s := &S3StreamWriter{
-				VaultPath: testVaultPath,
-				VaultCli:  vaultCli,
-				S3Client:  s3Cli,
-			}
+		length, err := h.StreamAndWrite(ctx, "", event, w, true)
 
-			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
+		So(err.Error(), ShouldContainSubstring, "Writer error")
+		So(length, ShouldEqual, 0)
+	})
 
-			So(errors.Is(err, expectedErr), ShouldBeTrue)
-		})
+	Convey("should successfully write bytes from s3Reader to the provided writer for published path", t, func() {
+		var testLen int64 = 10
+		s3Mock := &mock.S3ClientMock{
+			GetFunc: func(filename string) (io.ReadCloser, *int64, error) {
+				return ioutil.NopCloser(strings.NewReader("1, 2, 3, 4")), &testLen, nil
+			},
+		}
 
-		Convey("should return expected error if writer.write returns an error", t, func() {
-			w, expectedErr := writerReturningErrorOnWrite(ctrl)
-			vaultCli, expectedPSK := vaultClientAndValidKey(ctrl)
-			s3ReadCloser := ioutil.NopCloser(strings.NewReader("1, 2, 3, 4"))
-			s3Cli := s3ClientGetWithPSKReturnsReader(ctrl, testS3Path, expectedPSK, s3ReadCloser)
+		w := &ioWriterMock{
+			returnedError: nil,
+		}
 
-			s := &S3StreamWriter{
-				VaultPath: testVaultPath,
-				VaultCli:  vaultCli,
-				S3Client:  s3Cli,
-			}
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil, nil)
 
-			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
+		length, err := h.StreamAndWrite(ctx, "", event, w, true)
 
-			So(errors.Is(err, expectedErr), ShouldBeTrue)
-		})
+		So(err, ShouldBeNil)
+		So(length, ShouldEqual, testLen)
+		So(w.receivedBytes, ShouldResemble, []byte("1, 2, 3, 4"))
+	})
 
-		Convey("should successfully write bytes from s3Reader to the provided writer", t, func() {
-			readCloser := ioutil.NopCloser(strings.NewReader("1, 2, 3, 4"))
-			writer := &StubWriter{}
-			vaultCli, expectedPSK := vaultClientAndValidKey(ctrl)
-			s3Cli := s3ClientGetWithPSKReturnsReader(ctrl, testS3Path, expectedPSK, readCloser)
+	Convey("should successfully write bytes from s3Reader to the provided writer for non published path", t, func() {
+		var testLen int64 = 10
+		s3Mock := &mock.S3ClientMock{
+			GetWithPSKFunc: func(filename string, psk []byte) (io.ReadCloser, *int64, error) {
+				return ioutil.NopCloser(strings.NewReader("1, 2, 3, 4")), &testLen, nil
+			},
+		}
 
-			s := &S3StreamWriter{
-				VaultPath: testVaultPath,
-				VaultCli:  vaultCli,
-				S3Client:  s3Cli,
-			}
+		vaultMock := &mock.VaultClientMock{
+			ReadKeyFunc: func(path, key string) (string, error) {
+				return "0123456789ABCDEF", nil
+			},
+		}
 
-			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, writer)
+		w := &ioWriterMock{
+			returnedError: nil,
+		}
 
-			So(err, ShouldBeNil)
-			So(writer.data, ShouldResemble, []byte("1, 2, 3, 4"))
-		})
+		h := handler.NewXlsxCreate(testCfg(), nil, s3Mock, nil, vaultMock, nil, nil)
 
-		Convey("should successfully write bytes from s3Reader to the provided writer when encryption disabled", t, func() {
-			readCloser := ioutil.NopCloser(strings.NewReader("1, 2, 3, 4"))
-			writer := &StubWriter{}
-			vaultCli := vaultClientNeverInvoked(ctrl)
-			s3Cli := s3ClientGetReturnsReader(ctrl, testS3Path, readCloser)
+		length, err := h.StreamAndWrite(ctx, "", event, w, false)
 
-			s := &S3StreamWriter{
-				VaultPath:          testVaultPath,
-				VaultCli:           vaultCli,
-				S3Client:           s3Cli,
-			}
-
-			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, writer)
-
-			So(err, ShouldBeNil)
-			So(writer.data, ShouldResemble, []byte("1, 2, 3, 4"))
-		})
-	*/
+		So(err, ShouldBeNil)
+		So(length, ShouldEqual, testLen)
+		So(w.receivedBytes, ShouldResemble, []byte("1, 2, 3, 4"))
+		So(s3Mock.GetWithPSKCalls(), ShouldHaveLength, 1)
+		So(s3Mock.GetWithPSKCalls()[0].Psk, ShouldResemble, []byte{0x01, 0x023, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF})
+	})
 }
 
 func Test_GetVaultKeyForFile(t *testing.T) {
 
-	var event = &event.CantabularCsvCreated{"", "", "", "", 1}
+	var event = &event.CantabularCsvCreated{
+		InstanceID: "",
+		DatasetID:  "",
+		Edition:    "",
+		Version:    "",
+		RowCount:   1}
 
 	Convey("should return error event is nil", t, func() {
 		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, nil, nil, nil)
@@ -233,72 +271,3 @@ func Test_GetVaultKeyForFile(t *testing.T) {
 	})
 
 }
-
-/*func vaultClientNeverInvoked(ctrl *gomock.Controller) *mocks.MockVaultClient {
-	vaultCli := mocks.NewMockVaultClient(ctrl)
-	vaultCli.EXPECT().ReadKey(gomock.Any(), gomock.Any()).Times(0)
-	return vaultCli
-}*/
-
-/*func vaultClientErrorOnReadKey(ctrl *gomock.Controller) (*mocks.MockVaultClient, error) {
-	vp := filepath.Join(testVaultPath, testVaultKeyPath)
-	vaultCli := mocks.NewMockVaultClient(ctrl)
-	vaultCli.EXPECT().ReadKey(vp, vaultKey).Return("", testErr).Times(1)
-	return vaultCli, testErr
-}*/
-
-/*func vaultClientAndValidKey(ctrl *gomock.Controller) (*mocks.MockVaultClient, []byte) {
-	vp := filepath.Join(testVaultPath, testVaultKeyPath)
-	vaultCli := mocks.NewMockVaultClient(ctrl)
-
-	key := "one two three four"
-	keyBytes := []byte(key)
-	keyHexStr := hex.EncodeToString(keyBytes)
-
-	vaultCli.EXPECT().ReadKey(vp, vaultKey).Return(keyHexStr, nil).Times(1)
-	return vaultCli, keyBytes
-}*/
-
-/*func s3ClientGetWithPSKReturnsError(ctrl *gomock.Controller, key string, psk []byte) (*mocks.MockS3Client, error) {
-	cli := mocks.NewMockS3Client(ctrl)
-	cli.EXPECT().GetWithPSK(key, psk).Times(1).Return(nil, nil, testErr)
-	return cli, testErr
-}*/
-
-/*func s3ClientGetReturnsError(ctrl *gomock.Controller, key string) (*mocks.MockS3Client, error) {
-	cli := mocks.NewMockS3Client(ctrl)
-	cli.EXPECT().Get(key).Times(1).Return(nil, nil, testErr)
-	return cli, testErr
-}
-
-func s3ClientGetWithPSKReturnsReader(ctrl *gomock.Controller, key string, psk []byte, r S3ReadCloser) *mocks.MockS3Client {
-	cli := mocks.NewMockS3Client(ctrl)
-	cli.EXPECT().GetWithPSK(key, psk).Times(1).Return(r, nil, nil)
-	return cli
-}
-
-func s3ClientGetReturnsReader(ctrl *gomock.Controller, key string, r S3ReadCloser) *mocks.MockS3Client {
-	cli := mocks.NewMockS3Client(ctrl)
-	cli.EXPECT().Get(key).Times(1).Return(r, nil, nil)
-	return cli
-}
-
-func s3ReadCloserErroringOnRead(ctrl *gomock.Controller) (*mocks.MockS3ReadCloser, error) {
-	r := mocks.NewMockS3ReadCloser(ctrl)
-	r.EXPECT().Read(gomock.Any()).MinTimes(1).Return(0, testErr)
-	r.EXPECT().Close().Times(1)
-	return r, testErr
-}
-
-func writerNeverInvoked(ctrl *gomock.Controller) *mocks.MockWriter {
-	w := mocks.NewMockWriter(ctrl)
-	w.EXPECT().Write(gomock.Any()).Times(0).Return(0, nil)
-	return w
-}
-
-func writerReturningErrorOnWrite(ctrl *gomock.Controller) (*mocks.MockWriter, error) {
-	w := mocks.NewMockWriter(ctrl)
-	w.EXPECT().Write(gomock.Any()).Times(1).Return(0, testErr)
-	return w, testErr
-}
-*/

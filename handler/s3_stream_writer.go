@@ -53,7 +53,6 @@ func closeAndLogError(ctx context.Context, closer io.Closer) {
 	}
 }
 
-//!!! unit test this
 func (h *XlsxCreate) GetVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([]byte, error) {
 	if event == nil {
 		return nil, ErrorStack("nil event not allowed")
