@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
-	"errors"
+
 	"fmt"
 	"io"
 	"net/url"
@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/headers"
@@ -57,102 +59,6 @@ func NewXlsxCreate(cfg config.Config, d DatasetAPIClient, sPrivate S3Client, sPu
 		producer:    p,
 		generator:   g,
 	}
-}
-
-// StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
-func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, event *event.CantabularCsvCreated, w io.Writer, isPublished bool) (length int64, err error) {
-	var s3ReadCloser io.ReadCloser
-	var lengthPtr *int64
-
-	if isPublished {
-		s3ReadCloser, lengthPtr, err = h.s3Public.Get(filenameCsv)
-		if err != nil {
-			return 0, fmt.Errorf("failed in Published Get: %w", err)
-		}
-	} else {
-		if h.cfg.EncryptionDisabled {
-			s3ReadCloser, lengthPtr, err = h.s3Private.Get(filenameCsv)
-			if err != nil {
-				return 0, fmt.Errorf("failed in Get: %w", err)
-			}
-		} else {
-			psk, err := h.getVaultKeyForCSVFile(event)
-			if err != nil {
-				return 0, fmt.Errorf("failed in getVaultKeyForCSVFile: %w", err)
-			}
-
-			s3ReadCloser, lengthPtr, err = h.s3Private.GetWithPSK(filenameCsv, psk)
-			if err != nil {
-				return 0, fmt.Errorf("failed in GetWithPSK: %w", err)
-			}
-		}
-	}
-
-	if lengthPtr != nil {
-		length = *lengthPtr
-	}
-
-	defer closeAndLogError(ctx, s3ReadCloser)
-
-	_, err = io.Copy(w, s3ReadCloser)
-	if err != nil {
-		return 0, fmt.Errorf("failed in io.Copy: %w", err)
-	}
-
-	return length, nil
-}
-
-func closeAndLogError(ctx context.Context, closer io.Closer) {
-	if err := closer.Close(); err != nil {
-		log.Error(ctx, "error closing io.Closer", err)
-	}
-}
-
-//!!! unit test this
-func (h *XlsxCreate) getVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([]byte, error) {
-	vaultPath := fmt.Sprintf("%s/%s-%s-%s.csv", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
-
-	pskStr, err := h.vaultClient.ReadKey(vaultPath, "key")
-	if err != nil {
-		return nil, fmt.Errorf("for 'vaultPath': %s,  failed in ReadKey: %w", vaultPath, err)
-	}
-
-	psk, err := hex.DecodeString(pskStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed in DecodeString: %w", err)
-	}
-
-	return psk, nil
-}
-
-//!!! unit test this
-func validateEvent(kafkaEvent *event.CantabularCsvCreated) error {
-	if kafkaEvent.RowCount > maxAllowedRowCount {
-		return fmt.Errorf("full download too large to export to .xlsx file")
-	}
-
-	if kafkaEvent.InstanceID == "" {
-		return fmt.Errorf("instanceID is empty")
-	}
-
-	return nil
-}
-
-//!!! unit test this
-func (h *XlsxCreate) isInstancePublished(ctx context.Context, instanceID string) (bool, error) {
-	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", instanceID, headers.IfMatchAnyETag)
-	if err != nil {
-		return true, fmt.Errorf("failed to get instance: %w", err)
-	}
-
-	log.Info(ctx, "instance obtained from dataset API", log.Data{
-		"instance_id":    instance.ID,
-		"instance_state": instance.State,
-	})
-
-	isPublished := instance.State == dataset.StatePublished.String()
-
-	return isPublished, nil
 }
 
 // Handle takes a single event.
@@ -224,10 +130,106 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 
 	// Update instance with link to file
 	if err := h.UpdateInstance(ctx, kafkaEvent, numBytes, isPublished, s3Path); err != nil {
-		return fmt.Errorf("failed to update instance: %w", err)
+		return errors.Wrapf(err, "failed to update instance")
 	}
 
 	return nil
+}
+
+// StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
+func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, event *event.CantabularCsvCreated, w io.Writer, isPublished bool) (length int64, err error) {
+	var s3ReadCloser io.ReadCloser
+	var lengthPtr *int64
+
+	if isPublished {
+		s3ReadCloser, lengthPtr, err = h.s3Public.Get(filenameCsv)
+		if err != nil {
+			return 0, errors.Wrapf(err, "failed in Published Get")
+		}
+	} else {
+		if h.cfg.EncryptionDisabled {
+			s3ReadCloser, lengthPtr, err = h.s3Private.Get(filenameCsv)
+			if err != nil {
+				return 0, errors.Wrapf(err, "failed in Get")
+			}
+		} else {
+			psk, err := h.getVaultKeyForCSVFile(event)
+			if err != nil {
+				return 0, errors.Wrapf(err, "failed in getVaultKeyForCSVFile")
+			}
+
+			s3ReadCloser, lengthPtr, err = h.s3Private.GetWithPSK(filenameCsv, psk)
+			if err != nil {
+				return 0, errors.Wrapf(err, "failed in GetWithPSK")
+			}
+		}
+	}
+
+	if lengthPtr != nil {
+		length = *lengthPtr
+	}
+
+	defer closeAndLogError(ctx, s3ReadCloser)
+
+	_, err = io.Copy(w, s3ReadCloser)
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed in io.Copy")
+	}
+
+	return length, nil
+}
+
+func closeAndLogError(ctx context.Context, closer io.Closer) {
+	if err := closer.Close(); err != nil {
+		log.Error(ctx, "error closing io.Closer", err)
+	}
+}
+
+//!!! unit test this
+func (h *XlsxCreate) getVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([]byte, error) {
+	vaultPath := fmt.Sprintf("%s/%s-%s-%s.csv", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
+
+	pskStr, err := h.vaultClient.ReadKey(vaultPath, "key")
+	if err != nil {
+		return nil, errors.Wrapf(err, "for 'vaultPath': %s, failed in ReadKey", vaultPath)
+	}
+
+	psk, err := hex.DecodeString(pskStr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed in DecodeString")
+	}
+
+	return psk, nil
+}
+
+//!!! unit test this
+func validateEvent(kafkaEvent *event.CantabularCsvCreated) error {
+	if kafkaEvent.RowCount > maxAllowedRowCount {
+		return fmt.Errorf("full download too large to export to .xlsx file")
+	}
+
+	if kafkaEvent.InstanceID == "" {
+		return fmt.Errorf("instanceID is empty")
+	}
+
+	return nil
+}
+
+//!!! unit test this
+func (h *XlsxCreate) isInstancePublished(ctx context.Context, instanceID string) (bool, error) {
+	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", instanceID, headers.IfMatchAnyETag)
+	if err != nil {
+		return true, fmt.Errorf("failed to get instance: %w", err)
+	}
+
+	log.Info(ctx, "instance obtained from dataset API", log.Data{
+		"instance_id":    instance.ID,
+		"instance_state": instance.State,
+	})
+
+	isPublished := instance.State == dataset.StatePublished.String()
+
+	return isPublished, nil
 }
 
 // processEventIntoXlsxFileOnS3 runs through the steps to stream in a csv file into an in memory representation of an xlsx file.
