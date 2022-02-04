@@ -85,7 +85,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 		}
 	}
 
-	isPublished, err := h.isInstancePublished(ctx, kafkaEvent.InstanceID)
+	isPublished, err := h.IsInstancePublished(ctx, kafkaEvent.InstanceID)
 	if err != nil {
 		return &Error{err: err,
 			logData: logData,
@@ -156,8 +156,7 @@ func validateEvent(kafkaEvent *event.CantabularCsvCreated) error {
 	return nil
 }
 
-//!!! unit test this
-func (h *XlsxCreate) isInstancePublished(ctx context.Context, instanceID string) (bool, error) {
+func (h *XlsxCreate) IsInstancePublished(ctx context.Context, instanceID string) (bool, error) {
 	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", instanceID, headers.IfMatchAnyETag)
 	if err != nil {
 		return true, errors.Wrapf(err, "failed to get instance")

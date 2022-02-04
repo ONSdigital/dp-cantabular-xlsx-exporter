@@ -62,103 +62,61 @@ func testCfg() config.Config {
 
 var ctx = context.Background()
 
-/* !!! sort this out
-func TestValidateInstance(t *testing.T) {
-	h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, nil, nil, nil)
+func TestIsInstancePublished(t *testing.T) {
 
-	Convey("Given an instance that is in 'published' state", t, func() {
-		i := dataset.Instance{
-			Version: dataset.Version{
-				ID:    "myID",
-				State: dataset.StatePublished.String(),
+	Convey("Given a dataset api that fails to get the instance", t, func() {
+		datasetAPIMock := mock.DatasetAPIClientMock{
+			GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error) {
+				return dataset.Instance{}, "", errors.New("dataset api error")
 			},
 		}
-		Convey("Then we see the instance is published", func() {
-			isPublished, err := h.ValidateInstance(i)
+		h := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil, nil)
+
+		Convey("Then we see the expected error", func() {
+			isPublished, err := h.IsInstancePublished(ctx, "testID")
+			So(err.Error(), ShouldContainSubstring, "dataset api error")
+			So(isPublished, ShouldBeTrue)
+		})
+	})
+
+	Convey("Given a dataset api that gets an instance for published instance", t, func() {
+		datasetAPIMock := mock.DatasetAPIClientMock{
+			GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error) {
+				return dataset.Instance{
+					Version: dataset.Version{
+						State: dataset.StatePublished.String(),
+					},
+				}, "", nil
+			},
+		}
+		h := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil, nil)
+
+		Convey("Then we see the expected value of true", func() {
+			isPublished, err := h.IsInstancePublished(ctx, "testID")
 			So(err, ShouldBeNil)
 			So(isPublished, ShouldBeTrue)
 		})
 	})
 
-	Convey("Given an instance with 2 CSV headers in 'associated' state", t, func() {
-		i := dataset.Instance{
-			Version: dataset.Version{
-				CSVHeader: []string{"1", "2"},
-				IsBasedOn: &dataset.IsBasedOn{ID: "myID"},
-				State:     dataset.StateAssociated.String(),
+	Convey("Given a dataset api that gets an instance for non published instance", t, func() {
+		datasetAPIMock := mock.DatasetAPIClientMock{
+			GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error) {
+				return dataset.Instance{
+					Version: dataset.Version{
+						State: dataset.StateAssociated.String(),
+					},
+				}, "", nil
 			},
 		}
-		Convey("Then ValidateInstance determines that instance is not published, without error", func() {
-			isPublished, err := h.ValidateInstance(i)
+		h := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil, nil)
+
+		Convey("Then we see the expected value of false", func() {
+			isPublished, err := h.IsInstancePublished(ctx, "testID")
 			So(err, ShouldBeNil)
 			So(isPublished, ShouldBeFalse)
-		})
-	})
-
-	Convey("Given an instance with 2 CSV headers and no state", t, func() {
-		i := dataset.Instance{
-			Version: dataset.Version{
-				CSVHeader: []string{"1", "2"},
-				IsBasedOn: &dataset.IsBasedOn{ID: "myID"},
-			},
-		}
-		Convey("Then ValidateInstance determines that instance is not published, without error", func() {
-			isPublished, err := h.ValidateInstance(i)
-			So(err, ShouldBeNil)
-			So(isPublished, ShouldBeFalse)
-		})
-	})
-
-	Convey("Given an instance wit only 1 CSV header", t, func() {
-		i := dataset.Instance{
-			Version: dataset.Version{
-				CSVHeader: []string{"1"},
-				IsBasedOn: &dataset.IsBasedOn{ID: "myID"},
-			},
-		}
-		Convey("Then ValidateInstance returns the expected error", func() {
-			_, err := h.ValidateInstance(i)
-			So(err, ShouldResemble, handler.NewError(
-				errors.New("no dimensions in headers"),
-				log.Data{"headers": []string{"1"}},
-			))
-		})
-	})
-
-	Convey("Given an instance without isBasedOn field", t, func() {
-		i := dataset.Instance{
-			Version: dataset.Version{
-				CSVHeader: []string{"1", "2"},
-				State:     dataset.StatePublished.String(),
-			},
-		}
-		Convey("Then ValidateInstance returns the expected error", func() {
-			_, err := h.ValidateInstance(i)
-			So(err, ShouldResemble, handler.NewError(
-				errors.New("missing instance isBasedOn.ID"),
-				log.Data{"is_based_on": (*dataset.IsBasedOn)(nil)},
-			))
-		})
-	})
-
-	Convey("Given an instance with an empty isBasedOn field", t, func() {
-		i := dataset.Instance{
-			Version: dataset.Version{
-				CSVHeader: []string{"1", "2"},
-				State:     dataset.StatePublished.String(),
-				IsBasedOn: &dataset.IsBasedOn{},
-			},
-		}
-		Convey("Then ValidateInstance returns the expected error", func() {
-			_, err := h.ValidateInstance(i)
-			So(err, ShouldResemble, handler.NewError(
-				errors.New("missing instance isBasedOn.ID"),
-				log.Data{"is_based_on": &dataset.IsBasedOn{}},
-			))
 		})
 	})
 }
-*/
 
 /*
 func TestUploadPrivateUnEncryptedCSVFile(t *testing.T) {
