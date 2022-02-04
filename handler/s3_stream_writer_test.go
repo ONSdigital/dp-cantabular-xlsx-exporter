@@ -26,154 +26,154 @@ func (w *StubWriter) Write(p []byte) (n int, err error) {
 	return len(w.data), nil
 }
 
-/*func TestStreamWriter_WriteContent(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func TestStreamWriter_WriteContent(t *testing.T) {
+	/*	ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-	Convey("should return expected error if s3 and vault paths are empty", t, func() {
-		w := writerNeverInvoked(ctrl)
-		vaultCli := vaultClientNeverInvoked(ctrl)
+		var event = &event.CantabularCsvCreated{"", "", "", "", 1}
 
-		s := &S3StreamWriter{VaultCli: vaultCli}
+		Convey("should return expected error if s3 and vault paths are empty", t, func() {
+			w := writerNeverInvoked(ctrl)
+			vaultCli := vaultClientNeverInvoked(ctrl)
 
-		err := s.StreamAndWrite(nil, "", "", w)
+			s := &S3StreamWriter{VaultCli: vaultCli}
 
-		So(errors.Is(err, VaultFilenameEmptyErr), ShouldBeTrue)
-	})
+			err := s.StreamAndWrite(nil, "", "", w)
 
-	Convey("should return expected error if vault client read key returns and error", t, func() {
-		w := writerNeverInvoked(ctrl)
-		vaultCli, expectedErr := vaultClientErrorOnReadKey(ctrl)
+			So(errors.Is(err, VaultFilenameEmptyErr), ShouldBeTrue)
+		})*/
 
-		s := &S3StreamWriter{
-			VaultPath: testVaultPath,
-			VaultCli:  vaultCli,
-		}
+	/*	Convey("should return expected error if vault client read key returns and error", t, func() {
+			w := writerNeverInvoked(ctrl)
+			vaultCli, expectedErr := vaultClientErrorOnReadKey(ctrl)
 
-		err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
+			s := &S3StreamWriter{
+				VaultPath: testVaultPath,
+				VaultCli:  vaultCli,
+			}
 
-		So(errors.Is(err, expectedErr), ShouldBeTrue)
-	})
+			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
 
-	Convey("should return expected error if vault client read key returns non hex value", t, func() {
-		w := writerNeverInvoked(ctrl)
-		vaultCli := vaultClientReturningInvalidHexString(ctrl)
+			So(errors.Is(err, expectedErr), ShouldBeTrue)
+		})
 
-		s := &S3StreamWriter{
-			VaultPath: testVaultPath,
-			VaultCli:  vaultCli,
-		}
+		Convey("should return expected error if vault client read key returns non hex value", t, func() {
+			w := writerNeverInvoked(ctrl)
+			vaultCli := vaultClientReturningInvalidHexString(ctrl)
 
-		err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
+			s := &S3StreamWriter{
+				VaultPath: testVaultPath,
+				VaultCli:  vaultCli,
+			}
 
-		So(err, ShouldNotBeNil)
-	})
+			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
 
-	Convey("should return expected error if s3 client GetWithPSK returns an error", t, func() {
-		w := writerNeverInvoked(ctrl)
-		vaultCli, expectedPSK := vaultClientAndValidKey(ctrl)
-		s3Cli, expectedErr := s3ClientGetWithPSKReturnsError(ctrl, testS3Path, expectedPSK)
+			So(err, ShouldNotBeNil)
+		})
 
-		s := &S3StreamWriter{
-			VaultPath: testVaultPath,
-			VaultCli:  vaultCli,
-			S3Client:  s3Cli,
-		}
+		Convey("should return expected error if s3 client GetWithPSK returns an error", t, func() {
+			w := writerNeverInvoked(ctrl)
+			vaultCli, expectedPSK := vaultClientAndValidKey(ctrl)
+			s3Cli, expectedErr := s3ClientGetWithPSKReturnsError(ctrl, testS3Path, expectedPSK)
 
-		err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
+			s := &S3StreamWriter{
+				VaultPath: testVaultPath,
+				VaultCli:  vaultCli,
+				S3Client:  s3Cli,
+			}
 
-		So(errors.Is(err, expectedErr), ShouldBeTrue)
-	})
+			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
 
-	Convey("should return expected error if s3 client Get returns an error when encryption disabled", t, func() {
-		w := writerNeverInvoked(ctrl)
-		vaultCli := vaultClientNeverInvoked(ctrl)
-		s3Cli, expectedErr := s3ClientGetReturnsError(ctrl, testS3Path)
+			So(errors.Is(err, expectedErr), ShouldBeTrue)
+		})
 
-		s := &S3StreamWriter{
-			VaultPath:          testVaultPath,
-			VaultCli:           vaultCli,
-			S3Client:           s3Cli,
-			EncryptionDisabled: true,
-		}
+		Convey("should return expected error if s3 client Get returns an error when encryption disabled", t, func() {
+			w := writerNeverInvoked(ctrl)
+			vaultCli := vaultClientNeverInvoked(ctrl)
+			s3Cli, expectedErr := s3ClientGetReturnsError(ctrl, testS3Path)
 
-		err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
+			s := &S3StreamWriter{
+				VaultPath:          testVaultPath,
+				VaultCli:           vaultCli,
+				S3Client:           s3Cli,
+			}
 
-		So(errors.Is(err, expectedErr), ShouldBeTrue)
-	})
+			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
 
-	Convey("should return expected error if s3reader returns an error", t, func() {
-		w := writerNeverInvoked(ctrl)
-		vaultCli, expectedPSK := vaultClientAndValidKey(ctrl)
-		s3ReadCloser, expectedErr := s3ReadCloserErroringOnRead(ctrl)
-		s3Cli := s3ClientGetWithPSKReturnsReader(ctrl, testS3Path, expectedPSK, s3ReadCloser)
+			So(errors.Is(err, expectedErr), ShouldBeTrue)
+		})
 
-		s := &S3StreamWriter{
-			VaultPath: testVaultPath,
-			VaultCli:  vaultCli,
-			S3Client:  s3Cli,
-		}
+		Convey("should return expected error if s3reader returns an error", t, func() {
+			w := writerNeverInvoked(ctrl)
+			vaultCli, expectedPSK := vaultClientAndValidKey(ctrl)
+			s3ReadCloser, expectedErr := s3ReadCloserErroringOnRead(ctrl)
+			s3Cli := s3ClientGetWithPSKReturnsReader(ctrl, testS3Path, expectedPSK, s3ReadCloser)
 
-		err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
+			s := &S3StreamWriter{
+				VaultPath: testVaultPath,
+				VaultCli:  vaultCli,
+				S3Client:  s3Cli,
+			}
 
-		So(errors.Is(err, expectedErr), ShouldBeTrue)
-	})
+			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
 
-	Convey("should return expected error if writer.write returns an error", t, func() {
-		w, expectedErr := writerReturningErrorOnWrite(ctrl)
-		vaultCli, expectedPSK := vaultClientAndValidKey(ctrl)
-		s3ReadCloser := ioutil.NopCloser(strings.NewReader("1, 2, 3, 4"))
-		s3Cli := s3ClientGetWithPSKReturnsReader(ctrl, testS3Path, expectedPSK, s3ReadCloser)
+			So(errors.Is(err, expectedErr), ShouldBeTrue)
+		})
 
-		s := &S3StreamWriter{
-			VaultPath: testVaultPath,
-			VaultCli:  vaultCli,
-			S3Client:  s3Cli,
-		}
+		Convey("should return expected error if writer.write returns an error", t, func() {
+			w, expectedErr := writerReturningErrorOnWrite(ctrl)
+			vaultCli, expectedPSK := vaultClientAndValidKey(ctrl)
+			s3ReadCloser := ioutil.NopCloser(strings.NewReader("1, 2, 3, 4"))
+			s3Cli := s3ClientGetWithPSKReturnsReader(ctrl, testS3Path, expectedPSK, s3ReadCloser)
 
-		err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
+			s := &S3StreamWriter{
+				VaultPath: testVaultPath,
+				VaultCli:  vaultCli,
+				S3Client:  s3Cli,
+			}
 
-		So(errors.Is(err, expectedErr), ShouldBeTrue)
-	})
+			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, w)
 
-	Convey("should successfully write bytes from s3Reader to the provided writer", t, func() {
-		readCloser := ioutil.NopCloser(strings.NewReader("1, 2, 3, 4"))
-		writer := &StubWriter{}
-		vaultCli, expectedPSK := vaultClientAndValidKey(ctrl)
-		s3Cli := s3ClientGetWithPSKReturnsReader(ctrl, testS3Path, expectedPSK, readCloser)
+			So(errors.Is(err, expectedErr), ShouldBeTrue)
+		})
 
-		s := &S3StreamWriter{
-			VaultPath: testVaultPath,
-			VaultCli:  vaultCli,
-			S3Client:  s3Cli,
-		}
+		Convey("should successfully write bytes from s3Reader to the provided writer", t, func() {
+			readCloser := ioutil.NopCloser(strings.NewReader("1, 2, 3, 4"))
+			writer := &StubWriter{}
+			vaultCli, expectedPSK := vaultClientAndValidKey(ctrl)
+			s3Cli := s3ClientGetWithPSKReturnsReader(ctrl, testS3Path, expectedPSK, readCloser)
 
-		err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, writer)
+			s := &S3StreamWriter{
+				VaultPath: testVaultPath,
+				VaultCli:  vaultCli,
+				S3Client:  s3Cli,
+			}
 
-		So(err, ShouldBeNil)
-		So(writer.data, ShouldResemble, []byte("1, 2, 3, 4"))
-	})
+			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, writer)
 
-	Convey("should successfully write bytes from s3Reader to the provided writer when encryption disabled", t, func() {
-		readCloser := ioutil.NopCloser(strings.NewReader("1, 2, 3, 4"))
-		writer := &StubWriter{}
-		vaultCli := vaultClientNeverInvoked(ctrl)
-		s3Cli := s3ClientGetReturnsReader(ctrl, testS3Path, readCloser)
+			So(err, ShouldBeNil)
+			So(writer.data, ShouldResemble, []byte("1, 2, 3, 4"))
+		})
 
-		s := &S3StreamWriter{
-			VaultPath:          testVaultPath,
-			VaultCli:           vaultCli,
-			S3Client:           s3Cli,
-			EncryptionDisabled: true,
-		}
+		Convey("should successfully write bytes from s3Reader to the provided writer when encryption disabled", t, func() {
+			readCloser := ioutil.NopCloser(strings.NewReader("1, 2, 3, 4"))
+			writer := &StubWriter{}
+			vaultCli := vaultClientNeverInvoked(ctrl)
+			s3Cli := s3ClientGetReturnsReader(ctrl, testS3Path, readCloser)
 
-		err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, writer)
+			s := &S3StreamWriter{
+				VaultPath:          testVaultPath,
+				VaultCli:           vaultCli,
+				S3Client:           s3Cli,
+			}
 
-		So(err, ShouldBeNil)
-		So(writer.data, ShouldResemble, []byte("1, 2, 3, 4"))
-	})
+			err := s.StreamAndWrite(nil, testS3Path, testVaultKeyPath, writer)
 
-}*/
+			So(err, ShouldBeNil)
+			So(writer.data, ShouldResemble, []byte("1, 2, 3, 4"))
+		})
+	*/
+}
 
 func Test_GetVaultKeyForFile(t *testing.T) {
 

@@ -480,10 +480,9 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 
 	resultPath := ""
 	logData := log.Data{
-		"bucket":              bucketName,
-		"filename":            filename,
-		"encryption_disabled": h.cfg.EncryptionDisabled,
-		"is_published":        isPublished,
+		"bucket":       bucketName,
+		"filename":     filename,
+		"is_published": isPublished,
 	}
 
 	// As the code is now it is assumed that the file is always published - TODO, this function needs rationalising once full system is in place
@@ -505,60 +504,41 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 		}
 		resultPath = result.Location
 	} else {
-		logData := log.Data{
-			"encryption_disabled": h.cfg.EncryptionDisabled,
+		log.Info(ctx, "uploading encrypted file to S3", logData)
+
+		psk, err := h.generator.NewPSK()
+		if err != nil {
+			return "", NewError(fmt.Errorf("NewPSK failed to generate a PSK for encryption: %w", err),
+				logData,
+			)
 		}
-		if h.cfg.EncryptionDisabled {
-			log.Info(ctx, "uploading unencrypted file to S3", logData)
 
-			result, err := h.s3Private.UploadWithContext(ctx, &s3manager.UploadInput{
-				Body:   file,
-				Bucket: &bucketName,
-				Key:    &filename,
-			})
-			if err != nil {
-				return "", NewError(fmt.Errorf("UploadWithContext failed to upload unencrypted file to S3: %w", err),
-					logData,
-				)
-			}
-			resultPath = result.Location
-		} else {
-			log.Info(ctx, "uploading encrypted file to S3", logData)
+		vaultPath := fmt.Sprintf("%s/%s-%s-%s.xlsx", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
+		vaultKey := "key"
 
-			psk, err := h.generator.NewPSK()
-			if err != nil {
-				return "", NewError(fmt.Errorf("NewPSK failed to generate a PSK for encryption: %w", err),
-					logData,
-				)
-			}
+		log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
 
-			vaultPath := fmt.Sprintf("%s/%s-%s-%s.xlsx", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
-			vaultKey := "key"
-
-			log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
-
-			if err := h.vaultClient.WriteKey(vaultPath, vaultKey, hex.EncodeToString(psk)); err != nil {
-				return "", NewError(fmt.Errorf("WriteKey failed to write key to vault: %w", err),
-					logData,
-				)
-			}
-
-			// This code needs to use 'UploadWithPSKAndContext', because when processing an Excel file that is
-			// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
-			// to shut down gracefully before installing a new version of this app, then without using context this
-			// could cause problems.
-			result, err := h.s3Private.UploadWithPSKAndContext(ctx, &s3manager.UploadInput{
-				Body:   file,
-				Bucket: &bucketName,
-				Key:    &filename,
-			}, psk)
-			if err != nil {
-				return "", NewError(fmt.Errorf("UploadWithPSKAndContext failed to upload encrypted file to S3: %w", err),
-					logData,
-				)
-			}
-			resultPath = result.Location
+		if err := h.vaultClient.WriteKey(vaultPath, vaultKey, hex.EncodeToString(psk)); err != nil {
+			return "", NewError(fmt.Errorf("WriteKey failed to write key to vault: %w", err),
+				logData,
+			)
 		}
+
+		// This code needs to use 'UploadWithPSKAndContext', because when processing an Excel file that is
+		// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
+		// to shut down gracefully before installing a new version of this app, then without using context this
+		// could cause problems.
+		result, err := h.s3Private.UploadWithPSKAndContext(ctx, &s3manager.UploadInput{
+			Body:   file,
+			Bucket: &bucketName,
+			Key:    &filename,
+		}, psk)
+		if err != nil {
+			return "", NewError(fmt.Errorf("UploadWithPSKAndContext failed to upload encrypted file to S3: %w", err),
+				logData,
+			)
+		}
+		resultPath = result.Location
 	}
 
 	s3Location, err := url.PathUnescape(resultPath)

@@ -42,7 +42,6 @@ func testCfg() config.Config {
 	return config.Config{
 		PublicBucketName:   testBucket,
 		VaultPath:          testVaultPath,
-		EncryptionDisabled: true,
 		DownloadServiceURL: testDownloadServiceURL,
 	}
 }
@@ -192,7 +191,6 @@ func TestUploadPrivateUnEncryptedCSVFile(t *testing.T) {
 					log.Data{
 						"bucket":              testBucket,
 						"filename":            expectedS3Key,
-						"encryption_disabled": true,
 						"is_published":        false,
 					},
 				))
@@ -216,7 +214,6 @@ func TestUploadPrivateUnEncryptedCSVFile(t *testing.T) {
 					log.Data{
 						"bucket":              testBucket,
 						"filename":            expectedS3Key,
-						"encryption_disabled": true,
 						"is_published":        false,
 					},
 				))
@@ -249,7 +246,6 @@ func TestUploadPrivateEncryptedCSVFile(t *testing.T) {
 	expectedS3Key := fmt.Sprintf("datasets/%s-%s-%s.csv", testDatasetID, testEdition, testVersion)
 	expectedVaultPath := fmt.Sprintf("%s/%s-%s-%s.csv", testVaultPath, testDatasetID, testEdition, testVersion)
 	cfg := testCfg()
-	cfg.EncryptionDisabled = false
 
 	Convey("Given an event handler with a successful cantabular client, private S3Client, Vault client and encryption enabled", t, func() {
 		c := cantabularMock(testCsvBody)
@@ -300,7 +296,6 @@ func TestUploadPrivateEncryptedCSVFile(t *testing.T) {
 					log.Data{
 						"bucket":              testBucket,
 						"filename":            expectedS3Key,
-						"encryption_disabled": false,
 						"is_published":        false,
 					},
 				))
@@ -325,7 +320,6 @@ func TestUploadPrivateEncryptedCSVFile(t *testing.T) {
 					log.Data{
 						"bucket":              testBucket,
 						"filename":            expectedS3Key,
-						"encryption_disabled": false,
 						"is_published":        false,
 					},
 				))
@@ -350,7 +344,6 @@ func TestUploadPrivateEncryptedCSVFile(t *testing.T) {
 					log.Data{
 						"bucket":              testBucket,
 						"filename":            expectedS3Key,
-						"encryption_disabled": false,
 						"is_published":        false,
 					},
 				))

@@ -22,21 +22,14 @@ func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, eve
 			return 0, errors.Wrapf(err, "failed in Published Get")
 		}
 	} else {
-		if h.cfg.EncryptionDisabled {
-			s3ReadCloser, lengthPtr, err = h.s3Private.Get(filenameCsv)
-			if err != nil {
-				return 0, errors.Wrapf(err, "failed in Get")
-			}
-		} else {
-			psk, err := h.GetVaultKeyForCSVFile(event)
-			if err != nil {
-				return 0, errors.Wrapf(err, "failed in getVaultKeyForCSVFile")
-			}
+		psk, err := h.GetVaultKeyForCSVFile(event)
+		if err != nil {
+			return 0, errors.Wrapf(err, "failed in getVaultKeyForCSVFile")
+		}
 
-			s3ReadCloser, lengthPtr, err = h.s3Private.GetWithPSK(filenameCsv, psk)
-			if err != nil {
-				return 0, errors.Wrapf(err, "failed in GetWithPSK")
-			}
+		s3ReadCloser, lengthPtr, err = h.s3Private.GetWithPSK(filenameCsv, psk)
+		if err != nil {
+			return 0, errors.Wrapf(err, "failed in GetWithPSK")
 		}
 	}
 
