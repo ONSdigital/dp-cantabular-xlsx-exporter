@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
-	"errors"
+	//	"errors"
 	"fmt"
+
+	"github.com/pkg/errors"
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/handler"
@@ -98,7 +100,7 @@ func (svc *Service) Start(ctx context.Context, svcErrors chan error) error {
 	// If start/stop on health updates is disabled, start consuming as soon as possible
 	if !svc.Cfg.StopConsumingOnUnhealthy {
 		if err := svc.Consumer.Start(); err != nil {
-			return fmt.Errorf("consumer failed to start: %w", err)
+			return errors.Wrap(err, "consumer failed to start")
 		}
 	}
 
