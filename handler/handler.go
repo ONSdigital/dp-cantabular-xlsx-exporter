@@ -69,7 +69,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 
 	if err := s.Unmarshal(msg.GetData(), kafkaEvent); err != nil {
 		return &Error{
-			err: errors.Wrapf(err, "failed to unmarshal event"),
+			err: errors.Wrap(err, "failed to unmarshal event"),
 			logData: map[string]interface{}{
 				"msg_data": msg.GetData(),
 			},
@@ -80,14 +80,14 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	log.Info(ctx, "event received", logData)
 
 	if err := validateEvent(kafkaEvent); err != nil {
-		return &Error{err: err,
+		return &Error{err: errors.Wrap(err, "failed to validate event"),
 			logData: logData,
 		}
 	}
 
 	isPublished, err := h.IsInstancePublished(ctx, kafkaEvent.InstanceID)
 	if err != nil {
-		return &Error{err: err,
+		return &Error{err: errors.Wrap(err, "failed in IsInstancePublished"),
 			logData: logData,
 		}
 	}
@@ -115,7 +115,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 
 	s3Path, err := h.processEventIntoXlsxFileOnS3(ctx, kafkaEvent, doLargeSheet, isPublished)
 	if err != nil {
-		return &Error{err: errors.Wrapf(err, "failed in processEventIntoExcelFileOnS3"),
+		return &Error{err: errors.Wrap(err, "failed in processEventIntoExcelFileOnS3"),
 			logData: logData,
 		}
 	}
@@ -123,30 +123,24 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	numBytes, err := h.GetS3ContentLength(kafkaEvent, isPublished)
 	if err != nil {
 		return &Error{
-			err:     errors.Wrapf(err, "failed to get S3 content length"),
+			err:     errors.Wrap(err, "failed to get S3 content length"),
 			logData: logData,
 		}
 	}
 
 	// Update instance with link to file
 	if err := h.UpdateInstance(ctx, kafkaEvent, numBytes, isPublished, s3Path); err != nil {
-		return errors.Wrapf(err, "failed to update instance")
+		return errors.Wrap(err, "failed to update instance")
 	}
 
 	return nil
 }
 
-// ErrorStack wraps the mesage with a stack trace
-func ErrorStack(message string) error {
-	return errors.Wrapf(fmt.Errorf(message), "")
-}
-
 //!!! unit test this
 func validateEvent(kafkaEvent *event.CantabularCsvCreated) error {
 	if kafkaEvent.RowCount > maxAllowedRowCount {
-		//		return ErrorStack("full download too large to export to .xlsx file")
 		//!!! try the following with an integration test when 'maxAllowedRowCount' is 9
-		return errors.Errorf("full download too large to export to .xlsx file")
+		return ErrorStack("full download too large to export to .xlsx file")
 	}
 
 	if kafkaEvent.InstanceID == "" {
@@ -159,7 +153,7 @@ func validateEvent(kafkaEvent *event.CantabularCsvCreated) error {
 func (h *XlsxCreate) IsInstancePublished(ctx context.Context, instanceID string) (bool, error) {
 	instance, _, err := h.datasets.GetInstance(ctx, "", h.cfg.ServiceAuthToken, "", instanceID, headers.IfMatchAnyETag)
 	if err != nil {
-		return true, errors.Wrapf(err, "failed to get instance")
+		return true, errors.Wrap(err, "failed to get instance")
 	}
 
 	log.Info(ctx, "instance obtained from dataset API", log.Data{
@@ -184,7 +178,7 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 	if doLargeSheet {
 		efficientExcelAPIWriter, err = excelInMemoryStructure.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
 		if err != nil {
-			return "", errors.Wrapf(fmt.Errorf("excel stream writer creation problem"), "")
+			return "", ErrorStack("excel stream writer creation problem")
 		}
 	}
 
@@ -193,18 +187,18 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 	// Write header on first sheet, just to demonstrate ... this may not be needed - TBD
 	if err = ApplyMainSheetHeader(excelInMemoryStructure, doLargeSheet, efficientExcelAPIWriter, sheet1); err != nil {
 		if err != nil {
-			return "", fmt.Errorf("ApplyMainSheetHeader failed: %w", err)
+			return "", errors.Wrap(err, "ApplyMainSheetHeader failed")
 		}
 	}
 
 	if err = h.GetCSVtoExcelStructure(ctx, excelInMemoryStructure, kafkaEvent, doLargeSheet, efficientExcelAPIWriter, sheet1, isPublished); err != nil {
 		if err != nil {
-			return "", fmt.Errorf("GetCSVtoExcelStructure failed: %w", err)
+			return "", errors.Wrap(err, "GetCSVtoExcelStructure failed")
 		}
 	}
 
 	if err = h.AddMetaDataToExcelStructure(ctx, excelInMemoryStructure, kafkaEvent); err != nil {
-		return "", fmt.Errorf("AddMetaDataToExcelStructure failed: %w", err)
+		return "", errors.Wrap(err, "AddMetaDataToExcelStructure failed")
 	}
 
 	// Rename the main sheet to 'Dataset'
@@ -216,7 +210,7 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 
 	s3Path, err := h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, kafkaEvent, isPublished)
 	if err != nil {
-		return "", fmt.Errorf("SaveExcelStructureToExcelFile failed: %w", err)
+		return "", errors.Wrap(err, "SaveExcelStructureToExcelFile failed")
 	}
 
 	return s3Path, nil
@@ -257,7 +251,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 		numberOfBytesRead, err := h.StreamAndWrite(ctx, filenameCsv, event, csvWriter, isPublished)
 
 		if err != nil {
-			report := &Error{err: fmt.Errorf("StreamAndWrite failed, %w", err),
+			report := &Error{err: errors.Wrap(err, "StreamAndWrite failed"),
 				logData: log.Data{"err": err, "bucketName": bucketName, "filenameCsv": filenameCsv},
 			}
 
@@ -279,7 +273,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 
 	styleID14, err := excelInMemoryStructure.NewStyle(`{"font":{"size":14}}`)
 	if err != nil {
-		return fmt.Errorf("NewStyle size 14 %w", err)
+		return errors.Wrap(err, "NewStyle size 14")
 	}
 	var incomingCsvRow = 0
 	scanner := bufio.NewScanner(csvReader)
@@ -291,7 +285,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 				log.Error(ctx, "error closing StreamAndWrite writer during context done signal", closeErr)
 			}
 			wgDownload.Wait()
-			return fmt.Errorf("parent context closed in GetCSVtoExcelStructure")
+			return errors.Wrap(err, "parent context closed in GetCSVtoExcelStructure")
 		default:
 			break
 		}
@@ -303,7 +297,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 		columns := strings.Split(line, ",")
 		nofColumns := len(columns)
 		if nofColumns == 0 {
-			return &Error{err: fmt.Errorf("downloaded .csv file has no columns at row %d", incomingCsvRow),
+			return &Error{err: errors.Wrapf(err, "downloaded .csv file has no columns at row %d", incomingCsvRow),
 				logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv},
 			}
 		}
@@ -354,12 +348,12 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 		} else {
 			addr, err := excelize.JoinCellName("A", outputRow)
 			if err != nil {
-				return &Error{err: fmt.Errorf("JoinCellName %w", err),
+				return &Error{err: errors.Wrap(err, "JoinCellName"),
 					logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
 				}
 			}
 			if err := excelInMemoryStructure.SetSheetRow(sheet1, addr, &rowItemsWithStyle); err != nil {
-				return &Error{err: fmt.Errorf("SetSheetRow 2 %w", err),
+				return &Error{err: errors.Wrap(err, "SetSheetRow 2"),
 					logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
 				}
 			}
@@ -367,7 +361,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 		outputRow++
 	}
 	if err := scanner.Err(); err != nil {
-		return &Error{err: fmt.Errorf("error whilst getting CSV row %w", err),
+		return &Error{err: errors.Wrap(err, "error whilst getting CSV row"),
 			logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
 		}
 	}
@@ -394,11 +388,11 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 				}
 				columnName, err := excelize.ColumnNumberToName(i + 1) // add 1, as column numbers start at 1 in excelize library
 				if err != nil {
-					return fmt.Errorf("ColumnNumberToName %w", err)
+					return errors.Wrap(err, "ColumnNumberToName")
 				}
 				err = excelInMemoryStructure.SetColWidth(sheet1, columnName, columnName, float64(width))
 				if err != nil {
-					return fmt.Errorf("SetColWidth failed for Dataset sheet: %w", err)
+					return errors.Wrap(err, "SetColWidth failed for Dataset sheet")
 				}
 			}
 		}
@@ -451,7 +445,7 @@ func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInM
 			log.Error(ctx, "error closing upload writer", closeErr)
 		}
 
-		return "", &Error{err: fmt.Errorf("failed to upload .xlsx file to S3 bucket: %w", err),
+		return "", &Error{err: errors.Wrap(err, "failed to upload .xlsx file to S3 bucket"),
 			logData: log.Data{
 				"bucket":      bucketName,
 				"instance_id": event.InstanceID,
@@ -497,7 +491,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 			Key:    &filename,
 		})
 		if err != nil {
-			return "", NewError(fmt.Errorf("UploadWithContext failed to upload published file to S3: %w", err),
+			return "", NewError(errors.Wrap(err, "UploadWithContext failed to upload published file to S3"),
 				logData,
 			)
 		}
@@ -507,7 +501,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 
 		psk, err := h.generator.NewPSK()
 		if err != nil {
-			return "", NewError(fmt.Errorf("NewPSK failed to generate a PSK for encryption: %w", err),
+			return "", NewError(errors.Wrap(err, "NewPSK failed to generate a PSK for encryption"),
 				logData,
 			)
 		}
@@ -518,7 +512,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 		log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
 
 		if err := h.vaultClient.WriteKey(vaultPath, vaultKey, hex.EncodeToString(psk)); err != nil {
-			return "", NewError(fmt.Errorf("WriteKey failed to write key to vault: %w", err),
+			return "", NewError(errors.Wrap(err, "WriteKey failed to write key to vault"),
 				logData,
 			)
 		}
@@ -533,7 +527,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 			Key:    &filename,
 		}, psk)
 		if err != nil {
-			return "", NewError(fmt.Errorf("UploadWithPSKAndContext failed to upload encrypted file to S3: %w", err),
+			return "", NewError(errors.Wrap(err, "UploadWithPSKAndContext failed to upload encrypted file to S3"),
 				logData,
 			)
 		}
@@ -543,7 +537,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 	s3Location, err := url.PathUnescape(resultPath)
 	if err != nil {
 		logData["location"] = resultPath
-		return "", NewError(fmt.Errorf("failed to unescape S3 path location: %w", err),
+		return "", NewError(errors.Wrap(err, "failed to unescape S3 path location"),
 			logData,
 		)
 	}
@@ -556,13 +550,13 @@ func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPub
 	if isPublished {
 		headOutput, err := h.s3Public.Head(filename)
 		if err != nil {
-			return 0, fmt.Errorf("public s3 head object error: %w", err)
+			return 0, errors.Wrap(err, "public s3 head object error")
 		}
 		return int(*headOutput.ContentLength), nil
 	}
 	headOutput, err := h.s3Private.Head(filename)
 	if err != nil {
-		return 0, fmt.Errorf("private s3 head object error: %w", err)
+		return 0, errors.Wrap(err, "private s3 head object error")
 	}
 	return int(*headOutput.ContentLength), nil
 }
@@ -608,7 +602,7 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 		event.Version,
 		versionUpdate)
 	if err != nil {
-		return fmt.Errorf("error while attempting update version downloads: %w", err)
+		return errors.Wrap(err, "error while attempting update version downloads")
 	}
 
 	return nil
@@ -651,10 +645,10 @@ func ApplyMainSheetHeader(excelInMemoryStructure *excelize.File, doLargeSheet bo
 			return err
 		}
 		if err = excelInMemoryStructure.SetCellStyle(sheet1, "A1", "C3", styleID); err != nil {
-			return fmt.Errorf("SetCellStyle 1 %w", err)
+			return errors.Wrap(err, "SetCellStyle 1")
 		}
 		if err := excelInMemoryStructure.SetSheetRow(sheet1, "A1", &[]interface{}{"Data, <=10K lines (API)"}); err != nil {
-			return fmt.Errorf("SetSheetRow 1 %w", err)
+			return errors.Wrap(err, "SetSheetRow 1")
 		}
 	}
 

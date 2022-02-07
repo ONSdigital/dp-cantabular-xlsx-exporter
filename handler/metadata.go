@@ -7,6 +7,7 @@ import (
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/log.go/v2/log"
+	"github.com/pkg/errors"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -20,7 +21,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	meta, err := h.datasets.GetVersionMetadata(ctx, "", h.cfg.ServiceAuthToken, "", event.DatasetID, event.Edition, event.Version)
 	if err != nil {
 		return &Error{
-			err:     fmt.Errorf("failed to get version metadata: %w", err),
+			err:     errors.Wrap(err, "failed to get version metadata"),
 			logData: logData,
 		}
 	}
@@ -52,23 +53,23 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		addr, err := excelize.JoinCellName("A", rowNumber)
 		if err != nil {
 			processError = true
-			processErrorStr = fmt.Errorf("JoinCellName A: %w", err)
+			processErrorStr = errors.Wrap(err, "JoinCellName A")
 			return
 		}
 		if err := excelInMemoryStructure.SetCellValue(metaExcel, addr, col1); err != nil {
 			processError = true
-			processErrorStr = fmt.Errorf("SetCellValue A: %w", err)
+			processErrorStr = errors.Wrap(err, "SetCellValue A")
 			return
 		}
 		addr, err = excelize.JoinCellName("B", rowNumber)
 		if err != nil {
 			processError = true
-			processErrorStr = fmt.Errorf("JoinCellName B: %w", err)
+			processErrorStr = errors.Wrap(err, "JoinCellName B")
 			return
 		}
 		if err := excelInMemoryStructure.SetCellValue(metaExcel, addr, col2); err != nil {
 			processError = true
-			processErrorStr = fmt.Errorf("SetCellValue B: %w", err)
+			processErrorStr = errors.Wrap(err, "SetCellValue B")
 			return
 		}
 
@@ -131,7 +132,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	processMetaElement("Dataset version", meta.DatasetLinks.LatestVersion.URL, true)
 
 	if processError {
-		return fmt.Errorf("error in processing metadata: %w", processErrorStr)
+		return errors.Wrap(processErrorStr, "error in processing metadata")
 	}
 
 	if columnAwidth > maxExcelizeColumnWidth {
@@ -144,12 +145,12 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 
 	err = excelInMemoryStructure.SetColWidth("Metadata", "A", "A", float64(columnAwidth))
 	if err != nil {
-		return fmt.Errorf("SetColWidth A failed: %w", err)
+		return errors.Wrap(err, "SetColWidth A failed")
 	}
 
 	err = excelInMemoryStructure.SetColWidth("Metadata", "B", "B", float64(columnBwidth))
 	if err != nil {
-		return fmt.Errorf("SetColWidth B failed: %w", err)
+		return errors.Wrap(err, "SetColWidth B failed")
 	}
 
 	return nil

@@ -1,5 +1,11 @@
 package handler
 
+import (
+	"fmt"
+
+	"github.com/pkg/errors"
+)
+
 // Error is the handler package's error type. Is not meant to be compared as
 // a type, but information should be extracted via the interfaces
 // it implements with callback functions. Is not guaranteed to remain exported
@@ -33,4 +39,9 @@ func (e *Error) LogData() map[string]interface{} {
 
 func (e *Error) Unwrap() error {
 	return e.err
+}
+
+// ErrorStack wraps the mesage with a stack trace
+func ErrorStack(message string) error {
+	return errors.Wrap(fmt.Errorf(message), "")
 }

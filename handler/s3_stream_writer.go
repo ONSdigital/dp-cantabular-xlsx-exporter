@@ -19,17 +19,17 @@ func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, eve
 	if isPublished {
 		s3ReadCloser, lengthPtr, err = h.s3Public.Get(filenameCsv)
 		if err != nil {
-			return 0, errors.Wrapf(err, "failed in Published Get")
+			return 0, errors.Wrap(err, "failed in Published Get")
 		}
 	} else {
 		psk, err := h.GetVaultKeyForCSVFile(event)
 		if err != nil {
-			return 0, errors.Wrapf(err, "failed in getVaultKeyForCSVFile")
+			return 0, errors.Wrap(err, "failed in getVaultKeyForCSVFile")
 		}
 
 		s3ReadCloser, lengthPtr, err = h.s3Private.GetWithPSK(filenameCsv, psk)
 		if err != nil {
-			return 0, errors.Wrapf(err, "failed in GetWithPSK")
+			return 0, errors.Wrap(err, "failed in GetWithPSK")
 		}
 	}
 
@@ -41,7 +41,7 @@ func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, eve
 
 	_, err = io.Copy(w, s3ReadCloser)
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed in io.Copy")
+		return 0, errors.Wrap(err, "failed in io.Copy")
 	}
 
 	return length, nil
@@ -66,7 +66,7 @@ func (h *XlsxCreate) GetVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([
 
 	psk, err := hex.DecodeString(pskStr)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed in DecodeString")
+		return nil, errors.Wrap(err, "failed in DecodeString")
 	}
 
 	return psk, nil

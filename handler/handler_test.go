@@ -145,7 +145,7 @@ func TestGetS3ContentLength(t *testing.T) {
 
 		Convey("Then GetS3ContentLength returns the expected error", func() {
 			_, err := eventHandler.GetS3ContentLength(testExportStartEvent, false)
-			So(err, ShouldResemble, fmt.Errorf("private s3 head object error: %w", errS3))
+			So(err.Error(), ShouldContainSubstring, "test S3Upload error")
 		})
 	})
 
@@ -166,7 +166,7 @@ func TestGetS3ContentLength(t *testing.T) {
 
 		Convey("Then GetS3ContentLength returns the expected error", func() {
 			_, err := eventHandler.GetS3ContentLength(testExportStartEvent, true)
-			So(err, ShouldResemble, fmt.Errorf("public s3 head object error: %w", errS3))
+			So(err.Error(), ShouldContainSubstring, "test S3Upload error")
 		})
 	})
 }
@@ -238,7 +238,7 @@ func TestUpdateInstance(t *testing.T) {
 			err := eventHandler.UpdateInstance(ctx, testExportStartEvent, testSize, false, "")
 
 			Convey("Then the expected error is returned", func() {
-				So(err, ShouldResemble, fmt.Errorf("error while attempting update version downloads: %w", errDataset))
+				So(err.Error(), ShouldContainSubstring, "error while attempting update version downloads")
 			})
 		})
 	})
