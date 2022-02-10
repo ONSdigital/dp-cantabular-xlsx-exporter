@@ -36,7 +36,7 @@ type ioReadCloserMock struct {
 }
 
 func (r *ioReadCloserMock) Read(p []byte) (n int, err error) {
-	p = r.returnedBytes
+	// p = r.returnedBytes
 	n = len(r.returnedBytes)
 	return n, r.returnedError
 }
