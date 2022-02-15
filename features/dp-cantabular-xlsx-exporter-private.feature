@@ -82,8 +82,6 @@ Feature: Cantabular-Xlsx-Exporter-Published
       }
       """
 
-    And dp-dataset-api is healthy
-
     And the following Associated instance with id "instance-happy-01" is available from dp-dataset-api:
       """
       {
@@ -123,9 +121,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
       }
       """
 
-    Scenario: Consuming a cantabular-csv-created event with correct fields for a associated (unpublished/private) instance
-
-    Given a PUT endpoint exists in dataset-API for dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01" to be later updated by an API call with:
+    And a PUT endpoint exists in dataset-API for dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01" to be later updated by an API call with:
       """
       {
         "alerts": null,
@@ -197,6 +193,10 @@ Feature: Cantabular-Xlsx-Exporter-Published
         "version": 0
       }
       """
+
+  Scenario: Consuming a cantabular-csv-created event with correct fields for a associated (unpublished/private) instance
+
+    Given dp-dataset-api is healthy
 
     When the service starts
 
