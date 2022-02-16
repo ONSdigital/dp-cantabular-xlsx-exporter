@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ONSdigital/dp-api-clients-go/v2/cantabular"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
@@ -25,10 +24,8 @@ const (
 	testDatasetID          = "test-dataset-id"
 	testEdition            = "test-edition"
 	testVersion            = "test-version"
-	testS3Location         = "s3://myBucket/my-file.csv"
 	testDownloadServiceURL = "http://test-download-service:8200"
 	testNumBytes           = 123
-	testRowCount           = 18
 )
 
 var (
@@ -40,16 +37,8 @@ var (
 	}
 
 	testCsvBody = bufio.NewReader(bytes.NewReader([]byte("a,b,c,d,e,f,g,h,i,j,k,l")))
-	testPsk     = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
-	testReq     = cantabular.StaticDatasetQueryRequest{
-		Dataset:   "Example",
-		Variables: []string{"city", "siblings"},
-	}
-	errCantabular = errors.New("test Cantabular error")
-	errS3         = errors.New("test S3Upload error")
-	errVault      = errors.New("test Vault error")
-	errPsk        = errors.New("test PSK error")
-	errDataset    = errors.New("test DatasetAPI error")
+	errS3       = errors.New("test S3Upload error")
+	errDataset  = errors.New("test DatasetAPI error")
 )
 
 func testCfg() config.Config {
@@ -185,7 +174,7 @@ func TestUpdateInstance(t *testing.T) {
 				So(err, ShouldBeNil)
 			})
 
-			Convey("Then the expected UpdateInstance call is executed with the expected paramters", func() {
+			Convey("Then the expected UpdateInstance call is executed with the expected parameters", func() {
 				expectedURL := fmt.Sprintf("%s/downloads/datasets/%s/editions/%s/versions/%s.xlsx", testDownloadServiceURL, testDatasetID, testEdition, testVersion)
 				So(datasetAPIMock.GetInstanceCalls(), ShouldHaveLength, 0)
 				So(datasetAPIMock.PutVersionCalls(), ShouldHaveLength, 1)

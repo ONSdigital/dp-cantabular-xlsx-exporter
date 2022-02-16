@@ -14,18 +14,11 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-var (
-	//	testVaultPath    = "secrets"
-	testVaultKeyPath = "wibblevault/1234567890.csv"
-	testS3Path       = "wibble/1234567890.csv"
-	testErr          = errors.New("bork")
-)
-
-type StubWriter struct {
+type stubWriter struct {
 	data []byte
 }
 
-func (w *StubWriter) Write(p []byte) (n int, err error) {
+func (w *stubWriter) Write(p []byte) (n int, err error) {
 	w.data = p
 	return len(w.data), nil
 }
@@ -58,7 +51,7 @@ func (w *ioWriterMock) Write(p []byte) (n int, err error) {
 
 func TestStreamWriter_WriteContent(t *testing.T) {
 
-	var event = &event.CantabularCsvCreated{
+	var csvCreatedEvent = &event.CantabularCsvCreated{
 		InstanceID: "",
 		DatasetID:  "",
 		Edition:    "",
@@ -70,15 +63,15 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 	Convey("should return expected error if s3 Get fails for published path", t, func() {
 		s3Mock := &mock.S3ClientMock{
 			GetFunc: func(filename string) (io.ReadCloser, *int64, error) {
-				return nil, nil, errors.New("S3 error")
+				return nil, nil, errors.New("error with S3")
 			},
 		}
 
 		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil)
 
-		length, err := h.StreamAndWrite(ctx, "", event, nil, true)
+		length, err := h.StreamAndWrite(ctx, "", csvCreatedEvent, nil, true)
 
-		So(err.Error(), ShouldContainSubstring, "S3 error")
+		So(err.Error(), ShouldContainSubstring, "error with S3")
 		So(length, ShouldEqual, 0)
 	})
 
@@ -91,7 +84,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 
 		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, vaultMock, nil)
 
-		length, err := h.StreamAndWrite(ctx, "", event, nil, false)
+		length, err := h.StreamAndWrite(ctx, "", csvCreatedEvent, nil, false)
 
 		So(err.Error(), ShouldContainSubstring, "key not found")
 		So(length, ShouldEqual, 0)
@@ -112,7 +105,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 
 		h := handler.NewXlsxCreate(testCfg(), nil, s3Mock, nil, vaultMock, nil)
 
-		length, err := h.StreamAndWrite(ctx, "", event, nil, false)
+		length, err := h.StreamAndWrite(ctx, "", csvCreatedEvent, nil, false)
 
 		So(err.Error(), ShouldContainSubstring, "PSK error")
 		So(length, ShouldEqual, 0)
@@ -132,7 +125,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 
 		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil)
 
-		length, err := h.StreamAndWrite(ctx, "", event, nil, true)
+		length, err := h.StreamAndWrite(ctx, "", csvCreatedEvent, nil, true)
 
 		So(err.Error(), ShouldContainSubstring, "ioReadClose Read mock fail")
 		So(length, ShouldEqual, 0)
@@ -146,14 +139,14 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 		}
 
 		w := &ioWriterMock{
-			returnedError: errors.New("Writer error"),
+			returnedError: errors.New("writer error"),
 		}
 
 		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil)
 
-		length, err := h.StreamAndWrite(ctx, "", event, w, true)
+		length, err := h.StreamAndWrite(ctx, "", csvCreatedEvent, w, true)
 
-		So(err.Error(), ShouldContainSubstring, "Writer error")
+		So(err.Error(), ShouldContainSubstring, "writer error")
 		So(length, ShouldEqual, 0)
 	})
 
@@ -171,7 +164,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 
 		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil)
 
-		length, err := h.StreamAndWrite(ctx, "", event, w, true)
+		length, err := h.StreamAndWrite(ctx, "", csvCreatedEvent, w, true)
 
 		So(err, ShouldBeNil)
 		So(length, ShouldEqual, testLen)
@@ -198,7 +191,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 
 		h := handler.NewXlsxCreate(testCfg(), nil, s3Mock, nil, vaultMock, nil)
 
-		length, err := h.StreamAndWrite(ctx, "", event, w, false)
+		length, err := h.StreamAndWrite(ctx, "", csvCreatedEvent, w, false)
 
 		So(err, ShouldBeNil)
 		So(length, ShouldEqual, testLen)
@@ -210,7 +203,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 
 func Test_GetVaultKeyForFile(t *testing.T) {
 
-	var event = &event.CantabularCsvCreated{
+	var csvCreatedEvent = &event.CantabularCsvCreated{
 		InstanceID: "",
 		DatasetID:  "",
 		Edition:    "",
@@ -234,7 +227,7 @@ func Test_GetVaultKeyForFile(t *testing.T) {
 		}
 		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, vaultMock, nil)
 
-		psk, err := h.GetVaultKeyForCSVFile(event)
+		psk, err := h.GetVaultKeyForCSVFile(csvCreatedEvent)
 
 		So(psk, ShouldBeNil)
 		So(err.Error(), ShouldContainSubstring, "key not found")
@@ -249,7 +242,7 @@ func Test_GetVaultKeyForFile(t *testing.T) {
 
 		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, vaultMock, nil)
 
-		psk, err := h.GetVaultKeyForCSVFile(event)
+		psk, err := h.GetVaultKeyForCSVFile(csvCreatedEvent)
 
 		So(psk, ShouldBeNil)
 		So(err.Error(), ShouldContainSubstring, "failed in DecodeString")
@@ -264,7 +257,7 @@ func Test_GetVaultKeyForFile(t *testing.T) {
 
 		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, vaultMock, nil)
 
-		psk, err := h.GetVaultKeyForCSVFile(event)
+		psk, err := h.GetVaultKeyForCSVFile(csvCreatedEvent)
 
 		So(psk, ShouldResemble, []byte{0x01, 0x023, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF})
 		So(err, ShouldBeNil)

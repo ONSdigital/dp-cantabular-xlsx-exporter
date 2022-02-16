@@ -108,7 +108,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 
 	// Whilst running hundreds of full integration tests and observing memory usage on local macbook
 	// by using 'docker stats' it was found that doing the following garbage collector call
-	// helped imensely in keeping the HEAP memory down, thus putting the available memory for
+	// helped immensely in keeping the HEAP memory down, thus putting the available memory for
 	// the next run of this code in a better place to cope with a large file.
 	defer runtime.GC()
 
