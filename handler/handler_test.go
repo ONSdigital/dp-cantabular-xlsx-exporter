@@ -70,7 +70,7 @@ func TestIsInstancePublished(t *testing.T) {
 				return dataset.Instance{}, "", errors.New("dataset api error")
 			},
 		}
-		h := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil)
 
 		Convey("Then we see the expected error", func() {
 			isPublished, err := h.IsInstancePublished(ctx, "testID")
@@ -89,7 +89,7 @@ func TestIsInstancePublished(t *testing.T) {
 				}, "", nil
 			},
 		}
-		h := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil)
 
 		Convey("Then we see the expected value of true", func() {
 			isPublished, err := h.IsInstancePublished(ctx, "testID")
@@ -108,7 +108,7 @@ func TestIsInstancePublished(t *testing.T) {
 				}, "", nil
 			},
 		}
-		h := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil)
 
 		Convey("Then we see the expected value of false", func() {
 			isPublished, err := h.IsInstancePublished(ctx, "testID")
@@ -131,7 +131,7 @@ func TestGetS3ContentLength(t *testing.T) {
 
 	Convey("Given an event handler with a successful s3 private client", t, func() {
 		sPrivate := mock.S3ClientMock{HeadFunc: headOk}
-		eventHandler := handler.NewXlsxCreate(testCfg(), nil, &sPrivate, nil, nil, nil, nil)
+		eventHandler := handler.NewXlsxCreate(testCfg(), nil, &sPrivate, nil, nil, nil)
 		Convey("Then GetS3ContentLength returns the expected size with no error", func() {
 			numBytes, err := eventHandler.GetS3ContentLength(testExportStartEvent, false)
 			So(err, ShouldBeNil)
@@ -141,7 +141,7 @@ func TestGetS3ContentLength(t *testing.T) {
 
 	Convey("Given an event handler with a failing s3 private client", t, func() {
 		sPrivate := mock.S3ClientMock{HeadFunc: headErr}
-		eventHandler := handler.NewXlsxCreate(testCfg(), nil, &sPrivate, nil, nil, nil, nil)
+		eventHandler := handler.NewXlsxCreate(testCfg(), nil, &sPrivate, nil, nil, nil)
 
 		Convey("Then GetS3ContentLength returns the expected error", func() {
 			_, err := eventHandler.GetS3ContentLength(testExportStartEvent, false)
@@ -151,7 +151,7 @@ func TestGetS3ContentLength(t *testing.T) {
 
 	Convey("Given an event handler with a successful s3 public client", t, func() {
 		sPublic := mock.S3ClientMock{HeadFunc: headOk}
-		eventHandler := handler.NewXlsxCreate(testCfg(), nil, nil, &sPublic, nil, nil, nil)
+		eventHandler := handler.NewXlsxCreate(testCfg(), nil, nil, &sPublic, nil, nil)
 
 		Convey("Then GetS3ContentLength returns the expected size with no error", func() {
 			numBytes, err := eventHandler.GetS3ContentLength(testExportStartEvent, true)
@@ -162,7 +162,7 @@ func TestGetS3ContentLength(t *testing.T) {
 
 	Convey("Given an event handler with a failing s3 public client", t, func() {
 		sPublic := mock.S3ClientMock{HeadFunc: headErr}
-		eventHandler := handler.NewXlsxCreate(testCfg(), nil, nil, &sPublic, nil, nil, nil)
+		eventHandler := handler.NewXlsxCreate(testCfg(), nil, nil, &sPublic, nil, nil)
 
 		Convey("Then GetS3ContentLength returns the expected error", func() {
 			_, err := eventHandler.GetS3ContentLength(testExportStartEvent, true)
@@ -176,7 +176,7 @@ func TestUpdateInstance(t *testing.T) {
 
 	Convey("Given an event handler with a successful dataset API mock", t, func() {
 		datasetAPIMock := datasetAPIClientHappy()
-		eventHandler := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil, nil)
+		eventHandler := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil)
 
 		Convey("When UpdateInstance is called for a private csv file", func() {
 			err := eventHandler.UpdateInstance(ctx, testExportStartEvent, testSize, false, "")
@@ -232,7 +232,7 @@ func TestUpdateInstance(t *testing.T) {
 
 	Convey("Given an event handler with a failing dataset API mock", t, func() {
 		datasetAPIMock := datasetAPIClientUnhappy()
-		eventHandler := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil, nil)
+		eventHandler := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil)
 
 		Convey("When UpdateInstance is called", func() {
 			err := eventHandler.UpdateInstance(ctx, testExportStartEvent, testSize, false, "")

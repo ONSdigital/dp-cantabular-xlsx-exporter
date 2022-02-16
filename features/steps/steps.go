@@ -125,7 +125,7 @@ func (c *Component) theFollowingInstanceIsAvailable(id string, instance *godog.D
 	return nil
 }
 
-// theFollowingVersionWillBeUpdated generate a mocked response for dataset API
+// theFollowingVersionWillBeUpdated generates a mockedsresponse for dataset API
 // PUT /datasets/{dataset_id}/editions/{edition}/versions/{version} with the provided update in the request body
 func (c *Component) theFollowingVersionWillBeUpdated(datasetID, edition, version string, v *godog.DocString) error {
 	url := fmt.Sprintf(
@@ -263,6 +263,8 @@ func (c *Component) expectMinioFile(filename string, expected bool, bucketName s
 			"contents": string(f.Bytes()),
 		})
 	}
+
+	time.Sleep(5 * time.Second) // need to sleep to allow component tests to finish up before servie is shut down, otherwise we sometimes see the service failing in component test code with: "panic: unexpected error during service graceful shutdown: shutdown timed out: context deadline exceeded"
 
 	return nil
 }

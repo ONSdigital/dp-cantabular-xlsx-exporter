@@ -49,14 +49,13 @@ type XlsxCreate struct {
 
 // NewXlsxCreate a new CsvHandler
 func NewXlsxCreate(cfg config.Config, d DatasetAPIClient, sPrivate S3Client, sPublic S3Client,
-	v VaultClient, p kafka.IProducer, g Generator) *XlsxCreate {
+	v VaultClient, g Generator) *XlsxCreate {
 	return &XlsxCreate{
 		cfg:         cfg,
 		datasets:    d,
 		s3Private:   sPrivate,
 		s3Public:    sPublic,
 		vaultClient: v,
-		producer:    p,
 		generator:   g,
 	}
 }

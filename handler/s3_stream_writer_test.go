@@ -74,7 +74,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 			},
 		}
 
-		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil)
 
 		length, err := h.StreamAndWrite(ctx, "", event, nil, true)
 
@@ -89,7 +89,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 			},
 		}
 
-		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, vaultMock, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, vaultMock, nil)
 
 		length, err := h.StreamAndWrite(ctx, "", event, nil, false)
 
@@ -110,7 +110,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 			},
 		}
 
-		h := handler.NewXlsxCreate(testCfg(), nil, s3Mock, nil, vaultMock, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), nil, s3Mock, nil, vaultMock, nil)
 
 		length, err := h.StreamAndWrite(ctx, "", event, nil, false)
 
@@ -130,7 +130,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 			},
 		}
 
-		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil)
 
 		length, err := h.StreamAndWrite(ctx, "", event, nil, true)
 
@@ -149,7 +149,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 			returnedError: errors.New("Writer error"),
 		}
 
-		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil)
 
 		length, err := h.StreamAndWrite(ctx, "", event, w, true)
 
@@ -169,7 +169,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 			returnedError: nil,
 		}
 
-		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, s3Mock, nil, nil)
 
 		length, err := h.StreamAndWrite(ctx, "", event, w, true)
 
@@ -196,7 +196,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 			returnedError: nil,
 		}
 
-		h := handler.NewXlsxCreate(testCfg(), nil, s3Mock, nil, vaultMock, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), nil, s3Mock, nil, vaultMock, nil)
 
 		length, err := h.StreamAndWrite(ctx, "", event, w, false)
 
@@ -218,7 +218,7 @@ func Test_GetVaultKeyForFile(t *testing.T) {
 		RowCount:   1}
 
 	Convey("should return error event is nil", t, func() {
-		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, nil, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, nil, nil)
 
 		psk, err := h.GetVaultKeyForCSVFile(nil)
 
@@ -232,7 +232,7 @@ func Test_GetVaultKeyForFile(t *testing.T) {
 				return "", errors.New("key not found")
 			},
 		}
-		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, vaultMock, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, vaultMock, nil)
 
 		psk, err := h.GetVaultKeyForCSVFile(event)
 
@@ -247,7 +247,7 @@ func Test_GetVaultKeyForFile(t *testing.T) {
 			},
 		}
 
-		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, vaultMock, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, vaultMock, nil)
 
 		psk, err := h.GetVaultKeyForCSVFile(event)
 
@@ -262,7 +262,7 @@ func Test_GetVaultKeyForFile(t *testing.T) {
 			},
 		}
 
-		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, vaultMock, nil, nil)
+		h := handler.NewXlsxCreate(testCfg(), nil, nil, nil, vaultMock, nil)
 
 		psk, err := h.GetVaultKeyForCSVFile(event)
 

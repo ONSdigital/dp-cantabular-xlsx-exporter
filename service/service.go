@@ -21,7 +21,6 @@ type Service struct {
 	Server           HTTPServer
 	HealthCheck      HealthChecker
 	Consumer         kafka.IConsumerGroup
-	Producer         kafka.IProducer
 	DatasetAPIClient DatasetAPIClient
 	S3Private        S3Client
 	S3Public         S3Client
@@ -46,9 +45,6 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 	if svc.Consumer, err = GetKafkaConsumer(ctx, cfg); err != nil {
 		return fmt.Errorf("failed to create kafka consumer: %w", err)
 	}
-	if svc.Producer, err = GetKafkaProducer(ctx, cfg); err != nil {
-		return fmt.Errorf("failed to create kafka producer: %w", err)
-	}
 	if svc.S3Private, svc.S3Public, err = GetS3Clients(cfg); err != nil {
 		return fmt.Errorf("failed to initialise s3 client: %w", err)
 	}
@@ -67,7 +63,6 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 		svc.S3Private,
 		svc.S3Public,
 		svc.VaultClient,
-		svc.Producer,
 		svc.generator,
 	)
 	if err := svc.Consumer.RegisterHandler(ctx, h.Handle); err != nil {
@@ -183,10 +178,6 @@ func (svc *Service) Close(ctx context.Context) error {
 func (svc *Service) registerCheckers() error {
 	if err := svc.HealthCheck.AddCheck("Kafka consumer", svc.Consumer.Checker); err != nil {
 		return fmt.Errorf("error adding check for Kafka consumer: %w", err)
-	}
-
-	if err := svc.HealthCheck.AddCheck("Kafka producer", svc.Producer.Checker); err != nil {
-		return fmt.Errorf("error adding check for Kafka producer: %w", err)
 	}
 
 	if err := svc.HealthCheck.AddCheck("Dataset API client", svc.DatasetAPIClient.Checker); err != nil {
