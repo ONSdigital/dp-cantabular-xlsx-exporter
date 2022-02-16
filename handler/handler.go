@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	maxAllowedRowCount       = 999900
+	MaxAllowedRowCount       = 999900
 	smallEnoughForFullFormat = 10000 // Not too large to achieve full formatting in memory
 	maxSettableColumnWidths  = 500   // The maximum number of columns whose widths will be determined and set in Excel files whose source csv file has <= 'smallEnoughForFullFormat' lines. Apparently the max in the real dataset is 400, so we have a larger number just in case.
 	columNotSet              = -1    // Magic number indicating column width has no determined value
@@ -78,7 +78,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	logData := log.Data{"event": kafkaEvent}
 	log.Info(ctx, "event received", logData)
 
-	if err := validateEvent(kafkaEvent); err != nil {
+	if err := ValidateEvent(kafkaEvent); err != nil {
 		return &Error{err: errors.Wrap(err, "failed to validate event"),
 			logData: logData,
 		}
@@ -135,10 +135,8 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	return nil
 }
 
-//!!! unit test this
-func validateEvent(kafkaEvent *event.CantabularCsvCreated) error {
-	if kafkaEvent.RowCount > maxAllowedRowCount {
-		//!!! try the following with an integration test when 'maxAllowedRowCount' is 9
+func ValidateEvent(kafkaEvent *event.CantabularCsvCreated) error {
+	if kafkaEvent.RowCount > MaxAllowedRowCount {
 		return ErrorStack("full download too large to export to .xlsx file")
 	}
 

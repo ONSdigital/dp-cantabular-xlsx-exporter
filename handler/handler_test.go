@@ -107,6 +107,42 @@ func TestIsInstancePublished(t *testing.T) {
 	})
 }
 
+func TestValidateEvent(t *testing.T) {
+	Convey("Given an event that is good", t, func() {
+		kafkaGoodEvent := &event.CantabularCsvCreated{
+			InstanceID: "good",
+			RowCount:   10,
+		}
+
+		err := handler.ValidateEvent(kafkaGoodEvent)
+		Convey("Then ValidateEvent returns with no error", func() {
+			So(err, ShouldBeNil)
+		})
+	})
+
+	Convey("Given an event where RowCount is greater than 'MaxAllowedRowCount'", t, func() {
+		kafkaBadMaxRowEvent := &event.CantabularCsvCreated{
+			RowCount: handler.MaxAllowedRowCount + 10,
+		}
+
+		err := handler.ValidateEvent(kafkaBadMaxRowEvent)
+		Convey("Then ValidateEvent returns error", func() {
+			So(err, ShouldNotBeNil)
+		})
+	})
+
+	Convey("Given an event without an InstanceID", t, func() {
+		kafkaBadInstanceIDEvent := &event.CantabularCsvCreated{
+			RowCount: 10,
+		}
+
+		err := handler.ValidateEvent(kafkaBadInstanceIDEvent)
+		Convey("Then ValidateEvent returns error", func() {
+			So(err, ShouldNotBeNil)
+		})
+	})
+}
+
 func TestGetS3ContentLength(t *testing.T) {
 	var ContentLength int64 = testNumBytes
 	headOk := func(key string) (*s3.HeadObjectOutput, error) {
