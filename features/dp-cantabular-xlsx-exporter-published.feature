@@ -121,6 +121,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
       }
       """
 
+    # the PUT receiver step needs to be registered first in anticipation of the PUT happening because the service is running asynchronously to the test code
     And a PUT endpoint exists in dataset-API for dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01" to be later updated by an API call with:
       """
       {

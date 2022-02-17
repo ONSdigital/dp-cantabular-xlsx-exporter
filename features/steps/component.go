@@ -259,11 +259,17 @@ func (c *Component) drainTopic(ctx context.Context, topic, group string, wg *syn
 		drainer.StateWait(kafka.Consuming)
 		log.Info(ctx, "drainer is consuming", log.Data{"topic": topic, "group": group})
 
+		delay := time.NewTimer(DrainTopicTimeout + 100*time.Millisecond)
 		select {
-		case <-time.After(DrainTopicTimeout + 100*time.Millisecond):
+		case <-delay.C:
 			log.Info(ctx, "drain timeout has expired (no messages drained)")
 		case <-drained:
 			log.Info(ctx, "message(s) have been drained")
+			// Ensure timer is stopped and its resources are freed
+			if !delay.Stop() {
+				// if the timer has been stopped then read from the channel
+				<-delay.C
+			}
 		}
 
 		defer func() {
