@@ -130,8 +130,11 @@ func (svc *Service) Close(ctx context.Context) error {
 		// If kafka consumer exists, stop listening to it.
 		// This will automatically stop the event consumer loops and no more messages will be processed.
 		// The kafka consumer will be closed after the service shuts down.
+		// Thus the current kafka event being processed won't get commited and will be re-consumed
+		// and processed by another/next instance of this service.
 		if svc.Consumer != nil {
-			if err := svc.Consumer.StopAndWait(); err != nil {
+			// NOTE: we cant use svc.Consumer.StopAndWait() here as it sometimes hangs during service shutdown.
+			if err := svc.Consumer.Stop(); err != nil {
 				log.Error(ctx, "failed to stop kafka consumer", err)
 				hasShutdownError = true
 			}

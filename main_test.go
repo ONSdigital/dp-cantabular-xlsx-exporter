@@ -9,7 +9,6 @@ import (
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/features/steps"
-	componenttest "github.com/ONSdigital/dp-component-test"
 	dplogs "github.com/ONSdigital/log.go/v2/log"
 	"github.com/cucumber/godog"
 	"github.com/cucumber/godog/colors"
@@ -20,7 +19,6 @@ const componentLogFile = "component-output.txt"
 var componentFlag = flag.Bool("component", false, "perform component tests")
 
 type ComponentTest struct {
-	MongoFeature *componenttest.MongoFeature
 }
 
 func init() {

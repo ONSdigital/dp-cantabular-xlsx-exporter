@@ -62,7 +62,7 @@ func Get() (*Config, error) {
 
 	cfg = &Config{
 		BindAddr:                   "localhost:26800",
-		GracefulShutdownTimeout:    25 * time.Second, // needs to be more than 5 for component tests
+		GracefulShutdownTimeout:    5 * time.Second,
 		HealthCheckInterval:        30 * time.Second,
 		HealthCheckCriticalTimeout: 90 * time.Second,
 		ServiceAuthToken:           "",
