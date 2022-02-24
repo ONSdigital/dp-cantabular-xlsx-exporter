@@ -280,7 +280,7 @@ func (c *Component) drainTopic(ctx context.Context, topic, group string, wg *syn
 	return nil
 }
 
-// Close kills the application under test, and then it shuts down the testing consumer and producer.
+// Close kills the application under test, and then it shuts down the testing producer.
 func (c *Component) Close() {
 	// kill application
 	c.signals <- os.Interrupt
