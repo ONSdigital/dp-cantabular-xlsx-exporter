@@ -8,8 +8,8 @@ require (
 	github.com/ONSdigital/dp-api-clients-go v1.43.0
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.8.1
 	github.com/ONSdigital/dp-component-test v0.6.4
-	github.com/ONSdigital/dp-healthcheck v1.2.3
-	github.com/ONSdigital/dp-kafka/v3 v3.2.1
+	github.com/ONSdigital/dp-healthcheck v1.3.0
+	github.com/ONSdigital/dp-kafka/v3 v3.3.1
 	github.com/ONSdigital/dp-net v1.4.0
 	github.com/ONSdigital/dp-s3/v2 v2.0.0-beta.2
 	github.com/ONSdigital/dp-vault v1.2.0
@@ -89,7 +89,6 @@ require (
 	github.com/richardlehane/mscfb v1.0.4 // indirect
 	github.com/richardlehane/msoleps v1.0.1 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
-	github.com/shurcooL/graphql v0.0.0-20200928012149-18c5c3165e3a // indirect
 	github.com/smartystreets/assertions v1.2.1 // indirect
 	github.com/spf13/afero v1.8.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect

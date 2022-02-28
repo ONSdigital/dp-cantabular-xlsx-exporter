@@ -57,26 +57,6 @@ var GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.ICon
 	return kafka.NewConsumerGroup(ctx, cgConfig)
 }
 
-// GetKafkaProducer creates a Kafka producer
-var GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (kafka.IProducer, error) {
-	pConfig := &kafka.ProducerConfig{
-		BrokerAddrs:       cfg.KafkaConfig.Addr,
-		Topic:             cfg.KafkaConfig.CantabularOutputCreatedTopic,
-		MinBrokersHealthy: &cfg.KafkaConfig.ProducerMinBrokersHealthy,
-		KafkaVersion:      &cfg.KafkaConfig.Version,
-		MaxMessageBytes:   &cfg.KafkaConfig.MaxBytes,
-	}
-	if cfg.KafkaConfig.SecProtocol == config.KafkaTLSProtocolFlag {
-		pConfig.SecurityConfig = kafka.GetSecurityConfig(
-			cfg.KafkaConfig.SecCACerts,
-			cfg.KafkaConfig.SecClientCert,
-			cfg.KafkaConfig.SecClientKey,
-			cfg.KafkaConfig.SecSkipVerify,
-		)
-	}
-	return kafka.NewProducer(ctx, pConfig)
-}
-
 // GetDatasetAPIClient gets and initialises the DatasetAPI Client
 var GetDatasetAPIClient = func(cfg *config.Config) DatasetAPIClient {
 	return dataset.NewAPIClient(cfg.DatasetAPIURL)

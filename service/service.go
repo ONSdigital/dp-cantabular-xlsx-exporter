@@ -21,7 +21,6 @@ type Service struct {
 	Server           HTTPServer
 	HealthCheck      HealthChecker
 	Consumer         kafka.IConsumerGroup
-	Producer         kafka.IProducer
 	DatasetAPIClient DatasetAPIClient
 	S3Private        S3Client
 	S3Public         S3Client
@@ -46,9 +45,6 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 	if svc.Consumer, err = GetKafkaConsumer(ctx, cfg); err != nil {
 		return fmt.Errorf("failed to create kafka consumer: %w", err)
 	}
-	if svc.Producer, err = GetKafkaProducer(ctx, cfg); err != nil {
-		return fmt.Errorf("failed to create kafka producer: %w", err)
-	}
 	if svc.S3Private, svc.S3Public, err = GetS3Clients(cfg); err != nil {
 		return fmt.Errorf("failed to initialise s3 client: %w", err)
 	}
@@ -67,7 +63,6 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 		svc.S3Private,
 		svc.S3Public,
 		svc.VaultClient,
-		svc.Producer,
 		svc.generator,
 	)
 	if err := svc.Consumer.RegisterHandler(ctx, h.Handle); err != nil {
@@ -135,8 +130,11 @@ func (svc *Service) Close(ctx context.Context) error {
 		// If kafka consumer exists, stop listening to it.
 		// This will automatically stop the event consumer loops and no more messages will be processed.
 		// The kafka consumer will be closed after the service shuts down.
+		// Thus the current kafka event being processed won't get commited and will be re-consumed
+		// and processed by another/next instance of this service.
 		if svc.Consumer != nil {
-			if err := svc.Consumer.StopAndWait(); err != nil {
+			// NOTE: we cant use svc.Consumer.StopAndWait() here as it sometimes hangs during service shutdown.
+			if err := svc.Consumer.Stop(); err != nil {
 				log.Error(ctx, "failed to stop kafka consumer", err)
 				hasShutdownError = true
 			}
@@ -183,10 +181,6 @@ func (svc *Service) Close(ctx context.Context) error {
 func (svc *Service) registerCheckers() error {
 	if err := svc.HealthCheck.AddCheck("Kafka consumer", svc.Consumer.Checker); err != nil {
 		return fmt.Errorf("error adding check for Kafka consumer: %w", err)
-	}
-
-	if err := svc.HealthCheck.AddCheck("Kafka producer", svc.Producer.Checker); err != nil {
-		return fmt.Errorf("error adding check for Kafka producer: %w", err)
 	}
 
 	if err := svc.HealthCheck.AddCheck("Dataset API client", svc.DatasetAPIClient.Checker); err != nil {

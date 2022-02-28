@@ -54,10 +54,11 @@ github.com/ONSdigital/dp-component-test v0.6.4 h1:zaEm1nkOSabyh5bSxsN7qt9F7FKj19
 github.com/ONSdigital/dp-component-test v0.6.4/go.mod h1:Jg4qZJf+cW+L/BvdzDphruMgB8QEHg2YK4WH9jVJh44=
 github.com/ONSdigital/dp-healthcheck v1.0.5/go.mod h1:2wbVAUHMl9+4tWhUlxYUuA1dnf2+NrwzC+So5f5BMLk=
 github.com/ONSdigital/dp-healthcheck v1.1.0/go.mod h1:vZwyjMJiCHjp/sJ2R1ZEqzZT0rJ0+uHVGwxqdP4J5vg=
-github.com/ONSdigital/dp-healthcheck v1.2.3 h1:8/qTe0TjXouQWW0jgrtDGMFl+fUWigfyntL+q96GUSY=
 github.com/ONSdigital/dp-healthcheck v1.2.3/go.mod h1:XUhXoDIWPCdletDtpDOoXhmDFcc9b/kbedx96jN75aI=
-github.com/ONSdigital/dp-kafka/v3 v3.2.1 h1:yaNAXIaggwEcV7v/NDKpfKEV/7ECZelwJLeq6KzUgJs=
-github.com/ONSdigital/dp-kafka/v3 v3.2.1/go.mod h1:bySDK5zjXa5/27swhjK/iFgPDu39ZoENHK0nv1xIBPc=
+github.com/ONSdigital/dp-healthcheck v1.3.0 h1:WQLajH8Ne47fHcz3of9dZKCvqeBmjw+Kyx4bHzpzZLk=
+github.com/ONSdigital/dp-healthcheck v1.3.0/go.mod h1:XUhXoDIWPCdletDtpDOoXhmDFcc9b/kbedx96jN75aI=
+github.com/ONSdigital/dp-kafka/v3 v3.3.1 h1:m1oooDZMEtgBfH4ivW34NIsy5UByE4QLxZnq8FyjuxI=
+github.com/ONSdigital/dp-kafka/v3 v3.3.1/go.mod h1:bySDK5zjXa5/27swhjK/iFgPDu39ZoENHK0nv1xIBPc=
 github.com/ONSdigital/dp-mocking v0.0.0-20190905163309-fee2702ad1b9/go.mod h1:BcIRgitUju//qgNePRBmNjATarTtynAgc0yV29VpLEk=
 github.com/ONSdigital/dp-mongodb-in-memory v1.2.0 h1:rv4fMJXul4KLU2INlzGF73/EWz4Zezndn53ZAKY4gAo=
 github.com/ONSdigital/dp-mongodb-in-memory v1.2.0/go.mod h1:AQaNcbSS18WtldA4iWUlHQDn9FCLB2K6ff68QnvZBqM=
@@ -572,7 +573,6 @@ github.com/ryanuber/go-glob v1.0.0 h1:iQh3xXAumdQ+4Ufa5b25cRpC5TYKlno6hsv6Cb3pkB
 github.com/ryanuber/go-glob v1.0.0/go.mod h1:807d1WSdnB0XRJzKNil9Om6lcp/3a0v4qIHxIXzX/Yc=
 github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529/go.mod h1:DxrIzT+xaE7yg65j358z/aeFdxmN0P9QXhEzd20vsDc=
 github.com/shurcooL/go v0.0.0-20200502201357-93f07166e636/go.mod h1:TDJrrUr11Vxrven61rcy3hJMUqaf/CLWYhHNPmT14Lk=
-github.com/shurcooL/graphql v0.0.0-20200928012149-18c5c3165e3a h1:KikTa6HtAK8cS1qjvUvvq4QO21QnwC+EfvB+OAuZ/ZU=
 github.com/shurcooL/graphql v0.0.0-20200928012149-18c5c3165e3a/go.mod h1:AuYgA5Kyo4c7HfUmvRGs/6rGlMMV/6B1bVnB9JxJEEg=
 github.com/shurcooL/httpfs v0.0.0-20190707220628-8d4bc4ba7749/go.mod h1:ZY1cvUeJuFPAdZ/B6v7RHavJWZn2YPVFQ1OSXhCGOkg=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=

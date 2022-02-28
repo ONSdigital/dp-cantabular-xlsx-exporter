@@ -41,7 +41,7 @@ func (e *Error) Unwrap() error {
 	return e.err
 }
 
-// ErrorStack wraps the mesage with a stack trace
+// ErrorStack wraps the message with a stack trace
 func ErrorStack(message string) error {
 	return errors.Wrap(fmt.Errorf(message), "")
 }

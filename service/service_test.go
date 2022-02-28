@@ -49,11 +49,6 @@ func TestInit(t *testing.T) {
 			return consumerMock, nil
 		}
 
-		producerMock := &kafkatest.IProducerMock{}
-		service.GetKafkaProducer = func(ctx context.Context, cfg *config.Config) (kafka.IProducer, error) {
-			return producerMock, nil
-		}
-
 		hcMock := &serviceMock.HealthCheckerMock{
 			AddCheckFunc:     func(name string, checker healthcheck.Checker) error { return nil },
 			SubscribeAllFunc: func(s healthcheck.Subscriber) {},
@@ -161,20 +156,18 @@ func TestInit(t *testing.T) {
 				So(svc.Server, ShouldEqual, serverMock)
 				So(svc.HealthCheck, ShouldResemble, hcMock)
 				So(svc.Consumer, ShouldResemble, consumerMock)
-				So(svc.Producer, ShouldResemble, producerMock)
 				So(svc.DatasetAPIClient, ShouldResemble, datasetApiMock)
 				So(svc.S3Private, ShouldResemble, s3PrivateClientMock)
 				So(svc.S3Public, ShouldResemble, s3PublicClientMock)
 				So(svc.VaultClient, ShouldResemble, vaultMock)
 
 				Convey("And all checks are registered", func() {
-					So(hcMock.AddCheckCalls(), ShouldHaveLength, 6)
+					So(hcMock.AddCheckCalls(), ShouldHaveLength, 5)
 					So(hcMock.AddCheckCalls()[0].Name, ShouldResemble, "Kafka consumer")
-					So(hcMock.AddCheckCalls()[1].Name, ShouldResemble, "Kafka producer")
-					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "Dataset API client")
-					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "S3 private client")
-					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "S3 public client")
-					So(hcMock.AddCheckCalls()[5].Name, ShouldResemble, "Vault")
+					So(hcMock.AddCheckCalls()[1].Name, ShouldResemble, "Dataset API client")
+					So(hcMock.AddCheckCalls()[2].Name, ShouldResemble, "S3 private client")
+					So(hcMock.AddCheckCalls()[3].Name, ShouldResemble, "S3 public client")
+					So(hcMock.AddCheckCalls()[4].Name, ShouldResemble, "Vault")
 				})
 
 				Convey("And kafka consumer subscribes to all the healthcheck checkers", func() {
@@ -292,7 +285,7 @@ func TestClose(t *testing.T) {
 
 		// kafka consumer mock
 		consumerMock := &kafkatest.IConsumerGroupMock{
-			StopAndWaitFunc: func() error {
+			StopFunc: func() error {
 				return nil
 			},
 			CloseFunc: func(ctx context.Context) error { return nil },
@@ -323,14 +316,14 @@ func TestClose(t *testing.T) {
 		Convey("Closing the service results in all the dependencies being closed in the expected order", func() {
 			err := svc.Close(ctx)
 			So(err, ShouldBeNil)
-			So(consumerMock.StopAndWaitCalls(), ShouldHaveLength, 1)
+			So(consumerMock.StopCalls(), ShouldHaveLength, 1)
 			So(hcMock.StopCalls(), ShouldHaveLength, 1)
 			So(consumerMock.CloseCalls(), ShouldHaveLength, 1)
 			So(serverMock.ShutdownCalls(), ShouldHaveLength, 1)
 		})
 
 		Convey("If services fail to stop, the Close operation tries to close all dependencies and returns an error", func() {
-			consumerMock.StopAndWaitFunc = func() error {
+			consumerMock.StopFunc = func() error {
 				return nil
 			}
 			consumerMock.CloseFunc = func(ctx context.Context) error {
@@ -342,7 +335,7 @@ func TestClose(t *testing.T) {
 
 			err = svc.Close(ctx)
 			So(err, ShouldNotBeNil)
-			So(consumerMock.StopAndWaitCalls(), ShouldHaveLength, 1)
+			So(consumerMock.StopCalls(), ShouldHaveLength, 1)
 			So(consumerMock.CloseCalls(), ShouldHaveLength, 1)
 			So(hcMock.StopCalls(), ShouldHaveLength, 1)
 			So(serverMock.ShutdownCalls(), ShouldHaveLength, 1)
