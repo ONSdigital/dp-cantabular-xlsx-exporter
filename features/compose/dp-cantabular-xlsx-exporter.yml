@@ -4,6 +4,7 @@ services:
         build:
             context: ../../../dp-cantabular-xlsx-exporter
             dockerfile: Dockerfile.local
+        user: "${MY_UID}:${MY_UID}"
         command:
             - go 
             - test 
