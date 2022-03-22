@@ -264,6 +264,8 @@ func (c *Component) expectMinioFile(filename string, expected bool, bucketName s
 		})
 	}
 
+	time.Sleep(5 * time.Second) // need to sleep to allow component tests to finish up before service is shut down, otherwise we sometimes see the service failing in component test code with: "panic: unexpected error during service graceful shutdown: shutdown timed out: context deadline exceeded"
+
 	return nil
 }
 
