@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/pkg/errors"
@@ -18,7 +19,14 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		"event": event,
 	}
 
-	meta, err := h.datasets.GetVersionMetadata(ctx, "", h.cfg.ServiceAuthToken, "", event.DatasetID, event.Edition, event.Version)
+	req := dataset.GetVersionMetadataSelectionInput{}
+
+	req.DatasetID = event.DatasetID
+	req.Edition = event.Edition
+	req.Version = event.Version
+	req.Dimensions = event.DimensionsID
+
+	meta, err := h.datasets.GetVersionMetadataSelection(ctx, req)
 	if err != nil {
 		return &Error{
 			err:     errors.Wrap(err, "failed to get version metadata"),

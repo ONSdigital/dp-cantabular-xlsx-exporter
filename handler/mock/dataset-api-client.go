@@ -26,6 +26,9 @@ var _ handler.DatasetAPIClient = &DatasetAPIClientMock{}
 // 			GetVersionMetadataFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, id string, edition string, version string) (dataset.Metadata, error) {
 // 				panic("mock out the GetVersionMetadata method")
 // 			},
+// 			GetVersionMetadataSelectionFunc: func(contextMoqParam context.Context, getVersionMetadataSelectionInput dataset.GetVersionMetadataSelectionInput) (*dataset.Metadata, error) {
+// 				panic("mock out the GetVersionMetadataSelection method")
+// 			},
 // 			PutVersionFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, datasetID string, edition string, version string, m dataset.Version) error {
 // 				panic("mock out the PutVersion method")
 // 			},
@@ -41,6 +44,9 @@ type DatasetAPIClientMock struct {
 
 	// GetVersionMetadataFunc mocks the GetVersionMetadata method.
 	GetVersionMetadataFunc func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, id string, edition string, version string) (dataset.Metadata, error)
+
+	// GetVersionMetadataSelectionFunc mocks the GetVersionMetadataSelection method.
+	GetVersionMetadataSelectionFunc func(contextMoqParam context.Context, getVersionMetadataSelectionInput dataset.GetVersionMetadataSelectionInput) (*dataset.Metadata, error)
 
 	// PutVersionFunc mocks the PutVersion method.
 	PutVersionFunc func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, datasetID string, edition string, version string, m dataset.Version) error
@@ -79,6 +85,13 @@ type DatasetAPIClientMock struct {
 			// Version is the version argument value.
 			Version string
 		}
+		// GetVersionMetadataSelection holds details about calls to the GetVersionMetadataSelection method.
+		GetVersionMetadataSelection []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// GetVersionMetadataSelectionInput is the getVersionMetadataSelectionInput argument value.
+			GetVersionMetadataSelectionInput dataset.GetVersionMetadataSelectionInput
+		}
 		// PutVersion holds details about calls to the PutVersion method.
 		PutVersion []struct {
 			// Ctx is the ctx argument value.
@@ -99,9 +112,10 @@ type DatasetAPIClientMock struct {
 			M dataset.Version
 		}
 	}
-	lockGetInstance        sync.RWMutex
-	lockGetVersionMetadata sync.RWMutex
-	lockPutVersion         sync.RWMutex
+	lockGetInstance                 sync.RWMutex
+	lockGetVersionMetadata          sync.RWMutex
+	lockGetVersionMetadataSelection sync.RWMutex
+	lockPutVersion                  sync.RWMutex
 }
 
 // GetInstance calls GetInstanceFunc.
@@ -207,6 +221,41 @@ func (mock *DatasetAPIClientMock) GetVersionMetadataCalls() []struct {
 	mock.lockGetVersionMetadata.RLock()
 	calls = mock.calls.GetVersionMetadata
 	mock.lockGetVersionMetadata.RUnlock()
+	return calls
+}
+
+// GetVersionMetadataSelection calls GetVersionMetadataSelectionFunc.
+func (mock *DatasetAPIClientMock) GetVersionMetadataSelection(contextMoqParam context.Context, getVersionMetadataSelectionInput dataset.GetVersionMetadataSelectionInput) (*dataset.Metadata, error) {
+	if mock.GetVersionMetadataSelectionFunc == nil {
+		panic("DatasetAPIClientMock.GetVersionMetadataSelectionFunc: method is nil but DatasetAPIClient.GetVersionMetadataSelection was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam                  context.Context
+		GetVersionMetadataSelectionInput dataset.GetVersionMetadataSelectionInput
+	}{
+		ContextMoqParam:                  contextMoqParam,
+		GetVersionMetadataSelectionInput: getVersionMetadataSelectionInput,
+	}
+	mock.lockGetVersionMetadataSelection.Lock()
+	mock.calls.GetVersionMetadataSelection = append(mock.calls.GetVersionMetadataSelection, callInfo)
+	mock.lockGetVersionMetadataSelection.Unlock()
+	return mock.GetVersionMetadataSelectionFunc(contextMoqParam, getVersionMetadataSelectionInput)
+}
+
+// GetVersionMetadataSelectionCalls gets all the calls that were made to GetVersionMetadataSelection.
+// Check the length with:
+//     len(mockedDatasetAPIClient.GetVersionMetadataSelectionCalls())
+func (mock *DatasetAPIClientMock) GetVersionMetadataSelectionCalls() []struct {
+	ContextMoqParam                  context.Context
+	GetVersionMetadataSelectionInput dataset.GetVersionMetadataSelectionInput
+} {
+	var calls []struct {
+		ContextMoqParam                  context.Context
+		GetVersionMetadataSelectionInput dataset.GetVersionMetadataSelectionInput
+	}
+	mock.lockGetVersionMetadataSelection.RLock()
+	calls = mock.calls.GetVersionMetadataSelection
+	mock.lockGetVersionMetadataSelection.RUnlock()
 	return calls
 }
 
