@@ -9,16 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
-type GetVersionMetadataSelectionInput struct {
-	UserAuthToken    string
-	ServiceAuthToken string
-	CollectionID     string
-	DatasetID        string
-	Edition          string
-	Version          string
-	Dimensions       []string
-}
-
 //go:generate moq -out mock/dataset-api-client.go -pkg mock . DatasetAPIClient
 //go:generate moq -out mock/s3-client.go -pkg mock . S3Client
 //go:generate moq -out mock/vault.go -pkg mock . VaultClient
@@ -38,7 +28,6 @@ type S3Client interface {
 type DatasetAPIClient interface {
 	PutVersion(ctx context.Context, userAuthToken, serviceAuthToken, collectionID, datasetID, edition, version string, m dataset.Version) error
 	GetInstance(ctx context.Context, userAuthToken, serviceAuthToken, collectionID, instanceID, ifMatch string) (i dataset.Instance, eTag string, err error)
-	GetVersionMetadata(ctx context.Context, userAuthToken, serviceAuthToken, collectionID, id, edition, version string) (dataset.Metadata, error)
 	GetVersionMetadataSelection(context.Context, dataset.GetVersionMetadataSelectionInput) (*dataset.Metadata, error)
 }
 
