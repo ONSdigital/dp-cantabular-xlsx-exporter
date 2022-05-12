@@ -14,7 +14,8 @@ Feature: Cantabular-Xlsx-Exporter-Unhealthy
         "DatasetID":  "dataset-happy-02",
         "Edition":    "edition-happy-02",
         "Version":    "version-happy-02",
-        "RowCount":   19
+        "RowCount":   19,
+        "DimensionsID": []
       }
       """
 

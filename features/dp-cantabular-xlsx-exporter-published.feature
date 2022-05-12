@@ -208,7 +208,8 @@ Feature: Cantabular-Xlsx-Exporter-Published
         "DatasetID":  "dataset-happy-01",
         "Edition":    "edition-happy-01",
         "Version":    "version-happy-01",
-        "RowCount":   19
+        "RowCount":   19,
+        "DimensionsID": []
       }
       """
 

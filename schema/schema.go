@@ -12,7 +12,16 @@ var cantabularCsvCreated = `{
     {"name": "dataset_id", "type": "string", "default": ""},
     {"name": "edition", "type": "string", "default": ""},
     {"name": "version", "type": "string", "default": ""},
-    {"name": "row_count", "type": "int", "default": 0}
+    {"name": "row_count", "type": "int", "default": 0},
+    {
+      "name": "dimensions_id",
+      "type": {
+        "type": "array", 
+        "items": {
+          "type": "string"
+        }
+      }, "default": []
+    }
   ]
 }`
 
