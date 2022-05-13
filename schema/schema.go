@@ -14,7 +14,7 @@ var cantabularCsvCreated = `{
     {"name": "version", "type": "string", "default": ""},
     {"name": "row_count", "type": "int", "default": 0},
     {
-      "name": "dimensions_id",
+      "name": "dimension_ids",
       "type": {
         "type": "array", 
         "items": {

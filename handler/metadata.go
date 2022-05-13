@@ -23,7 +23,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		DatasetID:  event.DatasetID,
 		Edition:    event.Edition,
 		Version:    event.Version,
-		Dimensions: event.DimensionsID,
+		Dimensions: event.Dimensions,
 	}
 
 	meta, err := h.datasets.GetVersionMetadataSelection(ctx, req)
