@@ -7,5 +7,5 @@ type CantabularCsvCreated struct {
 	Edition    string   `avro:"edition"`
 	Version    string   `avro:"version"`
 	RowCount   int32    `avro:"row_count"`
-	Dimensions []string `avro:"dimension_ids"`
+	Dimensions []string `avro:"dimensions"`
 }
