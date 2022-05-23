@@ -605,24 +605,17 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 	return nil
 }
 
-// generateS3FilenameCSV generates the S3 key (filename including `subpaths` after the bucket)
+/// generateS3FilenameCSV generates the S3 key (filename including `subpaths` after the bucket)
 // for the provided instanceID CSV file that is going to be read
 func generateS3FilenameCSV(event *event.CantabularCsvCreated) string {
-	return fmt.Sprintf("datasets/%s-%s-%s.csv", event.DatasetID, event.Edition, event.Version)
+	return fmt.Sprintf("datasets/%s", event.FileName)
 
-	// return fmt.Sprintf("instances/1000Kx50.csv")// OBSERVED: for non stream code this crashes using 13GB RAM in docker
-	// return fmt.Sprintf("instances/50Kx50.csv") // OBSERVED this uses 1.7GB for non-large excel code
-	// return fmt.Sprintf("instances/10Kx7.csv")
-	// return fmt.Sprintf("instances/25Kx7.csv")
-	// return fmt.Sprintf("instances/50Kx7.csv")
-	// return fmt.Sprintf("instances/100Kx7.csv")
-	// return fmt.Sprintf("instances/1000Kx7.csv")
 }
 
 // generateS3FilenameXLSX generates the S3 key (filename including `subpaths` after the bucket)
 // for the provided instanceID XLSX file that is going to be written
 func generateS3FilenameXLSX(event *event.CantabularCsvCreated) string {
-	return fmt.Sprintf("datasets/%s-%s-%s.xlsx", event.DatasetID, event.Edition, event.Version)
+	return fmt.Sprintf("datasets/%s", strings.Replace(event.FileName, ".csv", ".xlsx", 1))
 }
 
 // ApplyMainSheetHeader puts relevant header information in first rows of sheet

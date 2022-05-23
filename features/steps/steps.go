@@ -322,27 +322,32 @@ func (c *Component) putFileInBucket(filename, datasetID, edition, version string
 }
 
 func (c *Component) uploadFile(fileReader io.Reader, isPublished bool, bucketName, filename, datasetID, edition, version string) error {
-
+	f := fmt.Sprintf("datasets/%s", filename)
 	// Upload input parameters
 	upParams := &s3manager.UploadInput{
 		Bucket: &bucketName,
-		Key:    &filename,
+		Key:    &f,
 		Body:   fileReader,
 	}
 
 	var err error
+	logData := log.Data{
+		"bucket":       bucketName,
+		"filename":     filename,
+		"is_published": isPublished,
+	}
 
 	if isPublished {
+
 		// Perform an upload.
 		_, err = c.s3Public.UploadWithContext(c.ctx, upParams)
-
-	} else {
-		logData := log.Data{
-			"bucket":       bucketName,
-			"filename":     filename,
-			"is_published": isPublished,
+		if err != nil {
+			return handler.NewError(fmt.Errorf("UploadWithContext failed to write file: %w", err),
+				logData,
+			)
 		}
 
+	} else {
 		psk, err := c.generator.NewPSK()
 		if err != nil {
 			return handler.NewError(fmt.Errorf("NewPSK failed to generate a PSK for encryption: %w", err),
@@ -350,7 +355,7 @@ func (c *Component) uploadFile(fileReader io.Reader, isPublished bool, bucketNam
 			)
 		}
 
-		vaultPath := fmt.Sprintf("%s/%s-%s-%s.csv", c.cfg.VaultPath, datasetID, edition, version)
+		vaultPath := fmt.Sprintf("%s/%s", c.cfg.VaultPath, filename)
 		vaultKey := "key"
 
 		log.Info(c.ctx, "writing key to vault", log.Data{"vault_path": vaultPath})

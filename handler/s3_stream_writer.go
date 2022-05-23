@@ -57,7 +57,7 @@ func (h *XlsxCreate) GetVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([
 	if event == nil {
 		return nil, ErrorStack("nil event not allowed")
 	}
-	vaultPath := fmt.Sprintf("%s/%s-%s-%s.csv", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
+	vaultPath := fmt.Sprintf("%s/%s", h.cfg.VaultPath, event.FileName)
 
 	pskStr, err := h.vaultClient.ReadKey(vaultPath, "key")
 	if err != nil {

@@ -4,7 +4,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
   # available via datasets api (a json object here) in published state are stored in the public S3 bucket
 
   Background:
-	  Given the following Csv file named: "datasets/dataset-happy-01-edition-happy-01-version-happy-01.csv" is available as an ENCRYPTED file in Private S3 bucket for dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01":
+	  Given the following Csv file named: "dataset-happy-01-edition-happy-01-version-happy-01.csv" is available as an ENCRYPTED file in Private S3 bucket for dataset-id "dataset-happy-01", edition "edition-happy-01" and version "version-happy-01":
       """
       count,City,Number of siblings (3 mappings),Sex
       1,London,No siblings,Male
@@ -209,6 +209,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
         "Edition":    "edition-happy-01",
         "Version":    "version-happy-01",
         "RowCount":   19,
+        "FileName": "dataset-happy-01-edition-happy-01-version-happy-01.csv",
         "DimensionsID": []
       }
       """

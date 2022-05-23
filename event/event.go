@@ -7,5 +7,6 @@ type CantabularCsvCreated struct {
 	Edition    string   `avro:"edition"`
 	Version    string   `avro:"version"`
 	RowCount   int32    `avro:"row_count"`
+	FileName   string   `avro:"file_name"`
 	Dimensions []string `avro:"dimensions"`
 }
