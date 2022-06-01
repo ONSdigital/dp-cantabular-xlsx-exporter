@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/ONSdigital/dp-api-clients-go/v2/filter"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -35,6 +36,10 @@ type DatasetAPIClient interface {
 type VaultClient interface {
 	ReadKey(path, key string) (string, error)
 	WriteKey(path, key, value string) error
+}
+
+type FilterAPIClient interface {
+	UpdateFilterOutput(ctx context.Context, userAuthToken, serviceAuthToken, downloadServiceToken, filterOutputID string, m *filter.Model) error
 }
 
 // Generator contains methods for dynamically required strings and tokens

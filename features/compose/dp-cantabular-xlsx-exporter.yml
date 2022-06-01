@@ -26,6 +26,7 @@ services:
             LOCAL_OBJECT_STORE:                 "http://minio:9000"
             MINIO_ACCESS_KEY:                   "minio-access-key"
             MINIO_SECRET_KEY:                   "minio-secret-key"
+            MONGODB_BIND_ADDR:                  "mongodb:27017"
             STOP_CONSUMING_ON_UNHEALTHY:        "true"
             KAFKA_ADDR:                         "kafka-1:9092"
             KAFKA_CONSUMER_MIN_BROKERS_HEALTHY: 1

@@ -9,16 +9,22 @@ import (
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/features/steps"
+	cmponenttest "github.com/ONSdigital/dp-component-test"
 	dplogs "github.com/ONSdigital/log.go/v2/log"
 	"github.com/cucumber/godog"
 	"github.com/cucumber/godog/colors"
 )
 
-const componentLogFile = "component-output.txt"
+const (
+	mongoVersion     = "4.4.8"
+	databaseName     = "filters"
+	componentLogFile = "component-output.txt"
+)
 
 var componentFlag = flag.Bool("component", false, "perform component tests")
 
 type ComponentTest struct {
+	MongoFeature *cmponenttest.MongoFeature
 }
 
 func init() {
@@ -26,7 +32,8 @@ func init() {
 }
 
 func (f *ComponentTest) InitializeScenario(ctx *godog.ScenarioContext) {
-	component := steps.NewComponent()
+	mongoAddr := f.MongoFeature.Server.URI()
+	component := steps.NewComponent(mongoAddr)
 
 	ctx.BeforeScenario(func(*godog.Scenario) {
 		if err := component.Reset(); err != nil {
@@ -42,7 +49,18 @@ func (f *ComponentTest) InitializeScenario(ctx *godog.ScenarioContext) {
 }
 
 func (f *ComponentTest) InitializeTestSuite(ctx *godog.TestSuiteContext) {
-	_ = ctx // shut linter up
+	//_ = ctx // shut linter up
+	ctx.BeforeSuite(func() {
+		f.MongoFeature = cmponenttest.NewMongoFeature(cmponenttest.MongoOptions{
+			MongoVersion: mongoVersion,
+			DatabaseName: databaseName,
+		})
+	})
+	ctx.AfterSuite(func() {
+		if err := f.MongoFeature.Close(); err != nil {
+			log.Printf("failed to close mongo feature: %s", err)
+		}
+	})
 }
 
 func TestComponent(t *testing.T) {

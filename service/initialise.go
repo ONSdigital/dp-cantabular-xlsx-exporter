@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
+	"github.com/ONSdigital/dp-api-clients-go/v2/filter"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/generator"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
@@ -60,6 +61,11 @@ var GetKafkaConsumer = func(ctx context.Context, cfg *config.Config) (kafka.ICon
 // GetDatasetAPIClient gets and initialises the DatasetAPI Client
 var GetDatasetAPIClient = func(cfg *config.Config) DatasetAPIClient {
 	return dataset.NewAPIClient(cfg.DatasetAPIURL)
+}
+
+// GetFilterAPIClient gets and initialises the FilterAPI Client
+var GetFilterAPIClient = func(cfg *config.Config) FilterAPIClient {
+	return filter.New(cfg.FilterAPIURL)
 }
 
 // GetS3Clients creates the private and public S3 Clients using the same AWS session, or a local storage client if a non-empty LocalObjectStore is provided

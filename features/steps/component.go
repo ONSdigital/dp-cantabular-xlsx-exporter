@@ -9,14 +9,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ONSdigital/dp-cantabular-filter-flex-api/datastore/mongodb"
+	"github.com/ONSdigital/dp-cantabular-filter-flex-api/features/mock"
+	filterApiServices "github.com/ONSdigital/dp-cantabular-filter-flex-api/service"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/service"
-	componenttest "github.com/ONSdigital/dp-component-test"
+	comptest "github.com/ONSdigital/dp-component-test"
 	kafka "github.com/ONSdigital/dp-kafka/v3"
 	dps3 "github.com/ONSdigital/dp-s3/v2"
 	vault "github.com/ONSdigital/dp-vault"
 	"github.com/ONSdigital/log.go/v2/log"
 
+	"github.com/ONSdigital/dp-component-test/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -37,8 +41,8 @@ var (
 )
 
 type Component struct {
-	componenttest.ErrorFeature
-	apiFeature       *componenttest.APIFeature
+	comptest.ErrorFeature
+	apiFeature       *comptest.APIFeature
 	DatasetAPI       *httpfake.HTTPFake
 	CantabularSrv    *httpfake.HTTPFake
 	CantabularAPIExt *httpfake.HTTPFake
@@ -55,9 +59,29 @@ type Component struct {
 	ctx              context.Context
 	generator        service.Generator
 	vaultClient      *vault.Client
+	store            filterApiServices.Datastore
 }
 
-func NewComponent() *Component {
+func NewComponent(mongoAddr string) *Component {
+	ctx := context.Background()
+	cfg, err := config.Get()
+	if err != nil {
+		log.Error(ctx, "failed to get config:", err)
+		return nil
+	}
+	g := &mock.Generator{
+		URLHost: "http://mockhost:9999",
+	}
+
+	cfg.Mongo.ClusterEndpoint = mongoAddr
+	cfg.Mongo.Database = utils.RandomDatabase()
+
+	mongoClient, err := GetWorkingMongo(ctx, cfg, g)
+	if err != nil {
+		log.Error(ctx, "failed to create new mongo mongoClient:", err)
+		return nil
+	}
+
 	return &Component{
 		errorChan:        make(chan error),
 		DatasetAPI:       httpfake.New(),
@@ -66,6 +90,7 @@ func NewComponent() *Component {
 		wg:               &sync.WaitGroup{},
 		testETag:         "13c7791bafdbaaf5e6660754feb1a58cd6aaa892",
 		ctx:              context.Background(),
+		store:            mongoClient,
 	}
 }
 
@@ -355,4 +380,17 @@ func (c *Component) Reset() error {
 	c.CantabularAPIExt.Reset()
 
 	return nil
+}
+
+func GetWorkingMongo(ctx context.Context, cfg *config.Config, g filterApiServices.Generator) (filterApiServices.Datastore, error) {
+	mongoClient, err := mongodb.NewClient(ctx, g, mongodb.Config{
+		MongoDriverConfig:       cfg.Mongo,
+		FilterFlexAPIURL:        cfg.BindAddr,
+		FiltersCollection:       cfg.FiltersCollection,
+		FilterOutputsCollection: cfg.FilterOutputsCollection,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new mongo mongoClient: %w", err)
+	}
+	return mongoClient, nil
 }

@@ -1,16 +1,18 @@
 package steps
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/ONSdigital/dp-cantabular-filter-flex-api/model"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/handler"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
@@ -18,8 +20,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-
 	"github.com/cucumber/godog"
+	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // RegisterSteps maps the human-readable regular expressions to their corresponding functions
@@ -48,6 +52,8 @@ func (c *Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a private file with filename "([^"]*)" can be seen in minio`, c.theFollowingPrivateFileCanBeSeenInMinio)
 	ctx.Step(`^no public file with filename "([^"]*)" can be seen in minio`, c.theFollowingPublicFileCannotBeSeenInMinio)
 	ctx.Step(`^no private file with filename "([^"]*)" can be seen in minio`, c.theFollowingPrivateFileCannotBeSeenInMinio)
+	ctx.Step(`^I have these filter outputs:$`, c.iHaveTheseFilterOutputs)
+	ctx.Step(`^the "([^"]*)" download in "([^"]*)" with key "([^"]*)" value "([^"]*)" is updated with "([^"]*)"`, c.theFollowingPrivateFileInfoIsSeenInFilterOutput)
 }
 
 // theServiceStarts starts the service under test in a new go-routine
@@ -182,6 +188,41 @@ func (c *Component) theFollowingPublicFileCannotBeSeenInMinio(fileName string) e
 // If it is not available it keeps checking following an exponential backoff up to MinioCheckRetries times.
 func (c *Component) theFollowingPrivateFileCannotBeSeenInMinio(fileName string) error {
 	return c.expectMinioFile(fileName, false, c.cfg.PrivateBucketName)
+}
+
+//theFollowingPrivateFileInfoIsSeenInFilterOutput checks if there is a file of given type in the given mongo collection
+//for filter output with a specific ID in the given key collection.
+func (c *Component) theFollowingPrivateFileInfoIsSeenInFilterOutput(fileType, col, key, fId, fileName string) error {
+	ctx := context.Background()
+	var bdoc primitive.D
+	if err := c.store.Conn().Collection(col).FindOne(ctx, bson.M{key: fId}, &bdoc); err != nil {
+		return errors.Wrap(err, "failed to retrieve document")
+	}
+
+	b, err := bson.MarshalExtJSON(bdoc, true, true)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal bson document")
+	}
+
+	var anyJson map[string]interface{}
+	json.Unmarshal(b, &anyJson)
+
+	//find downloads
+	var collection = anyJson["downloads"].(map[string]interface{})
+	for k, v := range collection {
+		if k == fileType {
+			s := reflect.ValueOf(v)
+			if s.Type().Kind() == reflect.Map { //could have done with recursive call but we are not going that deep
+				xlsCollection := v.(map[string]interface{})
+				v := xlsCollection["public"].(string)
+				if !strings.Contains(v, fileName) {
+					return errors.Wrap(err, fmt.Sprintf("%s file not found in downlods in filter output under: %s", fileName, fileType))
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 // expectMinioFile checks that the provided fileName 'is' / 'is NOT' available in the provided bucket.
@@ -379,4 +420,25 @@ func (c *Component) uploadFile(fileReader io.Reader, isPublished bool, bucketNam
 	}
 
 	return err
+}
+
+func (c *Component) iHaveTheseFilterOutputs(docs *godog.DocString) error {
+	ctx := context.Background()
+	var filterOutputs []model.FilterOutput
+
+	err := json.Unmarshal([]byte(docs.Content), &filterOutputs)
+	if err != nil {
+		return errors.Wrap(err, "failed to unmarshall")
+	}
+
+	store := c.store
+	col := c.cfg.FilterOutputsCollection
+
+	for _, f := range filterOutputs {
+		if _, err = store.Conn().Collection(col).UpsertById(ctx, f.ID, bson.M{"$set": f}); err != nil {
+			return errors.Wrap(err, "failed to upsert filter output")
+		}
+	}
+
+	return nil
 }

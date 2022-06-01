@@ -3,6 +3,7 @@ package config
 import (
 	"time"
 
+	mongo "github.com/ONSdigital/dp-mongodb/v3/mongodb"
 	"github.com/kelseyhightower/envconfig"
 )
 
@@ -18,6 +19,9 @@ type Config struct {
 	HealthCheckCriticalTimeout time.Duration `envconfig:"HEALTHCHECK_CRITICAL_TIMEOUT"`
 	ServiceAuthToken           string        `envconfig:"SERVICE_AUTH_TOKEN"         json:"-"`
 	DatasetAPIURL              string        `envconfig:"DATASET_API_URL"`
+	FilterAPIURL               string        `envconfig:"FILTER_API_URL"`
+	FiltersCollection          string        `envconfig:"FILTERS_COLLECTION"`
+	FilterOutputsCollection    string        `envconfig:"FILTER_OUTPUTS_COLLECTION"`
 	DownloadServiceURL         string        `envconfig:"DOWNLOAD_SERVICE_URL"` // needed to create url for file downloads
 	AWSRegion                  string        `envconfig:"AWS_REGION"`
 	PublicBucketName           string        `envconfig:"UPLOAD_BUCKET_NAME"`
@@ -31,6 +35,7 @@ type Config struct {
 	ComponentTestUseLogFile    bool          `envconfig:"COMPONENT_TEST_USE_LOG_FILE"`
 	StopConsumingOnUnhealthy   bool          `envconfig:"STOP_CONSUMING_ON_UNHEALTHY"`
 	KafkaConfig                KafkaConfig
+	Mongo                      mongo.MongoDriverConfig
 }
 
 // KafkaConfig contains the config required to connect to Kafka
@@ -67,6 +72,9 @@ func Get() (*Config, error) {
 		HealthCheckCriticalTimeout: 90 * time.Second,
 		ServiceAuthToken:           "",
 		DatasetAPIURL:              "http://localhost:22000",
+		FilterAPIURL:               "http://localhost:22100",
+		FiltersCollection:          "filters",
+		FilterOutputsCollection:    "filterOutputs",
 		DownloadServiceURL:         "http://localhost:23600",
 		AWSRegion:                  "eu-west-1",
 		PublicBucketName:           "public-bucket", // where to place the created .xlsx
@@ -94,6 +102,24 @@ func Get() (*Config, error) {
 			CsvCreatedGroup:              "dp-cantabular-xlsx-exporter",
 			CsvCreatedTopic:              "cantabular-csv-created",
 			CantabularOutputCreatedTopic: "cantabular-output-created",
+		},
+		Mongo: mongo.MongoDriverConfig{
+			ClusterEndpoint: "localhost:27017",
+			Username:        "",
+			Password:        "",
+			Database:        "filters",
+			Collections: map[string]string{
+				"filters":       "filters",
+				"filterOutputs": "filterOutputs",
+			},
+			ReplicaSet:                    "",
+			IsStrongReadConcernEnabled:    false,
+			IsWriteConcernMajorityEnabled: true,
+			ConnectTimeout:                5 * time.Second,
+			QueryTimeout:                  15 * time.Second,
+			TLSConnectionConfig: mongo.TLSConnectionConfig{
+				IsSSL: false,
+			},
 		},
 	}
 

@@ -25,6 +25,7 @@ type Service struct {
 	S3Private        S3Client
 	S3Public         S3Client
 	VaultClient      VaultClient
+	FilterAPIClient  FilterAPIClient
 	generator        Generator
 }
 
@@ -53,6 +54,7 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 	}
 
 	svc.DatasetAPIClient = GetDatasetAPIClient(cfg)
+	svc.FilterAPIClient = GetFilterAPIClient(cfg)
 
 	svc.generator = GetGenerator()
 
@@ -63,6 +65,7 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 		svc.S3Private,
 		svc.S3Public,
 		svc.VaultClient,
+		svc.FilterAPIClient,
 		svc.generator,
 	)
 	if err := svc.Consumer.RegisterHandler(ctx, h.Handle); err != nil {

@@ -195,6 +195,90 @@ Feature: Cantabular-Xlsx-Exporter-Published
       }
       """
 
+And I have these filter outputs:
+    """
+    [
+      {
+        "id": "filterOutput-happy-01",
+        "filter_id": "74310d8d-72d6-492a-bc30-27584627edb3",
+        "instance_id": "instance-happy-01",
+        "state": "published",
+        "dataset": {
+          "edition":"2021",
+          "id":"cantabular-flexible-example",
+          "version": 1
+        },
+        "dimensions": [
+          {
+            "name": "silbings",
+            "id": "siblings_3",
+            "label": "Number Of Siblings (3 Mappings)",
+            "options": [
+              "0-3",
+              "4-7",
+              "7+"
+            ],
+            "is_area_type": false
+          },
+          {
+            "name": "geography",
+            "id": "city",
+            "label": "City",
+            "options": [
+              "Cardiff",
+              "London",
+              "Swansea"
+            ],
+            "is_area_type": true
+          }
+        ],
+        "etag": "testEtag",
+        "events": null,
+        "links":{
+          "filter_blueprint":{
+            "href":":27100/filters/74310d8d-72d6-492a-bc30-27584627edb3"
+          },
+          "self":{
+            "href":":27100/filter-outputs/94310d8d-72d6-492a-bc30-27584627edb1"
+          },
+          "version":{
+            "href":":27100/datasets/cantabular-flexible-example/editions/2021/versions/1"
+          }
+        },
+        "population_type": "Example",
+        "published": true,
+        "type": "flexible",
+        "downloads":
+        {
+          "csv":
+          {
+            "href":"http://localhost:23600/downloads/datasets/cantabular-flexible-example/editions/2021/versions/1.csv",
+            "private":"http://minio:9000/private-bucket/datasets/cantabular-flexible-example-2021-1.csv",
+            "public":"https://csv-exported.s3.eu-west-1.amazonaws.com/full-datasets/cpih01-time-series-v1.csv-metadata.csv",
+            "size":"277",
+            "skipped":true
+          },
+          "csvw":
+          {
+            "href" : "http://localhost:23600/downloads/datasets/cantabular-flexible-example/editions/2021/versions/1.csv-metadata.json",
+            "private" : "http://minio:9000/private-bucket/datasets/cantabular-flexible-example-2021-1.csvw",
+            "public" : "https://csv-exported.s3.eu-west-1.amazonaws.com/full-datasets/cpih01-time-series-v1.csv-metadata.csvw",
+            "size" : "607",
+            "skipped": true
+          },
+          "txt":
+          {
+            "href" : "http://localhost:23600/downloads/datasets/cantabular-flexible-example/editions/2021/versions/1.txt",
+            "private" : "http://minio:9000/private-bucket/datasets/cantabular-flexible-example-2021-1.txt",
+            "public" : "https://csv-exported.s3.eu-west-1.amazonaws.com/full-datasets/cpih01-time-series-v1.csv-metadata.txt",
+            "size" : "530",
+            "skipped": true
+          }
+        }
+      }
+    ]
+    """
+
   Scenario: Consuming a cantabular-csv-created event with correct fields for a published instance
 
     Given dp-dataset-api is healthy
@@ -204,14 +288,17 @@ Feature: Cantabular-Xlsx-Exporter-Published
     Then this cantabular-csv-created event is queued, to be consumed:
       """
       {
-        "InstanceID": "instance-happy-01",
-        "DatasetID":  "dataset-happy-01",
-        "Edition":    "edition-happy-01",
-        "Version":    "version-happy-01",
-        "RowCount":   19,
-        "FileName":   "dataset-happy-01-edition-happy-01-version-happy-01.csv",
-        "DimensionsID": []
+        "InstanceID":     "instance-happy-01",
+        "DatasetID":      "dataset-happy-01",
+        "FilterOutputID": "filterOutput-happy-01",
+        "Edition":        "edition-happy-01",
+        "Version":        "version-happy-01",
+        "RowCount":       19,
+        "FileName":       "dataset-happy-01-edition-happy-01-version-happy-01.csv",
+        "DimensionsID":   []
       }
       """
 
     And a public file with filename "datasets/dataset-happy-01-edition-happy-01-version-happy-01.xlsx" can be seen in minio
+
+    And the "xls" download in "filterOutputs" with key "id" value "filterOutput-happy-01" is updated with "datasets/dataset-happy-01-edition-happy-01-version-happy-01.xlsx"

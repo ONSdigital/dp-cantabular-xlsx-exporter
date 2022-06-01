@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
+	"github.com/ONSdigital/dp-api-clients-go/v2/filter"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	kafka "github.com/ONSdigital/dp-kafka/v3"
@@ -64,6 +65,10 @@ type VaultClient interface {
 	ReadKey(path, key string) (string, error)
 	WriteKey(path, key, value string) error
 	Checker(context.Context, *healthcheck.CheckState) error
+}
+
+type FilterAPIClient interface {
+	UpdateFilterOutput(ctx context.Context, userAuthToken, serviceAuthToken, downloadServiceToken, filterOutputID string, m *filter.Model) error
 }
 
 // Generator contains methods for dynamically required strings and tokens

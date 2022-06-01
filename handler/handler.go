@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
+	"github.com/ONSdigital/dp-api-clients-go/v2/filter"
 	"github.com/ONSdigital/dp-api-clients-go/v2/headers"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
@@ -38,25 +39,27 @@ const (
 
 // XlsxCreate is the handle for the CsvHandler event
 type XlsxCreate struct {
-	cfg         config.Config
-	datasets    DatasetAPIClient
-	s3Private   S3Client
-	s3Public    S3Client
-	vaultClient VaultClient
-	producer    kafka.IProducer
-	generator   Generator
+	cfg          config.Config
+	datasets     DatasetAPIClient
+	s3Private    S3Client
+	s3Public     S3Client
+	vaultClient  VaultClient
+	filterClient FilterAPIClient
+	producer     kafka.IProducer
+	generator    Generator
 }
 
 // NewXlsxCreate a new CsvHandler
 func NewXlsxCreate(cfg config.Config, d DatasetAPIClient, sPrivate S3Client, sPublic S3Client,
-	v VaultClient, g Generator) *XlsxCreate {
+	v VaultClient, f FilterAPIClient, g Generator) *XlsxCreate {
 	return &XlsxCreate{
-		cfg:         cfg,
-		datasets:    d,
-		s3Private:   sPrivate,
-		s3Public:    sPublic,
-		vaultClient: v,
-		generator:   g,
+		cfg:          cfg,
+		datasets:     d,
+		s3Private:    sPrivate,
+		s3Public:     sPublic,
+		vaultClient:  v,
+		filterClient: f,
+		generator:    g,
 	}
 }
 
@@ -127,9 +130,15 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 		}
 	}
 
-	// Update instance with link to file
-	if err := h.UpdateInstance(ctx, kafkaEvent, numBytes, isPublished, s3Path); err != nil {
-		return errors.Wrap(err, "failed to update instance")
+	if kafkaEvent.FilterOutputID != "" { // condition for filtered job
+		if err := h.UpdateFilterOutput(ctx, kafkaEvent.FilterOutputID, numBytes, isPublished, s3Path); err != nil {
+			return errors.Wrap(err, "failed to update filter output")
+		}
+	} else {
+		// Update instance with link to file
+		if err := h.UpdateInstance(ctx, kafkaEvent, numBytes, isPublished, s3Path); err != nil {
+			return errors.Wrap(err, "failed to update instance")
+		}
 	}
 
 	return nil
@@ -558,6 +567,35 @@ func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPub
 	return int(*headOutput.ContentLength), nil
 }
 
+func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID string, size int, isPublished bool, s3Url string) error {
+	log.Info(ctx, "Updating filter output with download link")
+
+	download := filter.Download{
+		URL:     fmt.Sprintf("%s/downloads/filter-outputs/%s.xlsx", h.cfg.DownloadServiceURL, filterOutputID),
+		Size:    fmt.Sprintf("%d", size),
+		Skipped: false,
+	}
+
+	if isPublished {
+		download.Public = s3Url
+	} else {
+		download.Private = s3Url
+	}
+
+	m := filter.Model{
+		Downloads: map[string]filter.Download{
+			"XLS": download,
+		},
+		IsPublished: isPublished,
+	}
+
+	if err := h.filterClient.UpdateFilterOutput(ctx, "", h.cfg.ServiceAuthToken, "", filterOutputID, &m); err != nil {
+		return errors.Wrap(err, "failed to update filter output")
+	}
+
+	return nil
+}
+
 // UpdateInstance updates the instance download CSV link using dataset API PUT /instances/{id} endpoint
 // if the instance is published, then the s3Url will be set as public link and the instance state will be set to published
 // otherwise, a private url will be generated and the state will not be changed
@@ -605,15 +643,10 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 	return nil
 }
 
-/// generateS3FilenameCSV generates the S3 key (filename including `subpaths` after the bucket)
-// for the provided instanceID CSV file that is going to be read
 func generateS3FilenameCSV(event *event.CantabularCsvCreated) string {
 	return fmt.Sprintf("datasets/%s", event.FileName)
-
 }
 
-// generateS3FilenameXLSX generates the S3 key (filename including `subpaths` after the bucket)
-// for the provided instanceID XLSX file that is going to be written
 func generateS3FilenameXLSX(event *event.CantabularCsvCreated) string {
 	return fmt.Sprintf("datasets/%s", strings.Replace(event.FileName, ".csv", ".xlsx", 1))
 }
