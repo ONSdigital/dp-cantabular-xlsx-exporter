@@ -302,3 +302,4 @@ And I have these filter outputs:
     And a public file with filename "datasets/dataset-happy-01-edition-happy-01-version-happy-01.xlsx" can be seen in minio
 
     And the "xls" download in "filterOutputs" with key "id" value "filterOutput-happy-01" is updated with "datasets/dataset-happy-01-edition-happy-01-version-happy-01.xlsx"
+    

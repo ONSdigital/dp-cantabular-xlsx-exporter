@@ -190,8 +190,8 @@ func (c *Component) theFollowingPrivateFileCannotBeSeenInMinio(fileName string) 
 	return c.expectMinioFile(fileName, false, c.cfg.PrivateBucketName)
 }
 
-//theFollowingPrivateFileInfoIsSeenInFilterOutput checks if there is a file of given type in the given mongo collection
-//for filter output with a specific ID in the given key collection.
+// theFollowingPrivateFileInfoIsSeenInFilterOutput checks if there is a file of given type in the given mongo collection
+// for filter output with a specific ID in the given key collection.
 func (c *Component) theFollowingPrivateFileInfoIsSeenInFilterOutput(fileType, col, key, fId, fileName string) error {
 	ctx := context.Background()
 	var bdoc primitive.D
@@ -207,12 +207,12 @@ func (c *Component) theFollowingPrivateFileInfoIsSeenInFilterOutput(fileType, co
 	var anyJson map[string]interface{}
 	json.Unmarshal(b, &anyJson)
 
-	//find downloads
+	// find downloads
 	var collection = anyJson["downloads"].(map[string]interface{})
 	for k, v := range collection {
 		if k == fileType {
 			s := reflect.ValueOf(v)
-			if s.Type().Kind() == reflect.Map { //could have done with recursive call but we are not going that deep
+			if s.Type().Kind() == reflect.Map { // could have done with recursive call but we are not going that deep
 				xlsCollection := v.(map[string]interface{})
 				v := xlsCollection["public"].(string)
 				if !strings.Contains(v, fileName) {

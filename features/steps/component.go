@@ -3,6 +3,7 @@ package steps
 import (
 	"context"
 	"fmt"
+	logPanic "log"
 	"os"
 	"os/signal"
 	"sync"
@@ -66,8 +67,7 @@ func NewComponent(mongoAddr string) *Component {
 	ctx := context.Background()
 	cfg, err := config.Get()
 	if err != nil {
-		log.Error(ctx, "failed to get config:", err)
-		return nil
+		logPanic.Panicf("unable to create component as failed to get config: %s", err)
 	}
 	g := &mock.Generator{
 		URLHost: "http://mockhost:9999",
@@ -78,8 +78,7 @@ func NewComponent(mongoAddr string) *Component {
 
 	mongoClient, err := GetWorkingMongo(ctx, cfg, g)
 	if err != nil {
-		log.Error(ctx, "failed to create new mongo mongoClient:", err)
-		return nil
+		logPanic.Panicf("unable to create component as failed to create new mongo client: %s", err)
 	}
 
 	return &Component{
