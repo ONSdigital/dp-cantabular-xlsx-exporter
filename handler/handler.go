@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
-
 	"fmt"
 	"io"
 	"net/url"
@@ -24,9 +23,10 @@ import (
 
 	kafka "github.com/ONSdigital/dp-kafka/v3"
 
-	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/xuri/excelize/v2"
+
+	"github.com/ONSdigital/log.go/v2/log"
 )
 
 const (
@@ -190,13 +190,6 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 
 	excelInMemoryStructure.SetDefaultFont("Aerial")
 
-	// Write header on first sheet, just to demonstrate ... this may not be needed - TBD
-	if err = ApplyMainSheetHeader(excelInMemoryStructure, doLargeSheet, efficientExcelAPIWriter, sheet1); err != nil {
-		if err != nil {
-			return "", errors.Wrap(err, "ApplyMainSheetHeader failed")
-		}
-	}
-
 	if err = h.GetCSVtoExcelStructure(ctx, excelInMemoryStructure, kafkaEvent, doLargeSheet, efficientExcelAPIWriter, sheet1, isPublished); err != nil {
 		if err != nil {
 			return "", errors.Wrap(err, "GetCSVtoExcelStructure failed")
@@ -273,9 +266,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 		}
 	}(downloadCtx)
 
-	var startRow = 3
-	var outputRow = startRow // this value chosen for test to visually see effect in Excel spreadsheet - this will probably need adjusting - TBD
-	// AND most importantly to NOT touch any cells previously created with the excelize streamWriter mechanism
+	var outputRow = 1
 
 	styleID14, err := excelInMemoryStructure.NewStyle(`{"font":{"size":14}}`)
 	if err != nil {
@@ -649,31 +640,4 @@ func generateS3FilenameCSV(event *event.CantabularCsvCreated) string {
 
 func generateS3FilenameXLSX(event *event.CantabularCsvCreated) string {
 	return fmt.Sprintf("datasets/%s", strings.Replace(event.FileName, ".csv", ".xlsx", 1))
-}
-
-// ApplyMainSheetHeader puts relevant header information in first rows of sheet
-func ApplyMainSheetHeader(excelInMemoryStructure *excelize.File, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string) error {
-	if doLargeSheet {
-		styleID, err := excelInMemoryStructure.NewStyle(`{"font":{"color":"#EE2277"}}`)
-		if err != nil {
-			return err
-		}
-		if err := efficientExcelAPIWriter.SetRow("A1", []interface{}{
-			excelize.Cell{StyleID: styleID, Value: "Data, > 10K lines (efficient)"}}); err != nil {
-			return err
-		}
-	} else {
-		styleID, err := excelInMemoryStructure.NewStyle(`{"font":{"color":"#EE2277"}}`)
-		if err != nil {
-			return err
-		}
-		if err = excelInMemoryStructure.SetCellStyle(sheet1, "A1", "C3", styleID); err != nil {
-			return errors.Wrap(err, "SetCellStyle 1")
-		}
-		if err := excelInMemoryStructure.SetSheetRow(sheet1, "A1", &[]interface{}{"Data, <=10K lines (API)"}); err != nil {
-			return errors.Wrap(err, "SetSheetRow 1")
-		}
-	}
-
-	return nil
 }
