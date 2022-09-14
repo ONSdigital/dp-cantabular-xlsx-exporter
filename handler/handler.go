@@ -503,7 +503,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 			)
 		}
 
-		vaultPath := fmt.Sprintf("%s/%s-%s-%s.xlsx", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
+		vaultPath := fmt.Sprintf("%s/%s/%s-%s-%s.xlsx", h.cfg.VaultPath, event.FilterOutputID, event.DatasetID, event.Edition, event.Version)
 		vaultKey := "key"
 
 		log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
@@ -635,9 +635,9 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 }
 
 func generateS3FilenameCSV(event *event.CantabularCsvCreated) string {
-	return fmt.Sprintf("datasets/%s", event.FileName)
+	return fmt.Sprintf("datasets/%s/%s", event.FilterOutputID, event.FileName)
 }
 
 func generateS3FilenameXLSX(event *event.CantabularCsvCreated) string {
-	return fmt.Sprintf("datasets/%s", strings.Replace(event.FileName, ".csv", ".xlsx", 1))
+	return fmt.Sprintf("datasets/%s/%s", event.FilterOutputID, strings.Replace(event.FileName, ".csv", ".xlsx", 1))
 }
