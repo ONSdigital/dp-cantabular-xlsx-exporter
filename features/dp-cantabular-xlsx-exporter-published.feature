@@ -13,6 +13,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
       0,London,1 or 2 siblings,Female
       0,London,3 or more siblings,Male
       1,London,3 or more siblings,Female
+      1,London,"3,4,5 or more siblings",Female
       0,Liverpool,No siblings,Male
       0,Liverpool,No siblings,Female
       0,Liverpool,1 or 2 siblings,Male
