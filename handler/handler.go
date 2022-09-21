@@ -3,6 +3,7 @@ package handler
 import (
 	"bufio"
 	"context"
+	"encoding/csv"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -292,10 +293,15 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 		}
 
 		incomingCsvRow++
-		line := scanner.Text()
 
-		// split 'line' and do the Excel write at 'row' & deal with any errors
-		columns := strings.Split(line, ",")
+		cr := csv.NewReader(strings.NewReader(scanner.Text()))
+		columns, err := cr.Read()
+		if err != nil {
+			return &Error{err: errors.Wrapf(err, "error parsing csv row records/cells at row %d", incomingCsvRow),
+				logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv},
+			}
+		}
+
 		nofColumns := len(columns)
 		if nofColumns == 0 {
 			return &Error{err: errors.Wrapf(err, "downloaded .csv file has no columns at row %d", incomingCsvRow),
