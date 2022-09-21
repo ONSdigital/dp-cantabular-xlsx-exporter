@@ -284,6 +284,10 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 			wgDownload.Wait()
 			return errors.Wrap(err, "parent context closed in GetCSVtoExcelStructure")
 		default:
+			// This default & break is here so that we don't STOP in this select{} waiting on channel(s).
+			// We only want to check for any ctx.Done() and take appropriate action, or with this 'default'
+			// exit the 'select' to do work.
+			// It is not 'ineffective' as the the IDE might be indicating and is here by design.
 			break
 		}
 
