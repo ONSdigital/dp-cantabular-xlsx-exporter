@@ -17,17 +17,17 @@ replace github.com/go-ldap/ldap/v3 v3.1.10 => github.com/go-ldap/ldap/v3 v3.4.3
 
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.43.0
-	github.com/ONSdigital/dp-api-clients-go/v2 v2.142.0
+	github.com/ONSdigital/dp-api-clients-go/v2 v2.181.1
 	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.1.0
 	github.com/ONSdigital/dp-component-test v0.7.0
 	github.com/ONSdigital/dp-healthcheck v1.3.0
 	github.com/ONSdigital/dp-kafka/v3 v3.3.2
 	github.com/ONSdigital/dp-mongodb/v3 v3.0.2
-	github.com/ONSdigital/dp-net v1.4.1
+	github.com/ONSdigital/dp-net v1.5.0
 	github.com/ONSdigital/dp-s3/v2 v2.0.0-beta.4
 	github.com/ONSdigital/dp-vault v1.2.0
 	github.com/ONSdigital/log.go/v2 v2.2.0
-	github.com/aws/aws-sdk-go v1.44.40
+	github.com/aws/aws-sdk-go v1.44.76
 	github.com/cucumber/godog v0.12.5
 	github.com/google/go-cmp v0.5.8
 	github.com/gorilla/mux v1.8.0
@@ -103,7 +103,7 @@ require (
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
-	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
@@ -134,7 +134,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220817201139-bc19a97f63c8 // indirect
 	golang.org/x/net v0.0.0-20220812174116-3211cb980234 // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
-	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
+	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect
 	google.golang.org/genproto v0.0.0-20220622171453-ea41d75dfa0f // indirect
