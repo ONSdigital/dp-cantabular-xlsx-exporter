@@ -47,6 +47,8 @@ github.com/ONSdigital/dp-api-clients-go v1.43.0 h1:0982P/YxnYXvba1RhEcFmwF3xywC4
 github.com/ONSdigital/dp-api-clients-go v1.43.0/go.mod h1:V5MfINik+o3OAF985UXUoMjXIfrZe3JKYa5AhZn5jts=
 github.com/ONSdigital/dp-api-clients-go/v2 v2.186.0 h1:eX+v/Ua2abLEF+7NqQm6IinAKTyHETeOxuWqj9jYENk=
 github.com/ONSdigital/dp-api-clients-go/v2 v2.186.0/go.mod h1:2IF90BHkQjNBzs3El66r0qOPFQ0kJq+zPfHUwCk5rgo=
+github.com/ONSdigital/dp-api-clients-go/v2 v2.189.0 h1:KT+3Uh7fwjqHh71kDHQ0E8gqP92MxbLZCVmXl5RRhq4=
+github.com/ONSdigital/dp-api-clients-go/v2 v2.189.0/go.mod h1:JhWrjETosIKYjbLoa3d19QJlKv7dx+/+x09qg355Rxg=
 github.com/ONSdigital/dp-authorisation v0.2.0 h1:QVjTUSR3c1swZwP7lMbvnBsh4Je9oc54eGzgwPOvHOc=
 github.com/ONSdigital/dp-authorisation v0.2.0/go.mod h1:Tg3BiohT3+bRv4vr4aid/1Rf+S3eXLUI8oHbOLFqFpQ=
 github.com/ONSdigital/dp-cantabular-filter-flex-api v1.1.0 h1:UEqjTP2kCZcF03C55zd6gt6uLJ/bjMg2I5mo91mDnYU=
