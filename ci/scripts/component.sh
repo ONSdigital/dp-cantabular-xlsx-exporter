@@ -2,7 +2,7 @@
 
 # Run component tests in docker compose defined in features/compose folder
 pushd dp-cantabular-xlsx-exporter/features/compose
-  COMPONENT_TEST_USE_LOG_FILE=true docker-compose up --abort-on-container-exit
+  COMPONENT_TEST_USE_LOG_FILE=false docker-compose up --abort-on-container-exit
   e=$?
 popd
 

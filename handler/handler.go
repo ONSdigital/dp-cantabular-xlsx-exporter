@@ -88,10 +88,21 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 		}
 	}
 
-	isPublished, err := h.IsInstancePublished(ctx, kafkaEvent.InstanceID)
-	if err != nil {
-		return &Error{err: errors.Wrap(err, "failed in IsInstancePublished"),
-			logData: logData,
+	var isPublished bool
+	isFilterJob := kafkaEvent.FilterOutputID != ""
+	if isFilterJob {
+		var err error
+		isPublished, err = h.isFilterPublished(ctx, kafkaEvent.FilterOutputID)
+		if err != nil {
+			return errors.Wrap(err, "failed to get filter info")
+		}
+	} else {
+		var err error
+		isPublished, err = h.IsInstancePublished(ctx, kafkaEvent.InstanceID)
+		if err != nil {
+			return &Error{err: errors.Wrap(err, "failed in IsInstancePublished"),
+				logData: logData,
+			}
 		}
 	}
 
@@ -566,6 +577,18 @@ func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPub
 		return 0, errors.Wrap(err, "private s3 head object error")
 	}
 	return int(*headOutput.ContentLength), nil
+}
+
+func (h *XlsxCreate) isFilterPublished(ctx context.Context, filterOutputID string) (bool, error) {
+	model, err := h.filterClient.GetOutput(ctx, "", h.cfg.ServiceAuthToken, "", "", filterOutputID)
+	if err != nil {
+		return false, &Error{
+			err:     errors.Wrap(err, "failed to get filter"),
+			logData: log.Data{"filter_output_id": filterOutputID},
+		}
+	}
+
+	return model.IsPublished, nil
 }
 
 func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID string, size int, isPublished bool, s3Url string) error {
