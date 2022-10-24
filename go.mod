@@ -19,9 +19,9 @@ replace github.com/prometheus/client_golang => github.com/prometheus/client_gola
 
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.43.0
-	github.com/ONSdigital/dp-api-clients-go/v2 v2.188.0
-	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.10.0
-	github.com/ONSdigital/dp-component-test v0.8.0
+	github.com/ONSdigital/dp-api-clients-go/v2 v2.189.0
+	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.1.0
+	github.com/ONSdigital/dp-component-test v0.7.0
 	github.com/ONSdigital/dp-healthcheck v1.3.0
 	github.com/ONSdigital/dp-kafka/v3 v3.6.0
 	github.com/ONSdigital/dp-mongodb/v3 v3.3.0
@@ -119,6 +119,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/richardlehane/mscfb v1.0.4 // indirect
 	github.com/richardlehane/msoleps v1.0.3 // indirect
+	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/shurcooL/graphql v0.0.0-20220606043923-3cf50f8a0a29 // indirect
 	github.com/smartystreets/assertions v1.13.0 // indirect

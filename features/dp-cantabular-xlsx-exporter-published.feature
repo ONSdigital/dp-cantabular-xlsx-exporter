@@ -291,7 +291,7 @@ And I have these filter outputs:
       {
         "InstanceID":     "instance-happy-01",
         "DatasetID":      "dataset-happy-01",
-        "FilterOutputID": "filterOutput-happy-01",
+        "FilterOutputID": "",
         "Edition":        "edition-happy-01",
         "Version":        "version-happy-01",
         "RowCount":       19,

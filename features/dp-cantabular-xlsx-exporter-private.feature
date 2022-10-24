@@ -294,7 +294,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
         "Version":        "version-happy-01",
         "RowCount":       19,
         "FileName":       "dataset-happy-01-edition-happy-01-version-happy-01.csv",
-        "FilterOutputID": "filterOutput-happy-01",
+        "FilterOutputID": "",
         "DimensionsID": []
       }
       """
