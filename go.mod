@@ -19,9 +19,9 @@ replace github.com/prometheus/client_golang => github.com/prometheus/client_gola
 
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.43.0
-	github.com/ONSdigital/dp-api-clients-go/v2 v2.186.0
-	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.1.0
-	github.com/ONSdigital/dp-component-test v0.7.0
+	github.com/ONSdigital/dp-api-clients-go/v2 v2.188.0
+	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.10.0
+	github.com/ONSdigital/dp-component-test v0.8.0
 	github.com/ONSdigital/dp-healthcheck v1.3.0
 	github.com/ONSdigital/dp-kafka/v3 v3.6.0
 	github.com/ONSdigital/dp-mongodb/v3 v3.3.0
@@ -29,16 +29,16 @@ require (
 	github.com/ONSdigital/dp-s3/v2 v2.0.0-beta.4
 	github.com/ONSdigital/dp-vault v1.2.0
 	github.com/ONSdigital/log.go/v2 v2.2.0
-	github.com/aws/aws-sdk-go v1.44.76
+	github.com/aws/aws-sdk-go v1.44.119
 	github.com/cucumber/godog v0.12.5
-	github.com/google/go-cmp v0.5.8
+	github.com/google/go-cmp v0.5.9
 	github.com/gorilla/mux v1.8.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/maxcnunes/httpfake v1.2.4
 	github.com/pkg/errors v0.9.1
 	github.com/smartystreets/goconvey v1.7.2
 	github.com/xuri/excelize/v2 v2.6.1
-	go.mongodb.org/mongo-driver v1.9.1
+	go.mongodb.org/mongo-driver v1.10.3
 )
 
 require (
@@ -51,8 +51,8 @@ require (
 	github.com/armon/go-metrics v0.4.0 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
-	github.com/chromedp/cdproto v0.0.0-20220620034043-93c6adfcda6a // indirect
-	github.com/chromedp/chromedp v0.8.2 // indirect
+	github.com/chromedp/cdproto v0.0.0-20221011223153-490dc4d81f7c // indirect
+	github.com/chromedp/chromedp v0.8.6 // indirect
 	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/cucumber/gherkin-go/v19 v19.0.3 // indirect
 	github.com/cucumber/messages-go/v16 v16.0.1 // indirect
@@ -63,11 +63,10 @@ require (
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/go-avro/avro v0.0.0-20171219232920-444163702c11 // indirect
 	github.com/go-chi/chi/v5 v5.0.7 // indirect
-	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.1.0 // indirect
-	github.com/gofrs/uuid v4.2.0+incompatible // indirect
+	github.com/gofrs/uuid v4.3.0+incompatible // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.3.0 // indirect
@@ -112,6 +111,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
+	github.com/montanaflynn/stats v0.6.6 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect
@@ -119,11 +119,10 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/richardlehane/mscfb v1.0.4 // indirect
 	github.com/richardlehane/msoleps v1.0.3 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/shurcooL/graphql v0.0.0-20220606043923-3cf50f8a0a29 // indirect
 	github.com/smartystreets/assertions v1.13.0 // indirect
-	github.com/spf13/afero v1.8.2 // indirect
+	github.com/spf13/afero v1.9.2 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/square/mongo-lock v0.0.0-20220601164918-701ecf357cd7 // indirect
 	github.com/stretchr/testify v1.8.0 // indirect
@@ -136,7 +135,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/crypto v0.0.0-20221012134737-56aed061732a // indirect
 	golang.org/x/net v0.0.0-20221014081412-f15817d10f9b // indirect
-	golang.org/x/sync v0.0.0-20220923202941-7f9b1623fab7 // indirect
+	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0 // indirect
 	golang.org/x/sys v0.0.0-20221013171732-95e765b1cc43 // indirect
 	golang.org/x/text v0.3.8 // indirect
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect

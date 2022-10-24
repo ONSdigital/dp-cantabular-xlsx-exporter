@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
@@ -50,6 +51,11 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	processError := false
 
 	var processErrorStr error
+	var sdcStatement = "Sometimes we need to make changes to data if it is possible to identify individuals. This is known as statistical disclosure control. In Census 2021, we: swapped records (targeted record swapping), for example, if a household was likely to be identified in datasets because it has unusual characteristics, we swapped the record with a similar one from a nearby small area (very unusual households could be swapped with one in a nearby local authority) added small changes to some counts (cell key perturbation), for example, we might change a count of four to a three or a five – this might make small differences between tables depending on how the data are broken down when we applied perturbation"
+	var areaTypeStatic = "Census 2021 statistics are published for a number of different geographies. These can be large, for example the whole of England, or small, for example an output area (OA), the lowest level of geography for which statistics are produced. For higher levels of geography, more detailed statistics can be produced. When a lower level of geography is used, such as output areas (which have a minimum of 100 persons), the statistics produced have less detail. This is to protect the confidentiality of people and ensure that individuals or their characteristics cannot be identified."
+	var coverageStatic = "Census 2021 statistics are published for the whole of England and Wales. However, you can choose to filter areas by: country - (for example, Wales), region - (for example, London), local authority - (for example, Cornwall), health area – (for example, Clinical Commissioning Group), statistical area - (for example, MSOA or LSOA)"
+	var trueVal = true
+	var falseVal = false
 
 	// place items in columns A and B, determine max column widths, and advance to next row
 	processMetaElement := func(col1, col2 string, skipIfCol2Empty bool) {
@@ -106,9 +112,6 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		processMetaElement("Contacts", "", false)
 		fmt.Printf("contacts struct: %v\n", *meta.DatasetDetails.Contacts)
 		for _, contacts := range *meta.DatasetDetails.Contacts {
-			if contacts.Name != "" {
-				processMetaElement("", contacts.Name, true)
-			}
 			if contacts.Email != "" {
 				processMetaElement("", contacts.Email, true)
 			}
@@ -141,6 +144,36 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 
 	processMetaElement("Version", strconv.Itoa(meta.Version.Version), true)
 	processMetaElement("Dataset version", meta.DatasetLinks.LatestVersion.URL, true)
+	processMetaElement("Statistical Disclosure Control Statement", sdcStatement, true)
+	processMetaElement("Area Type", areaTypeStatic, true)
+
+	for _, dimensions := range meta.Version.Dimensions {
+		if dimensions.IsAreaType == &trueVal {
+			processMetaElement("Area Type Name", dimensions.Label, true)
+			processMetaElement("Area Type Description", dimensions.Description, true)
+		}
+
+		if dimensions.IsAreaType == &falseVal {
+			processMetaElement("Variable Name", dimensions.Label, true)
+		}
+
+	}
+
+	processMetaElement("Coverage", coverageStatic, true)
+
+	if meta.DatasetDetails.VersionsList.Items != nil {
+		formatToParse := "2006-01-02T15:04:05.000Z"
+		rowNumber++
+		processMetaElement("Version History", "", false)
+		for _, versions := range meta.DatasetDetails.VersionsList.Items {
+			processMetaElement("Version Number", strconv.Itoa(versions.Version), true)
+			date, _ := time.Parse(formatToParse, versions.ReleaseDate)
+			processMetaElement("Release Date", date.Format(time.RFC822), true)
+			for _, alerts := range *versions.Alerts {
+				processMetaElement("Reason for New Version", alerts.Description, true)
+			}
+		}
+	}
 
 	if processError {
 		return errors.Wrap(processErrorStr, "error in processing metadata")
