@@ -148,12 +148,12 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	processMetaElement("Area Type", areaTypeStatic, true)
 
 	for _, dimensions := range meta.Version.Dimensions {
-		if dimensions.IsAreaType == &trueVal {
+		if *dimensions.IsAreaType == trueVal {
 			processMetaElement("Area Type Name", dimensions.Label, true)
 			processMetaElement("Area Type Description", dimensions.Description, true)
 		}
 
-		if dimensions.IsAreaType == &falseVal {
+		if *dimensions.IsAreaType == falseVal {
 			processMetaElement("Variable Name", dimensions.Label, true)
 		}
 
@@ -167,7 +167,10 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		processMetaElement("Version History", "", false)
 		for _, versions := range meta.DatasetDetails.VersionsList.Items {
 			processMetaElement("Version Number", strconv.Itoa(versions.Version), true)
-			date, _ := time.Parse(formatToParse, versions.ReleaseDate)
+			date, err := time.Parse(formatToParse, versions.ReleaseDate)
+			if err != nil {
+				return errors.Wrap(err, "unable to format time")
+			}
 			processMetaElement("Release Date", date.Format(time.RFC822), true)
 			for _, alerts := range *versions.Alerts {
 				processMetaElement("Reason for New Version", alerts.Description, true)
