@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -51,11 +50,15 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	processError := false
 
 	var processErrorStr error
-	var sdcStatement = "Sometimes we need to make changes to data if it is possible to identify individuals. This is known as statistical disclosure control. In Census 2021, we: swapped records (targeted record swapping), for example, if a household was likely to be identified in datasets because it has unusual characteristics, we swapped the record with a similar one from a nearby small area (very unusual households could be swapped with one in a nearby local authority) added small changes to some counts (cell key perturbation), for example, we might change a count of four to a three or a five – this might make small differences between tables depending on how the data are broken down when we applied perturbation"
-	var areaTypeStatic = "Census 2021 statistics are published for a number of different geographies. These can be large, for example the whole of England, or small, for example an output area (OA), the lowest level of geography for which statistics are produced. For higher levels of geography, more detailed statistics can be produced. When a lower level of geography is used, such as output areas (which have a minimum of 100 persons), the statistics produced have less detail. This is to protect the confidentiality of people and ensure that individuals or their characteristics cannot be identified."
-	var coverageStatic = "Census 2021 statistics are published for the whole of England and Wales. However, you can choose to filter areas by: country - (for example, Wales), region - (for example, London), local authority - (for example, Cornwall), health area – (for example, Clinical Commissioning Group), statistical area - (for example, MSOA or LSOA)"
-	var trueVal = true
-	var falseVal = false
+	var sdcStatement = "Sometimes we need to make changes to data if it is possible to identify individuals. This is known as statistical disclosure control. In Census 2021, we: swapped records (targeted record swapping), for example, if a household was likely to be identified in datasets because it has unusual characteristics,"
+	var sdcStatementRowTwo = "we swapped the record with a similar one from a nearby small area (very unusual households could be swapped with one in a nearby local authority) added small changes to some counts (cell key perturbation), for example, we might change a count of four to a three or a five – this might make small differences"
+	var sdcStatementRowThree = "between tables depending on how the data are broken down when we applied perturbation"
+	var areaTypeStatic = "Census 2021 statistics are published for a number of different geographies. These can be large, for example the whole of England, or small, for example an output area (OA), the lowest level of geography for which statistics are produced."
+	var areaTypeStaticRowTwo = "For higher levels of geography, more detailed statistics can be produced. When a lower level of geography is used, such as output areas (which have a minimum of 100 persons), the statistics produced have less detail. This is to protect the confidentiality of people and ensure that individuals or"
+	var areaTypeStaticRowThree = "their characteristics cannot be identified."
+	var coverageStatic = "Census 2021 statistics are published for the whole of England and Wales. However, you can choose to filter areas by: country - (for example, Wales), region - (for example, London), local authority - (for example, Cornwall), health area – (for example, Clinical Commissioning Group),"
+	var coverageStaticRowTwo = "statistical area - (for example, MSOA or LSOA)"
+	var formatToParse = "2006-01-02T15:04:05.000Z"
 
 	// place items in columns A and B, determine max column widths, and advance to next row
 	processMetaElement := func(col1, col2 string, skipIfCol2Empty bool) {
@@ -103,14 +106,17 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	// TODO the below fields are only an initial prototype, further adjustments will be needed we get the full metadata structure definition
 	processMetaElement("Title", meta.DatasetDetails.Title, true)
 	processMetaElement("Description", meta.DatasetDetails.Description, true)
-	processMetaElement("Release Date", meta.Version.ReleaseDate, true)
+	date, err := time.Parse(formatToParse, meta.Version.ReleaseDate)
+	if err != nil {
+		return errors.Wrap(err, "unable to parse time")
+	}
+	processMetaElement("Release Date", date.Format(time.RFC822), true)
 	processMetaElement("Dataset URL", meta.DatasetDetails.URI, true)
 	processMetaElement("Unit of Measure", meta.DatasetDetails.UnitOfMeasure, true)
 
 	if meta.DatasetDetails.Contacts != nil {
 		rowNumber++
 		processMetaElement("Contacts", "", false)
-		fmt.Printf("contacts struct: %v\n", *meta.DatasetDetails.Contacts)
 		for _, contacts := range *meta.DatasetDetails.Contacts {
 			if contacts.Email != "" {
 				processMetaElement("", contacts.Email, true)
@@ -143,33 +149,50 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	rowNumber++
 
 	processMetaElement("Version", strconv.Itoa(meta.Version.Version), true)
-	processMetaElement("Dataset version", meta.DatasetLinks.LatestVersion.URL, true)
+	processMetaElement("Dataset Version URL", meta.DatasetLinks.LatestVersion.URL, true)
 	processMetaElement("Statistical Disclosure Control Statement", sdcStatement, true)
+	processMetaElement("", sdcStatementRowTwo, true)
+	processMetaElement("", sdcStatementRowThree, true)
 	processMetaElement("Area Type", areaTypeStatic, true)
+	processMetaElement("", areaTypeStaticRowTwo, true)
+	processMetaElement("", areaTypeStaticRowThree, true)
 
 	for _, dimensions := range meta.Version.Dimensions {
-		if *dimensions.IsAreaType == trueVal {
+		if *dimensions.IsAreaType {
 			processMetaElement("Area Type Name", dimensions.Label, true)
 			processMetaElement("Area Type Description", dimensions.Description, true)
+			processMetaElement("Quality Statement", dimensions.QualityStatementText, true)
+			processMetaElement("Quality Statement URL", dimensions.QualityStatementURL, true)
 		}
 
-		if *dimensions.IsAreaType == falseVal {
+		if !*dimensions.IsAreaType {
 			processMetaElement("Variable Name", dimensions.Label, true)
+			processMetaElement("Quality Statement", dimensions.QualityStatementText, true)
+			processMetaElement("Quality Statement URL", dimensions.QualityStatementURL, true)
 		}
 
 	}
 
 	processMetaElement("Coverage", coverageStatic, true)
+	processMetaElement("", coverageStaticRowTwo, true)
 
-	if meta.DatasetDetails.VersionsList.Items != nil {
-		formatToParse := "2006-01-02T15:04:05.000Z"
+	datasetVersions, err := h.datasets.GetVersions(ctx, req.UserAuthToken, req.ServiceAuthToken, "", req.CollectionID, req.DatasetID, req.Edition, &dataset.QueryParams{Offset: 0, Limit: 100})
+	if err != nil {
+		return &Error{
+			err:     errors.Wrap(err, "failed to get versions"),
+			logData: logData,
+		}
+	}
+
+	if datasetVersions.Items != nil {
 		rowNumber++
 		processMetaElement("Version History", "", false)
-		for _, versions := range meta.DatasetDetails.VersionsList.Items {
+		for _, versions := range datasetVersions.Items {
+			rowNumber++
 			processMetaElement("Version Number", strconv.Itoa(versions.Version), true)
 			date, err := time.Parse(formatToParse, versions.ReleaseDate)
 			if err != nil {
-				return errors.Wrap(err, "unable to format time")
+				return errors.Wrap(err, "unable to parse time")
 			}
 			processMetaElement("Release Date", date.Format(time.RFC822), true)
 			for _, alerts := range *versions.Alerts {

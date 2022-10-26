@@ -19,17 +19,17 @@ replace github.com/prometheus/client_golang => github.com/prometheus/client_gola
 
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.43.0
-	github.com/ONSdigital/dp-api-clients-go/v2 v2.189.0
-	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.1.0
-	github.com/ONSdigital/dp-component-test v0.7.0
-	github.com/ONSdigital/dp-healthcheck v1.3.0
+	github.com/ONSdigital/dp-api-clients-go/v2 v2.192.0
+	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.11.0
+	github.com/ONSdigital/dp-component-test v0.8.0
+	github.com/ONSdigital/dp-healthcheck v1.5.0
 	github.com/ONSdigital/dp-kafka/v3 v3.6.0
 	github.com/ONSdigital/dp-mongodb/v3 v3.3.0
 	github.com/ONSdigital/dp-net v1.5.0
 	github.com/ONSdigital/dp-s3/v2 v2.0.0-beta.4
-	github.com/ONSdigital/dp-vault v1.2.0
-	github.com/ONSdigital/log.go/v2 v2.2.0
-	github.com/aws/aws-sdk-go v1.44.119
+	github.com/ONSdigital/dp-vault v1.3.0
+	github.com/ONSdigital/log.go/v2 v2.3.0
+	github.com/aws/aws-sdk-go v1.44.123
 	github.com/cucumber/godog v0.12.5
 	github.com/google/go-cmp v0.5.9
 	github.com/gorilla/mux v1.8.0
@@ -44,7 +44,7 @@ require (
 require (
 	github.com/ONSdigital/dp-authorisation v0.2.0 // indirect
 	github.com/ONSdigital/dp-mongodb-in-memory v1.3.1 // indirect
-	github.com/ONSdigital/dp-net/v2 v2.4.0 // indirect
+	github.com/ONSdigital/dp-net/v2 v2.6.0 // indirect
 	github.com/ONSdigital/dp-rchttp v1.0.0 // indirect
 	github.com/ONSdigital/go-ns v0.0.0-20210916104633-ac1c1c52327e // indirect
 	github.com/Shopify/sarama v1.37.2 // indirect
@@ -87,9 +87,9 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/go-version v1.5.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
-	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hashicorp/vault/api v1.7.2 // indirect
-	github.com/hashicorp/vault/sdk v0.5.2 // indirect
+	github.com/hashicorp/hcl v1.0.1-vault-3 // indirect
+	github.com/hashicorp/vault/api v1.8.1 // indirect
+	github.com/hashicorp/vault/sdk v0.6.0 // indirect
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 // indirect
 	github.com/hokaccha/go-prettyjson v0.0.0-20211117102719-0474bc63780f // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
@@ -119,7 +119,6 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/richardlehane/mscfb v1.0.4 // indirect
 	github.com/richardlehane/msoleps v1.0.3 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/shurcooL/graphql v0.0.0-20220606043923-3cf50f8a0a29 // indirect
 	github.com/smartystreets/assertions v1.13.0 // indirect
@@ -134,13 +133,13 @@ require (
 	github.com/xuri/nfp v0.0.0-20220409054826-5e722a1d9e22 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	golang.org/x/crypto v0.0.0-20221012134737-56aed061732a // indirect
-	golang.org/x/net v0.0.0-20221014081412-f15817d10f9b // indirect
+	golang.org/x/crypto v0.1.0 // indirect
+	golang.org/x/net v0.1.0 // indirect
 	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0 // indirect
-	golang.org/x/sys v0.0.0-20221013171732-95e765b1cc43 // indirect
-	golang.org/x/text v0.3.8 // indirect
+	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect
-	google.golang.org/genproto v0.0.0-20220622171453-ea41d75dfa0f // indirect
+	google.golang.org/genproto v0.0.0-20220624142145-8cd45d7dbd1f // indirect
 	google.golang.org/grpc v1.47.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
