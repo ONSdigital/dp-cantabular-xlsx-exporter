@@ -47,6 +47,7 @@ func (c *Component) RegisterSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^dp-dataset-api is healthy`, c.datasetAPIIsHealthy)
 	ctx.Step(`^dp-dataset-api is unhealthy`, c.datasetAPIIsUnhealthy)
 	ctx.Step(`^a PUT endpoint exists in dataset-API for dataset-id "([^"]*)", edition "([^"]*)" and version "([^"]*)" to be later updated by an API call with:$`, c.theFollowingVersionWillBeUpdated)
+	ctx.Step(`^a GET endpoint exists in dataset-API for dataset-id "([^"]*)", edition "([^"]*)":$`, c.theFollowingVersionsWillBeReturned)
 	ctx.Step(`^this cantabular-csv-created event is queued, to be consumed:$`, c.thisCantabularCsvCreatedEventIsQueued)
 	ctx.Step(`^a public file with filename "([^"]*)" can be seen in minio`, c.theFollowingPublicFileCanBeSeenInMinio)
 	ctx.Step(`^a private file with filename "([^"]*)" can be seen in minio`, c.theFollowingPrivateFileCanBeSeenInMinio)
@@ -143,6 +144,23 @@ func (c *Component) theFollowingVersionWillBeUpdated(datasetID, edition, version
 
 	c.DatasetAPI.NewHandler().
 		Put(url).
+		AssertCustom(newPutVersionAssertor([]byte(v.Content))).
+		Reply(http.StatusOK)
+
+	return nil
+}
+
+// theFollowingVersionsWillBeUpdated generates a mockedsresponse for dataset API
+// PUT /datasets/{dataset_id}/editions/{edition}/versions/{version} with the provided update in the request body
+func (c *Component) theFollowingVersionsWillBeReturned(datasetID, edition string, v *godog.DocString) error {
+	url := fmt.Sprintf(
+		"/datasets/%s/editions/%s/versions",
+		datasetID,
+		edition,
+	)
+
+	c.DatasetAPI.NewHandler().
+		Get(url).
 		AssertCustom(newPutVersionAssertor([]byte(v.Content))).
 		Reply(http.StatusOK)
 
