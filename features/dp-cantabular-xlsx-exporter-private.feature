@@ -276,7 +276,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
             },
             "version": 3,
             "type": "cantabular_flexible_table"
-        },
+        }
     ],
     "count": 1,
     "offset": 0,
