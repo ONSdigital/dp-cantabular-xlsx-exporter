@@ -198,7 +198,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
     And a GET endpoint exists in dataset-API for dataset-id "dataset-happy-01", edition "edition-happy-01":
 
     """
-{
+    {
     "items": [
         {
             "alerts": [],
@@ -282,7 +282,7 @@ Feature: Cantabular-Xlsx-Exporter-Published
     "offset": 0,
     "limit": 100,
     "total_count": 1
-}
+    }
     """
 
     And I have these filter outputs:

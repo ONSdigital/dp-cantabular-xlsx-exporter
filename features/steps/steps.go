@@ -153,16 +153,17 @@ func (c *Component) theFollowingVersionWillBeUpdated(datasetID, edition, version
 // theFollowingVersionsWillBeUpdated generates a mockedsresponse for dataset API
 // PUT /datasets/{dataset_id}/editions/{edition}/versions/{version} with the provided update in the request body
 func (c *Component) theFollowingVersionsWillBeReturned(datasetID, edition string, v *godog.DocString) error {
+	//datasets/dataset-happy-01/editions/edition-happy-01/versions?offset=0\u0026limit=100
 	url := fmt.Sprintf(
-		"/datasets/%s/editions/%s/versions",
+		"/datasets/%s/editions/%s/versions?offset=0&limit=100",
 		datasetID,
 		edition,
 	)
 
 	c.DatasetAPI.NewHandler().
 		Get(url).
-		AssertCustom(newPutVersionAssertor([]byte(v.Content))).
-		Reply(http.StatusOK)
+		Reply(http.StatusOK).
+		BodyString(v.Content)
 
 	return nil
 }
