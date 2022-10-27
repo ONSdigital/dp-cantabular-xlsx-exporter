@@ -158,19 +158,20 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	processMetaElement("", areaTypeStaticRowThree, true)
 
 	for _, dimensions := range meta.Version.Dimensions {
-		if *dimensions.IsAreaType {
-			processMetaElement("Area Type Name", dimensions.Label, true)
-			processMetaElement("Area Type Description", dimensions.Description, true)
-			processMetaElement("Quality Statement", dimensions.QualityStatementText, true)
-			processMetaElement("Quality Statement URL", dimensions.QualityStatementURL, true)
-		}
+		if dimensions.IsAreaType != nil {
+			if *dimensions.IsAreaType {
+				processMetaElement("Area Type Name", dimensions.Label, true)
+				processMetaElement("Area Type Description", dimensions.Description, true)
+				processMetaElement("Quality Statement", dimensions.QualityStatementText, true)
+				processMetaElement("Quality Statement URL", dimensions.QualityStatementURL, true)
+			}
 
-		if !*dimensions.IsAreaType {
-			processMetaElement("Variable Name", dimensions.Label, true)
-			processMetaElement("Quality Statement", dimensions.QualityStatementText, true)
-			processMetaElement("Quality Statement URL", dimensions.QualityStatementURL, true)
+			if !*dimensions.IsAreaType {
+				processMetaElement("Variable Name", dimensions.Label, true)
+				processMetaElement("Quality Statement", dimensions.QualityStatementText, true)
+				processMetaElement("Quality Statement URL", dimensions.QualityStatementURL, true)
+			}
 		}
-
 	}
 
 	processMetaElement("Coverage", coverageStatic, true)
@@ -184,7 +185,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		}
 	}
 
-	if datasetVersions.Items != nil {
+	if len(datasetVersions.Items) > 0 {
 		rowNumber++
 		processMetaElement("Version History", "", false)
 		for _, versions := range datasetVersions.Items {
@@ -195,20 +196,25 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 				return errors.Wrap(err, "unable to parse time")
 			}
 			processMetaElement("Release Date", date.Format(time.RFC822), true)
-			for _, alerts := range *versions.Alerts {
-				processMetaElement("Reason for New Version", alerts.Description, true)
+
+			if *versions.Alerts != nil {
+				for _, alerts := range *versions.Alerts {
+					processMetaElement("Reason for New Version", alerts.Description, true)
+				}
 			}
 		}
 	}
 
-	for _, relatedContent := range *meta.DatasetDetails.RelatedContent {
-		rowNumber++
-		processMetaElement("Related Content", "", false)
-		rowNumber++
-		processMetaElement("Title", relatedContent.Title, true)
-		processMetaElement("Description", relatedContent.Description, true)
-		processMetaElement("HRef", relatedContent.HRef, true)
+	if *meta.DatasetDetails.RelatedContent != nil {
+		for _, relatedContent := range *meta.DatasetDetails.RelatedContent {
+			rowNumber++
+			processMetaElement("Related Content", "", false)
+			rowNumber++
+			processMetaElement("Title", relatedContent.Title, true)
+			processMetaElement("Description", relatedContent.Description, true)
+			processMetaElement("HRef", relatedContent.HRef, true)
 
+		}
 	}
 
 	if processError {
