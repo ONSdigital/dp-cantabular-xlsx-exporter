@@ -198,83 +198,53 @@ Feature: Cantabular-Xlsx-Exporter-Published
     And a GET endpoint exists in dataset-API for dataset-id "dataset-happy-01", edition "edition-happy-01":
 
     """
-    {
+       {
     "items": [
         {
             "alerts": [],
-            "collection_id": "andrelocalmetatest8v3-75c6919c56e4a27a8cd122625f0b6a3c28528818170ea468fcce8e89a095f091",
-            "dataset_id": "Andre-Local-Meta-Test-8",
-            "dimensions": [
-                {
-                    "description": "ladcd description",
-                    "label": "Local Authority code",
-                    "links": {
-                        "code_list": {},
-                        "options": {},
-                        "version": {}
-                    },
-                    "href": "http://api.localhost:23200/v1/code-lists/ladcd",
-                    "id": "ladcd",
-                    "name": "ladcd",
-                    "variable": "LADCD",
-                    "number_of_options": 349,
-                    "is_area_type": true
-                },
-                {
-                    "label": "Occupancy rating for bedrooms (5 categories)",
-                    "links": {
-                        "code_list": {},
-                        "options": {},
-                        "version": {}
-                    },
-                    "href": "http://api.localhost:23200/v1/code-lists/occupancy_rating_bedrooms_5a",
-                    "id": "occupancy_rating_bedrooms_5a",
-                    "name": "occupancy_rating_bedrooms_5a",
-                    "variable": "occupancy_rating_bedrooms_5a",
-                    "number_of_options": 5,
-                    "is_area_type": false
-                }
-            ],
+            "collection_id": "",
+            "dataset_id": "",
+            "dimensions": null,
             "downloads": {
                 "csv": {
-                    "href": "http://localhost:23600/downloads/datasets/Andre-Local-Meta-Test-8/editions/2021/versions/3.csv",
-                    "size": "102171"
+                    "href": "",
+                    "size": ""
                 },
                 "csvw": {
-                    "href": "http://localhost:23600/downloads/datasets/Andre-Local-Meta-Test-8/editions/2021/versions/3.csv-metadata.json",
-                    "size": "962"
+                    "href": "",
+                    "size": ""
                 },
                 "txt": {
-                    "href": "http://localhost:23600/downloads/datasets/Andre-Local-Meta-Test-8/editions/2021/versions/3.txt",
-                    "public": "http://minio:9000/public-bucket/datasets/Andre-Local-Meta-Test-8-2021-3.txt",
-                    "size": "8615"
+                    "href": "",
+                    "public": "",
+                    "size": ""
                 }
             },
-            "edition": "2021",
-            "id": "24061f69-be15-486c-8762-8fc68395359c",
-            "latest_changes": [],
+            "edition": "",
+            "id": "",
+            "latest_changes": null,
             "links": {
                 "dataset": {
-                    "href": "http://dp-dataset-api:22000/datasets/Andre-Local-Meta-Test-8",
-                    "id": "Andre-Local-Meta-Test-8"
+                    "href": "",
+                    "id": ""
                 },
                 "dimensions": {},
                 "edition": {
-                    "href": "http://localhost:22000/datasets/Andre-Local-Meta-Test-8/editions/2021",
-                    "id": "2021"
+                    "href": "",
+                    "id": ""
                 },
                 "self": {
-                    "href": "http://localhost:22000/datasets/Andre-Local-Meta-Test-8/editions/2021/versions/3"
+                    "href": ""
                 }
             },
-            "release_date": "2022-10-26T00:00:00.000Z",
-            "state": "published",
-            "usage_notes": [],
+            "release_date": "",
+            "state": "",
+            "usage_notes": null,
             "is_based_on": {
                 "@type": "cantabular_flexible_table",
                 "@id": "dummy_data_households"
             },
-            "version": 3,
+            "version": 0,
             "type": "cantabular_flexible_table"
         }
     ],
