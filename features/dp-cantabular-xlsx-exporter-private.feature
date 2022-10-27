@@ -198,12 +198,12 @@ Feature: Cantabular-Xlsx-Exporter-Published
     And a GET endpoint exists in dataset-API for dataset-id "dataset-happy-01", edition "edition-happy-01":
 
     """
-{
+    {
     "items": [
         {
             "alerts": [],
-            "collection_id": "andrelocalmetatest8v3-75c6919c56e4a27a8cd122625f0b6a3c28528818170ea468fcce8e89a095f091",
-            "dataset_id": "Andre-Local-Meta-Test-8",
+            "collection_id": "",
+            "dataset_id": "dataset-happy-01",
             "dimensions": [
                 {
                     "description": "ladcd description",
@@ -237,52 +237,52 @@ Feature: Cantabular-Xlsx-Exporter-Published
             ],
             "downloads": {
                 "csv": {
-                    "href": "http://localhost:23600/downloads/datasets/Andre-Local-Meta-Test-8/editions/2021/versions/3.csv",
+                    "href": "http://localhost:23600/downloads/datasets/dataset-happy-01/editions/edition-happy-01/versions/3.csv",
                     "size": "102171"
                 },
                 "csvw": {
-                    "href": "http://localhost:23600/downloads/datasets/Andre-Local-Meta-Test-8/editions/2021/versions/3.csv-metadata.json",
+                    "href": "http://localhost:23600/downloads/datasets/dataset-happy-01/editions/edition-happy-01/versions/3.csv-metadata.json",
                     "size": "962"
                 },
                 "txt": {
-                    "href": "http://localhost:23600/downloads/datasets/Andre-Local-Meta-Test-8/editions/2021/versions/3.txt",
-                    "public": "http://minio:9000/public-bucket/datasets/Andre-Local-Meta-Test-8-2021-3.txt",
+                    "href": "http://localhost:23600/downloads/datasets/dataset-happy-01/editions/edition-happy-01/versions/3.txt",
+                    "public": "http://minio:9000/public-bucket/datasets/dataset-happy-01-3.txt",
                     "size": "8615"
                 }
             },
             "edition": "2021",
-            "id": "24061f69-be15-486c-8762-8fc68395359c",
+            "id": "edition-happy-01",
             "latest_changes": [],
             "links": {
                 "dataset": {
-                    "href": "http://dp-dataset-api:22000/datasets/Andre-Local-Meta-Test-8",
+                    "href": "http://dp-dataset-api:22000/datasets/dataset-happy-01",
                     "id": "Andre-Local-Meta-Test-8"
                 },
                 "dimensions": {},
                 "edition": {
-                    "href": "http://localhost:22000/datasets/Andre-Local-Meta-Test-8/editions/2021",
+                    "href": "http://localhost:22000/datasets/dataset-happy-01/editions/edition-happy-01",
                     "id": "2021"
                 },
                 "self": {
-                    "href": "http://localhost:22000/datasets/Andre-Local-Meta-Test-8/editions/2021/versions/3"
+                    "href": "http://localhost:22000/datasets/dataset-happy-01/editions/edition-happy-01/versions/3"
                 }
             },
             "release_date": "2022-10-26T00:00:00.000Z",
             "state": "published",
             "usage_notes": [],
             "is_based_on": {
-                "@type": "cantabular_flexible_table",
-                "@id": "dummy_data_households"
+                "@type": "cantabular_table",
+                "@id": "Example"
             },
             "version": 3,
-            "type": "cantabular_flexible_table"
+            "type": "cantabular_table"
         }
     ],
     "count": 1,
     "offset": 0,
     "limit": 100,
     "total_count": 1
-}
+    }
     """
 
     And I have these filter outputs:
