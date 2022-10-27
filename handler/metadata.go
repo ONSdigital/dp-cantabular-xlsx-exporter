@@ -201,6 +201,16 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		}
 	}
 
+	for _, relatedContent := range *meta.DatasetDetails.RelatedContent {
+		rowNumber++
+		processMetaElement("Related Content", "", false)
+		rowNumber++
+		processMetaElement("Title", relatedContent.Title, true)
+		processMetaElement("Description", relatedContent.Description, true)
+		processMetaElement("HRef", relatedContent.HRef, true)
+
+	}
+
 	if processError {
 		return errors.Wrap(processErrorStr, "error in processing metadata")
 	}
