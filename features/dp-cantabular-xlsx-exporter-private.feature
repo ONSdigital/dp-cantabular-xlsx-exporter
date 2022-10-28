@@ -267,9 +267,9 @@ Feature: Cantabular-Xlsx-Exporter-Published
                     "href": "http://localhost:22000/datasets/dataset-happy-01/editions/edition-happy-01/versions/3"
                 }
             },
-            "release_date": "",
-            "state": "",
-            "usage_notes": null,
+            "release_date": "2022-10-26T00:00:00.000Z",
+            "state": "published",
+            "usage_notes": [],
             "is_based_on": {
                 "@type": "cantabular_table",
                 "@id": "Example"
