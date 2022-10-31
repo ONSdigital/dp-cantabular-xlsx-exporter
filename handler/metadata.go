@@ -205,7 +205,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		}
 	}
 
-	if meta != nil && meta.DatasetDetails.RelatedContent != nil {
+	if meta.DatasetDetails.RelatedContent != nil {
 		for _, relatedContent := range *meta.DatasetDetails.RelatedContent {
 			rowNumber++
 			processMetaElement("Related Content", "", false)
