@@ -195,7 +195,97 @@ Feature: Cantabular-Xlsx-Exporter-Published
         "version": 0
       }
       """
+   
+   And a GET endpoint exists in dataset-API for dataset-id "dataset-happy-01", edition "edition-happy-01":
 
+    """
+    {
+    "items": [
+        {
+            "alerts": [],
+            "collection_id": "",
+            "dataset_id": "dataset-happy-01",
+            "dimensions": [
+                {
+                    "description": "ladcd description",
+                    "label": "Local Authority code",
+                    "links": {
+                        "code_list": {},
+                        "options": {},
+                        "version": {}
+                    },
+                    "href": "http://api.localhost:23200/v1/code-lists/ladcd",
+                    "id": "ladcd",
+                    "name": "ladcd",
+                    "variable": "LADCD",
+                    "number_of_options": 349,
+                    "is_area_type": true
+                },
+                {
+                    "label": "Occupancy rating for bedrooms (5 categories)",
+                    "links": {
+                        "code_list": {},
+                        "options": {},
+                        "version": {}
+                    },
+                    "href": "http://api.localhost:23200/v1/code-lists/occupancy_rating_bedrooms_5a",
+                    "id": "occupancy_rating_bedrooms_5a",
+                    "name": "occupancy_rating_bedrooms_5a",
+                    "variable": "occupancy_rating_bedrooms_5a",
+                    "number_of_options": 5,
+                    "is_area_type": false
+                }
+            ],
+            "downloads": {
+                "csv": {
+                    "href": "http://localhost:23600/downloads/datasets/dataset-happy-01/editions/edition-happy-01/versions/3.csv",
+                    "size": "102171"
+                },
+                "csvw": {
+                    "href": "http://localhost:23600/downloads/datasets/dataset-happy-01/editions/edition-happy-01/versions/3.csv-metadata.json",
+                    "size": "962"
+                },
+                "txt": {
+                    "href": "http://localhost:23600/downloads/datasets/dataset-happy-01/editions/edition-happy-01/versions/3.txt",
+                    "public": "http://minio:9000/public-bucket/datasets/dataset-happy-01-3.txt",
+                    "size": "8615"
+                }
+            },
+            "edition": "2021",
+            "id": "edition-happy-01",
+            "latest_changes": [],
+            "links": {
+                "dataset": {
+                    "href": "http://dp-dataset-api:22000/datasets/dataset-happy-01",
+                    "id": "Andre-Local-Meta-Test-8"
+                },
+                "dimensions": {},
+                "edition": {
+                    "href": "http://localhost:22000/datasets/dataset-happy-01/editions/edition-happy-01",
+                    "id": "2021"
+                },
+                "self": {
+                    "href": "http://localhost:22000/datasets/dataset-happy-01/editions/edition-happy-01/versions/3"
+                }
+            },
+            "release_date": "2022-10-26T00:00:00.000Z",
+            "state": "published",
+            "usage_notes": [],
+            "is_based_on": {
+                "@type": "cantabular_table",
+                "@id": "Example"
+            },
+            "version": 3,
+            "type": "cantabular_table"
+        }
+    ],
+    "count": 1,
+    "offset": 0,
+    "limit": 100,
+    "total_count": 1
+    }
+    """
+    
 And I have these filter outputs:
     """
     [
@@ -291,7 +381,7 @@ And I have these filter outputs:
       {
         "InstanceID":     "instance-happy-01",
         "DatasetID":      "dataset-happy-01",
-        "FilterOutputID": "filterOutput-happy-01",
+        "FilterOutputID": "",
         "Edition":        "edition-happy-01",
         "Version":        "version-happy-01",
         "RowCount":       19,
