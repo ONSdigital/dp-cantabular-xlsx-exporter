@@ -34,6 +34,7 @@ type Config struct {
 	VaultPath                  string        `envconfig:"VAULT_PATH"`
 	ComponentTestUseLogFile    bool          `envconfig:"COMPONENT_TEST_USE_LOG_FILE"`
 	StopConsumingOnUnhealthy   bool          `envconfig:"STOP_CONSUMING_ON_UNHEALTHY"`
+	S3PublicURL                string        `envconfig:"S3_PUBLIC_URL"`
 	KafkaConfig                KafkaConfig
 	Mongo                      mongo.MongoDriverConfig
 }
@@ -87,6 +88,7 @@ func Get() (*Config, error) {
 		VaultToken:                 "",
 		ComponentTestUseLogFile:    false,
 		StopConsumingOnUnhealthy:   true,
+		S3PublicURL:                "http://public-bucket",
 		KafkaConfig: KafkaConfig{
 			Addr:                         []string{"localhost:9092", "localhost:9093", "localhost:9094"},
 			ConsumerMinBrokersHealthy:    1,

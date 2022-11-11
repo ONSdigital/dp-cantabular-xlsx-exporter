@@ -127,7 +127,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	// the next run of this code in a better place to cope with a large file.
 	defer runtime.GC()
 
-	s3Path, err := h.processEventIntoXlsxFileOnS3(ctx, kafkaEvent, doLargeSheet, isPublished)
+	s3Path, fileName, err := h.processEventIntoXlsxFileOnS3(ctx, kafkaEvent, doLargeSheet, isPublished)
 	if err != nil {
 		return &Error{err: errors.Wrap(err, "failed in processEventIntoExcelFileOnS3"),
 			logData: logData,
@@ -143,12 +143,12 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	}
 
 	if kafkaEvent.FilterOutputID != "" { // condition for filtered job
-		if err := h.UpdateFilterOutput(ctx, kafkaEvent.FilterOutputID, numBytes, isPublished, s3Path); err != nil {
+		if err := h.UpdateFilterOutput(ctx, kafkaEvent.FilterOutputID, numBytes, isPublished, s3Path, fileName); err != nil {
 			return errors.Wrap(err, "failed to update filter output")
 		}
 	} else {
 		// Update instance with link to file
-		if err := h.UpdateInstance(ctx, kafkaEvent, numBytes, isPublished, s3Path); err != nil {
+		if err := h.UpdateInstance(ctx, kafkaEvent, numBytes, isPublished, s3Path, fileName); err != nil {
 			return errors.Wrap(err, "failed to update instance")
 		}
 	}
@@ -186,7 +186,7 @@ func (h *XlsxCreate) IsInstancePublished(ctx context.Context, instanceID string)
 
 // processEventIntoXlsxFileOnS3 runs through the steps to stream in a csv file into an in memory representation of an xlsx file.
 // This is then streamed out to an xlsx file on S3.
-func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEvent *event.CantabularCsvCreated, doLargeSheet bool, isPublished bool) (string, error) {
+func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEvent *event.CantabularCsvCreated, doLargeSheet bool, isPublished bool) (string, string, error) {
 	// start creating the Excel file in its "in memory structure"
 	excelInMemoryStructure := excelize.NewFile()
 	sheet1 := "Sheet1"
@@ -196,7 +196,7 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 	if doLargeSheet {
 		efficientExcelAPIWriter, err = excelInMemoryStructure.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
 		if err != nil {
-			return "", ErrorStack("excel stream writer creation problem")
+			return "", "", ErrorStack("excel stream writer creation problem")
 		}
 	}
 
@@ -204,12 +204,12 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 
 	if err = h.GetCSVtoExcelStructure(ctx, excelInMemoryStructure, kafkaEvent, doLargeSheet, efficientExcelAPIWriter, sheet1, isPublished); err != nil {
 		if err != nil {
-			return "", errors.Wrap(err, "GetCSVtoExcelStructure failed")
+			return "", "", errors.Wrap(err, "GetCSVtoExcelStructure failed")
 		}
 	}
 
 	if err = h.AddMetaDataToExcelStructure(ctx, excelInMemoryStructure, kafkaEvent); err != nil {
-		return "", errors.Wrap(err, "AddMetaDataToExcelStructure failed")
+		return "", "", errors.Wrap(err, "AddMetaDataToExcelStructure failed")
 	}
 
 	// Rename the main sheet to 'Dataset'
@@ -219,12 +219,12 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 	// Set active sheet of the workbook.
 	excelInMemoryStructure.SetActiveSheet(excelInMemoryStructure.GetSheetIndex(sheetDataset))
 
-	s3Path, err := h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, kafkaEvent, isPublished)
+	s3Path, fileName, err := h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, kafkaEvent, isPublished)
 	if err != nil {
-		return "", errors.Wrap(err, "SaveExcelStructureToExcelFile failed")
+		return "", "", errors.Wrap(err, "SaveExcelStructureToExcelFile failed")
 	}
 
-	return s3Path, nil
+	return s3Path, fileName, nil
 }
 
 // GetCSVtoExcelStructure streams in a line at a time from csv file from S3 bucket and
@@ -422,7 +422,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 // SaveExcelStructureToExcelFile uses the excelize library Write function to effectively write out the Excel
 // "in memory structure" to a stream that is then streamed directly into a file in S3 bucket.
 // returns s3Location (path) or Error
-func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated, isPublished bool) (string, error) {
+func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated, isPublished bool) (string, string, error) {
 	var bucketName string
 	if isPublished {
 		bucketName = h.s3Public.BucketName()
@@ -463,7 +463,7 @@ func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInM
 			log.Error(ctx, "error closing upload writer", closeErr)
 		}
 
-		return "", &Error{err: errors.Wrap(err, "failed to upload .xlsx file to S3 bucket"),
+		return "", "", &Error{err: errors.Wrap(err, "failed to upload .xlsx file to S3 bucket"),
 			logData: log.Data{
 				"bucket":      bucketName,
 				"instance_id": event.InstanceID,
@@ -476,7 +476,7 @@ func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInM
 	// else to ensure the logs appear in the log file in the correct order.
 	wgUpload.Wait()
 
-	return s3Path, nil
+	return s3Path, filenameXlsx, nil
 }
 
 // UploadXLSXFile uploads the provided file content to AWS S3
@@ -591,7 +591,7 @@ func (h *XlsxCreate) isFilterPublished(ctx context.Context, filterOutputID strin
 	return model.IsPublished, nil
 }
 
-func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID string, size int, isPublished bool, s3Url string) error {
+func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID string, size int, isPublished bool, s3Url, filename string) error {
 	log.Info(ctx, "Updating filter output with download link")
 
 	download := filter.Download{
@@ -601,7 +601,10 @@ func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID stri
 	}
 
 	if isPublished {
-		download.Public = s3Url
+		download.Public = fmt.Sprintf("%s/%s",
+			h.cfg.S3PublicURL,
+			filename,
+		)
 	} else {
 		download.Private = s3Url
 	}
@@ -623,7 +626,7 @@ func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID stri
 // UpdateInstance updates the instance download CSV link using dataset API PUT /instances/{id} endpoint
 // if the instance is published, then the s3Url will be set as public link and the instance state will be set to published
 // otherwise, a private url will be generated and the state will not be changed
-func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.CantabularCsvCreated, size int, isPublished bool, s3Url string) error {
+func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.CantabularCsvCreated, size int, isPublished bool, s3Url, filename string) error {
 	xlsxDownload := &dataset.Download{
 		Size: strconv.Itoa(size),
 		URL: fmt.Sprintf("%s/downloads/datasets/%s/editions/%s/versions/%s.xlsx",
@@ -635,7 +638,10 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 	}
 
 	if isPublished {
-		xlsxDownload.Public = s3Url
+		xlsxDownload.Public = fmt.Sprintf("%s/%s",
+			h.cfg.S3PublicURL,
+			filename,
+		)
 	} else {
 		xlsxDownload.Private = s3Url
 	}

@@ -26,6 +26,8 @@ const (
 	testVersion            = "test-version"
 	testDownloadServiceURL = "http://test-download-service:8200"
 	testNumBytes           = 123
+	testS3PublicURL        = "test-bucket"
+	testFileName           = "datasets/test-version.xlsx"
 )
 
 var (
@@ -204,7 +206,7 @@ func TestUpdateInstance(t *testing.T) {
 		eventHandler := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil, nil)
 
 		Convey("When UpdateInstance is called for a private csv file", func() {
-			err := eventHandler.UpdateInstance(ctx, testExportStartEvent, testSize, false, "")
+			err := eventHandler.UpdateInstance(ctx, testExportStartEvent, testSize, false, "", testFileName)
 
 			Convey("Then no error is returned", func() {
 				So(err, ShouldBeNil)
@@ -228,8 +230,8 @@ func TestUpdateInstance(t *testing.T) {
 			})
 		})
 
-		Convey("When UpdateInstance is called for a public csv file", func() {
-			err := eventHandler.UpdateInstance(ctx, testExportStartEvent, testSize, true, "publicURL")
+		Convey("When UpdateInstance is called for a public xlsx file", func() {
+			err := eventHandler.UpdateInstance(ctx, testExportStartEvent, testSize, true, "publicURL", testFileName)
 
 			Convey("Then no error is returned", func() {
 				So(err, ShouldBeNil)
@@ -245,7 +247,7 @@ func TestUpdateInstance(t *testing.T) {
 				So(datasetAPIMock.PutVersionCalls()[0].M, ShouldResemble, dataset.Version{
 					Downloads: map[string]dataset.Download{
 						"XLS": {
-							Public: "publicURL",
+							Public: fmt.Sprintf("/datasets/%s.xlsx", testVersion),
 							URL:    expectedURL,
 							Size:   fmt.Sprintf("%d", testSize),
 						},
@@ -260,7 +262,7 @@ func TestUpdateInstance(t *testing.T) {
 		eventHandler := handler.NewXlsxCreate(testCfg(), &datasetAPIMock, nil, nil, nil, nil, nil)
 
 		Convey("When UpdateInstance is called", func() {
-			err := eventHandler.UpdateInstance(ctx, testExportStartEvent, testSize, false, "")
+			err := eventHandler.UpdateInstance(ctx, testExportStartEvent, testSize, false, "", testFileName)
 
 			Convey("Then the expected error is returned", func() {
 				So(err.Error(), ShouldContainSubstring, "error while attempting update version downloads")
