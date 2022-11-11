@@ -143,7 +143,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 	}
 
 	if kafkaEvent.FilterOutputID != "" { // condition for filtered job
-		if err := h.UpdateFilterOutput(ctx, kafkaEvent.FilterOutputID, numBytes, isPublished, s3Path); err != nil {
+		if err := h.UpdateFilterOutput(ctx, kafkaEvent.FilterOutputID, numBytes, isPublished, s3Path, fileName); err != nil {
 			return errors.Wrap(err, "failed to update filter output")
 		}
 	} else {
@@ -591,7 +591,7 @@ func (h *XlsxCreate) isFilterPublished(ctx context.Context, filterOutputID strin
 	return model.IsPublished, nil
 }
 
-func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID string, size int, isPublished bool, s3Url string) error {
+func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID string, size int, isPublished bool, s3Url, filename string) error {
 	log.Info(ctx, "Updating filter output with download link")
 
 	download := filter.Download{
@@ -601,7 +601,10 @@ func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID stri
 	}
 
 	if isPublished {
-		download.Public = s3Url
+		download.Public = fmt.Sprintf("%s/%s",
+			h.cfg.S3PublicURL,
+			filename,
+		)
 	} else {
 		download.Private = s3Url
 	}
