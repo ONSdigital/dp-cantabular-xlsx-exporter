@@ -20,6 +20,7 @@ type Config struct {
 	ServiceAuthToken           string        `envconfig:"SERVICE_AUTH_TOKEN"         json:"-"`
 	DatasetAPIURL              string        `envconfig:"DATASET_API_URL"`
 	FilterAPIURL               string        `envconfig:"FILTER_API_URL"`
+	PopulationTypesAPIURL      string        `envconfig:"POPULATION_TYPES_API_URL"`
 	FiltersCollection          string        `envconfig:"FILTERS_COLLECTION"`
 	FilterOutputsCollection    string        `envconfig:"FILTER_OUTPUTS_COLLECTION"`
 	DownloadServiceURL         string        `envconfig:"DOWNLOAD_SERVICE_URL"` // needed to create url for file downloads
@@ -74,6 +75,7 @@ func Get() (*Config, error) {
 		ServiceAuthToken:           "",
 		DatasetAPIURL:              "http://localhost:22000",
 		FilterAPIURL:               "http://localhost:22100",
+		PopulationTypesAPIURL:      "http://localhost:27300",
 		FiltersCollection:          "filters",
 		FilterOutputsCollection:    "filterOutputs",
 		DownloadServiceURL:         "http://localhost:23600",
