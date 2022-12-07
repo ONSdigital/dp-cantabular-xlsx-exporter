@@ -158,33 +158,33 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	processMetaElement("", areaTypeStaticRowTwo, true)
 	processMetaElement("", areaTypeStaticRowThree, true)
 
-	filterModel, err := h.filterClient.GetOutput(ctx, "", h.cfg.ServiceAuthToken, "", "", event.FilterOutputID)
-	if err != nil {
-		return &Error{
-			err:     errors.Wrap(err, "failed to get filter output"),
-			logData: logData,
-		}
-	}
-
-	populationType := filterModel.PopulationType
-
-	areaTypesInput := population.GetAreaTypesInput{
-		AuthTokens: population.AuthTokens{
-			ServiceAuthToken: h.cfg.ServiceAuthToken,
-			UserAuthToken:    "",
-		},
-		PopulationType: populationType,
-	}
-
-	areaType, err := h.populationTypesAPIClient.GetAreaTypes(ctx, areaTypesInput)
-	if err != nil {
-		return &Error{
-			err:     errors.Wrap(err, "failed to get area types"),
-			logData: logData,
-		}
-	}
-
 	if event.FilterOutputID != "" {
+		filterModel, err := h.filterClient.GetOutput(ctx, "", h.cfg.ServiceAuthToken, "", "", event.FilterOutputID)
+		if err != nil {
+			return &Error{
+				err:     errors.Wrap(err, "failed to get filter output"),
+				logData: logData,
+			}
+		}
+
+		populationType := filterModel.PopulationType
+
+		areaTypesInput := population.GetAreaTypesInput{
+			AuthTokens: population.AuthTokens{
+				ServiceAuthToken: h.cfg.ServiceAuthToken,
+				UserAuthToken:    "",
+			},
+			PopulationType: populationType,
+		}
+
+		areaType, err := h.populationTypesAPIClient.GetAreaTypes(ctx, areaTypesInput)
+		if err != nil {
+			return &Error{
+				err:     errors.Wrap(err, "failed to get area types"),
+				logData: logData,
+			}
+		}
+		areaTypeFound := false
 		for _, filterDimensions := range filterModel.Dimensions {
 			if filterDimensions.IsAreaType != nil {
 				if *filterDimensions.IsAreaType {
@@ -194,8 +194,13 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 				for _, area := range areaType.AreaTypes {
 					if area.Label == filterDimensions.Label {
 						processMetaElement("Area Type Description", area.Description, true)
+						areaTypeFound = true
+						break
 					}
 				}
+			}
+			if areaTypeFound {
+				break
 			}
 		}
 	}

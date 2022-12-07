@@ -13,6 +13,7 @@ services:
             - -component
         volumes:
             - ../../:/dp-cantabular-xlsx-exporter
+            - /Users/andreurbani/Development/ons/dp-cantabular-filter-flex-api:/Users/andreurbani/Development/ons/dp-cantabular-filter-flex-api
         depends_on:
             - kafka-1
             - minio
