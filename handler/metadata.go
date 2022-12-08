@@ -172,7 +172,6 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		areaTypesInput := population.GetAreaTypesInput{
 			AuthTokens: population.AuthTokens{
 				ServiceAuthToken: h.cfg.ServiceAuthToken,
-				UserAuthToken:    "",
 			},
 			PopulationType: populationType,
 		}
@@ -185,14 +184,13 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 			}
 		}
 		areaTypeFound := false
-		for _, filterDimensions := range filterModel.Dimensions {
-			if filterDimensions.IsAreaType != nil {
-				if *filterDimensions.IsAreaType {
-					processMetaElement("Area Type Name", filterDimensions.Label, true)
-
+		for _, fd := range filterModel.Dimensions {
+			if fd.IsAreaType != nil {
+				if *fd.IsAreaType {
+					processMetaElement("Area Type Name", fd.Label, true)
 				}
 				for _, area := range areaType.AreaTypes {
-					if area.Label == filterDimensions.Label {
+					if area.Label == fd.Label {
 						processMetaElement("Area Type Description", area.Description, true)
 						areaTypeFound = true
 						break
