@@ -49,6 +49,8 @@ github.com/ONSdigital/dp-api-clients-go/v2 v2.203.0 h1:IhAUaQkhi7Q6heIEwdGXbafZU
 github.com/ONSdigital/dp-api-clients-go/v2 v2.203.0/go.mod h1:JhWrjETosIKYjbLoa3d19QJlKv7dx+/+x09qg355Rxg=
 github.com/ONSdigital/dp-authorisation v0.2.0 h1:QVjTUSR3c1swZwP7lMbvnBsh4Je9oc54eGzgwPOvHOc=
 github.com/ONSdigital/dp-authorisation v0.2.0/go.mod h1:Tg3BiohT3+bRv4vr4aid/1Rf+S3eXLUI8oHbOLFqFpQ=
+github.com/ONSdigital/dp-cantabular-filter-flex-api v1.15.0 h1:2QbfOH5eOkDhYDHP3YfLd0sP8KpeWm/8cWPIQOhzqZE=
+github.com/ONSdigital/dp-cantabular-filter-flex-api v1.15.0/go.mod h1:sBINwZuV2GbG2Op9my9gj9ONx5DnPFt4+RM9opsJTdY=
 github.com/ONSdigital/dp-component-test v0.9.0 h1:DfSvL1CKrZ4Jm/WqNLw27DtOcn2fmPI6KNx9zaFYgCo=
 github.com/ONSdigital/dp-component-test v0.9.0/go.mod h1:fs/MoGNWVq2Z/RgWH/Xm8k/QHv5aoRxZy7ujP+RiEV4=
 github.com/ONSdigital/dp-frontend-models v1.1.0/go.mod h1:TT96P7Mi69N3Tc/jFNdbjiwG4GAaMjP26HLotFQ6BPw=
@@ -57,8 +59,8 @@ github.com/ONSdigital/dp-healthcheck v1.0.5/go.mod h1:2wbVAUHMl9+4tWhUlxYUuA1dnf
 github.com/ONSdigital/dp-healthcheck v1.1.0/go.mod h1:vZwyjMJiCHjp/sJ2R1ZEqzZT0rJ0+uHVGwxqdP4J5vg=
 github.com/ONSdigital/dp-healthcheck v1.5.0 h1:w3iMuq+CIr8lyu8xPgXPlU3MQGXWlm4eiQgsQHyqRWc=
 github.com/ONSdigital/dp-healthcheck v1.5.0/go.mod h1:oz2V3rz3D0GNso9GnIjxl8g4GhBExHTCRtTl/T4+iOk=
-github.com/ONSdigital/dp-kafka/v3 v3.7.1 h1:3Li9HCStBglIimpDZnP0mXWwZIGlCbL9ZRePpWzZ/JY=
-github.com/ONSdigital/dp-kafka/v3 v3.7.1/go.mod h1:XTaCgz4NSTKAwy3t/5qdexqv0RjH8eBNgnCL2wLaGPU=
+github.com/ONSdigital/dp-kafka/v3 v3.8.0 h1:AfLv71jYtygP2idLaDBo6tMmCtHVMEtgi8oQGjKmvbA=
+github.com/ONSdigital/dp-kafka/v3 v3.8.0/go.mod h1:XTaCgz4NSTKAwy3t/5qdexqv0RjH8eBNgnCL2wLaGPU=
 github.com/ONSdigital/dp-mocking v0.0.0-20190905163309-fee2702ad1b9/go.mod h1:BcIRgitUju//qgNePRBmNjATarTtynAgc0yV29VpLEk=
 github.com/ONSdigital/dp-mocking v0.9.1 h1:lfpk7D8xB+6OvCN/PXMoTp+zCYr0tDdfMCl/lJTml2g=
 github.com/ONSdigital/dp-mongodb-in-memory v1.5.0 h1:3IYKdIeaFbOZXyQlHpz4jsIYScfRLxaOHioykVEE2mU=

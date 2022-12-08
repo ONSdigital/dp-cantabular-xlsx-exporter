@@ -15,17 +15,15 @@ replace github.com/spf13/cobra => github.com/spf13/cobra v1.4.0
 // to avoid 'sonatype-2020-1055' non-CVE vulnerability introduced by github.com/go-ldap/ldap/v3@v3.1.10
 replace github.com/go-ldap/ldap/v3 v3.1.10 => github.com/go-ldap/ldap/v3 v3.4.3
 
-replace github.com/ONSdigital/dp-cantabular-filter-flex-api v1.14.1 => /Users/andreurbani/Development/ons/dp-cantabular-filter-flex-api
-
 replace github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.11.1
 
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.43.0
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.203.0
-	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.14.1
+	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.15.0
 	github.com/ONSdigital/dp-component-test v0.9.0
 	github.com/ONSdigital/dp-healthcheck v1.5.0
-	github.com/ONSdigital/dp-kafka/v3 v3.7.1
+	github.com/ONSdigital/dp-kafka/v3 v3.8.0
 	github.com/ONSdigital/dp-mongodb/v3 v3.4.0
 	github.com/ONSdigital/dp-net v1.5.0
 	github.com/ONSdigital/dp-s3/v2 v2.1.0-beta.1
