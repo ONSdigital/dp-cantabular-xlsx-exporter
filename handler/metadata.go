@@ -177,7 +177,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 			PopulationType: populationType,
 		}
 
-		areaType, err := h.populationTypesAPIClient.GetAreaTypes(ctx, areaTypesInput)
+		areaType, err := h.populationTypesClient.GetAreaTypes(ctx, areaTypesInput)
 		if err != nil {
 			return &Error{
 				err:     errors.Wrap(err, "failed to get area types"),

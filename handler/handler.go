@@ -40,29 +40,29 @@ const (
 
 // XlsxCreate is the handle for the CsvHandler event
 type XlsxCreate struct {
-	cfg                      config.Config
-	datasets                 DatasetAPIClient
-	s3Private                S3Client
-	s3Public                 S3Client
-	vaultClient              VaultClient
-	filterClient             FilterAPIClient
-	populationTypesAPIClient PopulationTypesAPIClient
-	producer                 kafka.IProducer
-	generator                Generator
+	cfg                   config.Config
+	datasets              DatasetAPIClient
+	s3Private             S3Client
+	s3Public              S3Client
+	vaultClient           VaultClient
+	filterClient          FilterAPIClient
+	populationTypesClient PopulationTypesAPIClient
+	producer              kafka.IProducer
+	generator             Generator
 }
 
 // NewXlsxCreate a new CsvHandler
 func NewXlsxCreate(cfg config.Config, d DatasetAPIClient, sPrivate S3Client, sPublic S3Client,
 	v VaultClient, f FilterAPIClient, g Generator, p PopulationTypesAPIClient) *XlsxCreate {
 	return &XlsxCreate{
-		cfg:                      cfg,
-		datasets:                 d,
-		s3Private:                sPrivate,
-		s3Public:                 sPublic,
-		vaultClient:              v,
-		filterClient:             f,
-		generator:                g,
-		populationTypesAPIClient: p,
+		cfg:                   cfg,
+		datasets:              d,
+		s3Private:             sPrivate,
+		s3Public:              sPublic,
+		vaultClient:           v,
+		filterClient:          f,
+		generator:             g,
+		populationTypesClient: p,
 	}
 }
 
