@@ -17,16 +17,17 @@ import (
 
 // Service contains all the configs, server and clients to run the event handler service
 type Service struct {
-	Cfg              *config.Config
-	Server           HTTPServer
-	HealthCheck      HealthChecker
-	Consumer         kafka.IConsumerGroup
-	DatasetAPIClient DatasetAPIClient
-	S3Private        S3Client
-	S3Public         S3Client
-	VaultClient      VaultClient
-	FilterAPIClient  FilterAPIClient
-	generator        Generator
+	Cfg                      *config.Config
+	Server                   HTTPServer
+	HealthCheck              HealthChecker
+	Consumer                 kafka.IConsumerGroup
+	DatasetAPIClient         DatasetAPIClient
+	S3Private                S3Client
+	S3Public                 S3Client
+	VaultClient              VaultClient
+	FilterAPIClient          FilterAPIClient
+	PopulationTypesAPIClient PopulationTypesAPIClient
+	generator                Generator
 }
 
 func New() *Service {
@@ -55,6 +56,7 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 
 	svc.DatasetAPIClient = GetDatasetAPIClient(cfg)
 	svc.FilterAPIClient = GetFilterAPIClient(cfg)
+	svc.PopulationTypesAPIClient, _ = GetPopulationTypesAPIClient(cfg)
 
 	svc.generator = GetGenerator()
 
@@ -67,6 +69,7 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 		svc.VaultClient,
 		svc.FilterAPIClient,
 		svc.generator,
+		svc.PopulationTypesAPIClient,
 	)
 	if err := svc.Consumer.RegisterHandler(ctx, h.Handle); err != nil {
 		return fmt.Errorf("could not register kafka handler: %w", err)

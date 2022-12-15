@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
+	"github.com/ONSdigital/dp-api-clients-go/v2/population"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/pkg/errors"
@@ -156,6 +157,51 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	processMetaElement("Area Type", areaTypeStatic, true)
 	processMetaElement("", areaTypeStaticRowTwo, true)
 	processMetaElement("", areaTypeStaticRowThree, true)
+
+	if event.FilterOutputID != "" {
+		filterModel, err := h.filterClient.GetOutput(ctx, "", h.cfg.ServiceAuthToken, "", "", event.FilterOutputID)
+		if err != nil {
+			return &Error{
+				err:     errors.Wrap(err, "failed to get filter output"),
+				logData: logData,
+			}
+		}
+
+		populationType := filterModel.PopulationType
+
+		areaTypesInput := population.GetAreaTypesInput{
+			AuthTokens: population.AuthTokens{
+				ServiceAuthToken: h.cfg.ServiceAuthToken,
+			},
+			PopulationType: populationType,
+		}
+
+		areaType, err := h.populationTypesClient.GetAreaTypes(ctx, areaTypesInput)
+		if err != nil {
+			return &Error{
+				err:     errors.Wrap(err, "failed to get area types"),
+				logData: logData,
+			}
+		}
+		areaTypeFound := false
+		for _, fd := range filterModel.Dimensions {
+			if fd.IsAreaType != nil {
+				if *fd.IsAreaType {
+					processMetaElement("Area Type Name", fd.Label, true)
+				}
+				for _, area := range areaType.AreaTypes {
+					if area.Label == fd.Label {
+						processMetaElement("Area Type Description", area.Description, true)
+						areaTypeFound = true
+						break
+					}
+				}
+			}
+			if areaTypeFound {
+				break
+			}
+		}
+	}
 
 	for _, dimensions := range meta.Version.Dimensions {
 		if dimensions.IsAreaType != nil {

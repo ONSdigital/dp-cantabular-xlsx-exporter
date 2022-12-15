@@ -7,6 +7,7 @@ import (
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/filter"
+	"github.com/ONSdigital/dp-api-clients-go/v2/population"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/generator"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
@@ -66,6 +67,11 @@ var GetDatasetAPIClient = func(cfg *config.Config) DatasetAPIClient {
 // GetFilterAPIClient gets and initialises the FilterAPI Client
 var GetFilterAPIClient = func(cfg *config.Config) FilterAPIClient {
 	return filter.New(cfg.FilterAPIURL)
+}
+
+// GetPopulationTypesAPIClient gets and initialises the PopulationTypesAPI Client
+var GetPopulationTypesAPIClient = func(cfg *config.Config) (PopulationTypesAPIClient, error) {
+	return population.NewClient(cfg.PopulationTypesAPIURL)
 }
 
 // GetS3Clients creates the private and public S3 Clients using the same AWS session, or a local storage client if a non-empty LocalObjectStore is provided

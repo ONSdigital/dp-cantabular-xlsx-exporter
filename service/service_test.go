@@ -288,7 +288,7 @@ func TestClose(t *testing.T) {
 			StopFunc: func() error {
 				return nil
 			},
-			CloseFunc: func(ctx context.Context) error { return nil },
+			CloseFunc: func(ctx context.Context, optFuncs ...kafka.OptFunc) error { return nil },
 		}
 
 		// healthcheck Stop does not depend on any other service being closed/stopped
@@ -326,7 +326,7 @@ func TestClose(t *testing.T) {
 			consumerMock.StopFunc = func() error {
 				return nil
 			}
-			consumerMock.CloseFunc = func(ctx context.Context) error {
+			consumerMock.CloseFunc = func(ctx context.Context, optFuncs ...kafka.OptFunc) error {
 				return errKafkaConsumer
 			}
 			serverMock.ShutdownFunc = func(ctx context.Context) error {
