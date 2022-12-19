@@ -19,7 +19,7 @@ replace github.com/prometheus/client_golang => github.com/prometheus/client_gola
 
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.43.0
-	github.com/ONSdigital/dp-api-clients-go/v2 v2.203.0
+	github.com/ONSdigital/dp-api-clients-go/v2 v2.207.1
 	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.15.0
 	github.com/ONSdigital/dp-component-test v0.9.0
 	github.com/ONSdigital/dp-healthcheck v1.5.0
