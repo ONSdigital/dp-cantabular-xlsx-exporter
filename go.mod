@@ -19,7 +19,7 @@ replace github.com/prometheus/client_golang => github.com/prometheus/client_gola
 
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.43.0
-	github.com/ONSdigital/dp-api-clients-go/v2 v2.203.0
+	github.com/ONSdigital/dp-api-clients-go/v2 v2.207.1
 	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.15.0
 	github.com/ONSdigital/dp-component-test v0.9.0
 	github.com/ONSdigital/dp-healthcheck v1.5.0
@@ -133,6 +133,7 @@ require (
 	github.com/xuri/nfp v0.0.0-20220409054826-5e722a1d9e22 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 <<<<<<< HEAD
+<<<<<<< HEAD
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/crypto v0.3.0 // indirect
 	golang.org/x/net v0.4.0 // indirect
@@ -144,6 +145,8 @@ require (
 	google.golang.org/grpc v1.51.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 =======
+=======
+>>>>>>> develop
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/net v0.4.0 // indirect
@@ -154,7 +157,10 @@ require (
 	google.golang.org/genproto v0.0.0-20220624142145-8cd45d7dbd1f // indirect
 	google.golang.org/grpc v1.47.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
+<<<<<<< HEAD
 >>>>>>> a6e53b1bce61a301324017e889d4ff444ca2ac64
+=======
+>>>>>>> develop
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
