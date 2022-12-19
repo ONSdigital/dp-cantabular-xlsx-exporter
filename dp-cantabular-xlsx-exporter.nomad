@@ -7,7 +7,7 @@ job "dp-cantabular-xlsx-exporter" {
     stagger          = "60s"
     min_healthy_time = "30s"
     healthy_deadline = "2m"
-    max_parallel     = 1
+    max_parallel     = {{MAX_PARALLEL}}
     auto_revert      = true
   }
 
@@ -17,6 +17,10 @@ job "dp-cantabular-xlsx-exporter" {
     constraint {
       attribute = "${node.class}"
       value     = "publishing"
+    }
+
+    update {
+      max_parallel = {{PUBLISHING_MAX_PARALLEL}}
     }
 
     restart {
@@ -77,9 +81,18 @@ job "dp-cantabular-xlsx-exporter" {
   group "web" {
     count = "{{WEB_TASK_COUNT}}"
 
+    spread {
+      attribute = "${node.unique.id}"
+      weight    = 100
+    }
+
     constraint {
       attribute = "${node.class}"
       value     = "web"
+    }
+
+    update {
+      max_parallel = {{WEB_MAX_PARALLEL}}
     }
 
     restart {

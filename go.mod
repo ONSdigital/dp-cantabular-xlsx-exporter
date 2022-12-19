@@ -19,9 +19,15 @@ replace github.com/prometheus/client_golang => github.com/prometheus/client_gola
 
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.43.0
+<<<<<<< HEAD
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.203.0
 	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.15.0
 	github.com/ONSdigital/dp-component-test v0.9.0
+=======
+	github.com/ONSdigital/dp-api-clients-go/v2 v2.192.1
+	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.11.0
+	github.com/ONSdigital/dp-component-test v0.8.0
+>>>>>>> origin/master
 	github.com/ONSdigital/dp-healthcheck v1.5.0
 	github.com/ONSdigital/dp-kafka/v3 v3.8.0
 	github.com/ONSdigital/dp-mongodb/v3 v3.4.0
@@ -132,6 +138,7 @@ require (
 	github.com/xuri/efp v0.0.0-20220603152613-6918739fd470 // indirect
 	github.com/xuri/nfp v0.0.0-20220409054826-5e722a1d9e22 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
+<<<<<<< HEAD
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/crypto v0.3.0 // indirect
 	golang.org/x/net v0.4.0 // indirect
@@ -142,6 +149,18 @@ require (
 	google.golang.org/genproto v0.0.0-20221206210731-b1a01be3a5f6 // indirect
 	google.golang.org/grpc v1.51.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
+=======
+	go.uber.org/atomic v1.9.0 // indirect
+	golang.org/x/crypto v0.1.0 // indirect
+	golang.org/x/net v0.4.0 // indirect
+	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0 // indirect
+	golang.org/x/sys v0.3.0 // indirect
+	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect
+	google.golang.org/genproto v0.0.0-20220624142145-8cd45d7dbd1f // indirect
+	google.golang.org/grpc v1.47.0 // indirect
+	google.golang.org/protobuf v1.28.0 // indirect
+>>>>>>> origin/master
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
