@@ -221,7 +221,7 @@ func TestUpdateInstance(t *testing.T) {
 				So(datasetAPIMock.PutVersionCalls()[0].Version, ShouldEqual, testVersion)
 				So(datasetAPIMock.PutVersionCalls()[0].M, ShouldResemble, dataset.Version{
 					Downloads: map[string]dataset.Download{
-						"XLS": {
+						"XLSX": {
 							URL:  expectedURL,
 							Size: fmt.Sprintf("%d", testSize),
 						},
@@ -246,7 +246,7 @@ func TestUpdateInstance(t *testing.T) {
 				So(datasetAPIMock.PutVersionCalls()[0].Version, ShouldEqual, testVersion)
 				So(datasetAPIMock.PutVersionCalls()[0].M, ShouldResemble, dataset.Version{
 					Downloads: map[string]dataset.Download{
-						"XLS": {
+						"XLSX": {
 							Public: fmt.Sprintf("/datasets/%s.xlsx", testVersion),
 							URL:    expectedURL,
 							Size:   fmt.Sprintf("%d", testSize),

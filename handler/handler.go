@@ -613,7 +613,7 @@ func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID stri
 
 	m := filter.Model{
 		Downloads: map[string]filter.Download{
-			"XLS": download,
+			"XLSX": download,
 		},
 		IsPublished: isPublished,
 	}
@@ -655,7 +655,7 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 
 	versionUpdate := dataset.Version{
 		Downloads: map[string]dataset.Download{
-			"XLS": *xlsxDownload,
+			"XLSX": *xlsxDownload,
 		},
 	}
 
@@ -667,7 +667,8 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 		event.DatasetID,
 		event.Edition,
 		event.Version,
-		versionUpdate)
+		versionUpdate,
+	)
 	if err != nil {
 		return errors.Wrap(err, "error while attempting update version downloads")
 	}
