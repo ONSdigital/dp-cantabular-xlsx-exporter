@@ -27,6 +27,7 @@ func TestConfig(t *testing.T) {
 				So(cfg.ServiceAuthToken, ShouldEqual, "")
 				So(cfg.DatasetAPIURL, ShouldEqual, "http://localhost:22000")
 				So(cfg.DownloadServiceURL, ShouldEqual, "http://localhost:23600")
+				So(cfg.ExternalPrefixURL, ShouldEqual, "http://localhost:22000")
 				So(cfg.AWSRegion, ShouldEqual, "eu-west-1")
 				So(cfg.PublicBucketName, ShouldEqual, "public-bucket")
 				So(cfg.PrivateBucketName, ShouldEqual, "private-bucket")
