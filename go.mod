@@ -20,7 +20,7 @@ replace github.com/prometheus/client_golang => github.com/prometheus/client_gola
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.43.0
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.230.0
-	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.17.0
+	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.15.0
 	github.com/ONSdigital/dp-component-test v0.9.0
 	github.com/ONSdigital/dp-healthcheck v1.5.0
 	github.com/ONSdigital/dp-kafka/v3 v3.8.0
@@ -37,7 +37,7 @@ require (
 	github.com/maxcnunes/httpfake v1.2.4
 	github.com/pkg/errors v0.9.1
 	github.com/smartystreets/goconvey v1.7.2
-	github.com/xuri/excelize/v2 v2.7.0
+	github.com/xuri/excelize/v2 v2.6.1
 	go.mongodb.org/mongo-driver v1.11.2
 )
 
