@@ -152,7 +152,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 
 	processMetaElement("Version", strconv.Itoa(meta.Version.Version), true)
 
-	re := regexp.MustCompile("http(s)?://([^/]+)")
+	re := regexp.MustCompile("https?://([^/]+)")
 	processMetaElement("Dataset Version URL", re.ReplaceAllString(meta.DatasetLinks.LatestVersion.URL, h.cfg.ExternalPrefixURL), true)
 	processMetaElement("Statistical Disclosure Control Statement", sdcStatement, true)
 	processMetaElement("", sdcStatementRowTwo, true)
