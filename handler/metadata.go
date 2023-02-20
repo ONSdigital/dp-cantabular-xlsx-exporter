@@ -8,7 +8,6 @@ import (
 
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/population"
-	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/pkg/errors"
@@ -62,7 +61,6 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	var coverageStatic = "Census 2021 statistics are published for the whole of England and Wales. However, you can choose to filter areas by: country - (for example, Wales), region - (for example, London), local authority - (for example, Cornwall), health area – (for example, Clinical Commissioning Group),"
 	var coverageStaticRowTwo = "statistical area - (for example, MSOA or LSOA)"
 	var formatToParse = "2006-01-02T15:04:05.000Z"
-	var cfg config.Config
 
 	// place items in columns A and B, determine max column widths, and advance to next row
 	processMetaElement := func(col1, col2 string, skipIfCol2Empty bool) {
@@ -154,8 +152,8 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 
 	processMetaElement("Version", strconv.Itoa(meta.Version.Version), true)
 
-	re := regexp.MustCompile("https://([^/]+)")
-	processMetaElement("Dataset Version URL", re.ReplaceAllString(meta.DatasetLinks.LatestVersion.URL, cfg.ExternalPrefixURL), true)
+	re := regexp.MustCompile("http(s)?://([^/]+)")
+	processMetaElement("Dataset Version URL", re.ReplaceAllString(meta.DatasetLinks.LatestVersion.URL, h.cfg.ExternalPrefixURL), true)
 	processMetaElement("Statistical Disclosure Control Statement", sdcStatement, true)
 	processMetaElement("", sdcStatementRowTwo, true)
 	processMetaElement("", sdcStatementRowThree, true)
