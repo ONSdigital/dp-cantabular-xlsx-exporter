@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/ONSdigital/dp-api-clients-go/v2/cantabular"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/filter"
 	"github.com/ONSdigital/dp-api-clients-go/v2/population"
@@ -12,6 +13,8 @@ import (
 )
 
 //go:generate moq -out mock/dataset-api-client.go -pkg mock . DatasetAPIClient
+//go:generate moq -out mock/filter-api-client.go -pkg mock . FilterAPIClient
+//go:generate moq -out mock/cantabular-client.go -pkg mock . CantabularClient
 //go:generate moq -out mock/s3-client.go -pkg mock . S3Client
 //go:generate moq -out mock/vault.go -pkg mock . VaultClient
 //go:generate moq -out mock/generator.go -pkg mock . Generator
@@ -24,6 +27,10 @@ type S3Client interface {
 	UploadWithContext(ctx context.Context, input *s3manager.UploadInput, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error)
 	UploadWithPSKAndContext(ctx context.Context, input *s3manager.UploadInput, psk []byte, options ...func(*s3manager.Uploader)) (*s3manager.UploadOutput, error)
 	BucketName() string
+}
+
+type CantabularClient interface {
+	GetDimensionsByName(context.Context, cantabular.GetDimensionsByNameRequest) (*cantabular.GetDimensionsResponse, error)
 }
 
 // DatasetAPIClient contains the required method for the Dataset API Client

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/ONSdigital/dp-api-clients-go/v2/cantabular"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/filter"
 	"github.com/ONSdigital/dp-api-clients-go/v2/population"
@@ -31,6 +32,19 @@ var GetHTTPServer = func(bindAddr string, router http.Handler) HTTPServer {
 	s := dphttp.NewServer(bindAddr, router)
 	s.HandleOSSignals = false
 	return s
+}
+
+// GetCantabularClient gets and initialises the Cantabular Client
+var GetCantabularClient = func(cfg *config.Config) CantabularClient {
+	return cantabular.NewClient(
+		cantabular.Config{
+			Host:           cfg.CantabularURL,
+			ExtApiHost:     cfg.CantabularExtURL,
+			GraphQLTimeout: cfg.DefaultRequestTimeout,
+		},
+		dphttp.NewClient(),
+		nil,
+	)
 }
 
 // GetKafkaConsumer creates a Kafka consumer

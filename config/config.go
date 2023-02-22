@@ -17,12 +17,15 @@ type Config struct {
 	GracefulShutdownTimeout    time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
 	HealthCheckInterval        time.Duration `envconfig:"HEALTHCHECK_INTERVAL"`
 	HealthCheckCriticalTimeout time.Duration `envconfig:"HEALTHCHECK_CRITICAL_TIMEOUT"`
+	DefaultRequestTimeout      time.Duration `envconfig:"DEFAULT_REQUEST_TIMEOUT"`
 	ServiceAuthToken           string        `envconfig:"SERVICE_AUTH_TOKEN"         json:"-"`
 	DatasetAPIURL              string        `envconfig:"DATASET_API_URL"`
 	FilterAPIURL               string        `envconfig:"FILTER_API_URL"`
 	PopulationTypesAPIURL      string        `envconfig:"POPULATION_TYPES_API_URL"`
 	ExternalPrefixURL          string        `envconfig:"EXTERNAL_PREFIX_URL"`
 	FiltersCollection          string        `envconfig:"FILTERS_COLLECTION"`
+	CantabularURL              string        `envconfig:"CANTABULAR_URL"`
+	CantabularExtURL           string        `envconfig:"CANTABULAR_API_EXT_URL"`
 	FilterOutputsCollection    string        `envconfig:"FILTER_OUTPUTS_COLLECTION"`
 	DownloadServiceURL         string        `envconfig:"DOWNLOAD_SERVICE_URL"` // needed to create url for file downloads
 	AWSRegion                  string        `envconfig:"AWS_REGION"`
