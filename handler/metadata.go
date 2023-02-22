@@ -6,17 +6,69 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ONSdigital/dp-api-clients-go/v2/cantabular"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
-	"github.com/ONSdigital/dp-api-clients-go/v2/population"
+	"github.com/ONSdigital/dp-api-clients-go/v2/filter"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/pkg/errors"
 	"github.com/xuri/excelize/v2"
 )
 
+const (
+	flexible     = "flexible"
+	multivariate = "multivariate"
+)
+
+func (h *XlsxCreate) GetPlaceholderMetadata() *dataset.Metadata {
+	return &dataset.Metadata{
+		Version: dataset.Version{
+			ReleaseDate: "2006-01-02T15:04:05.000Z",
+		},
+		DatasetDetails: dataset.DatasetDetails{
+			Title: "Custom Dataset",
+		},
+	}
+}
+
+func (h *XlsxCreate) GetFilterDimensions(ctx context.Context, filterOutput filter.Model) ([]dataset.VersionDimension, error) {
+	var areaType string
+	for _, d := range filterOutput.Dimensions {
+		if d.IsAreaType != nil && *d.IsAreaType {
+			areaType = d.ID
+		}
+	}
+
+	cReq := cantabular.GetDimensionsByNameRequest{
+		Dataset: filterOutput.PopulationType,
+	}
+	for _, d := range filterOutput.Dimensions {
+		cReq.DimensionNames = append(cReq.DimensionNames, d.ID)
+	}
+	resp, err := h.ctblr.GetDimensionsByName(ctx, cReq)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to query dimensions")
+	}
+
+	var dims []dataset.VersionDimension
+	for _, e := range resp.Dataset.Variables.Edges {
+		isAreaType := e.Node.Name == areaType
+		dim := dataset.VersionDimension{
+			Label:       e.Node.Label,
+			Description: e.Node.Description,
+			IsAreaType:  &isAreaType,
+		}
+		dims = append(dims, dim)
+	}
+
+	return dims, nil
+}
+
 // AddMetaDataToExcelStructure reads in the metadata structure and extracts the desired items in the desired order
 // and places them into the metadata sheet of the in-memory excelize library structure
 func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated) error {
+	var err error
+
 	logData := log.Data{
 		"event": event,
 	}
@@ -31,14 +83,27 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		Dimensions:       event.Dimensions,
 	}
 
-	meta, err := h.datasets.GetVersionMetadataSelection(ctx, req)
-	if err != nil {
-		return &Error{
-			err:     errors.Wrap(err, "failed to get version metadata"),
-			logData: logData,
+	isFilterJob := event.FilterOutputID != ""
+	var meta *dataset.Metadata
+	var filterOutput filter.Model
+
+	if isFilterJob {
+		filterOutput, err = h.filterClient.GetOutput(ctx, "", h.cfg.ServiceAuthToken, "", "", event.FilterOutputID)
+		if err != nil {
+			return errors.Wrap(err, "failed to get filter output")
 		}
 	}
-
+	if filterOutput.Type == multivariate {
+		meta = h.GetPlaceholderMetadata()
+	} else {
+		meta, err = h.datasets.GetVersionMetadataSelection(ctx, req)
+		if err != nil {
+			return &Error{
+				err:     errors.Wrap(err, "failed to get version metadata"),
+				logData: logData,
+			}
+		}
+	}
 	metaExcel := "Metadata"
 
 	// we don't need to save the newly created sheet number, because the caller of this function will set the active page to a different sheet
@@ -49,9 +114,8 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	columnAwidth := 1
 	columnBwidth := 1
 
-	processError := false
+	var procErr error
 
-	var processErrorStr error
 	var sdcStatement = "Sometimes we need to make changes to data if it is possible to identify individuals. This is known as statistical disclosure control. In Census 2021, we: swapped records (targeted record swapping), for example, if a household was likely to be identified in datasets because it has unusual characteristics,"
 	var sdcStatementRowTwo = "we swapped the record with a similar one from a nearby small area (very unusual households could be swapped with one in a nearby local authority) added small changes to some counts (cell key perturbation), for example, we might change a count of four to a three or a five – this might make small differences"
 	var sdcStatementRowThree = "between tables depending on how the data are broken down when we applied perturbation"
@@ -64,7 +128,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 
 	// place items in columns A and B, determine max column widths, and advance to next row
 	processMetaElement := func(col1, col2 string, skipIfCol2Empty bool) {
-		if processError {
+		if procErr != nil {
 			return
 		}
 
@@ -74,24 +138,20 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 
 		addr, err := excelize.JoinCellName("A", rowNumber)
 		if err != nil {
-			processError = true
-			processErrorStr = errors.Wrap(err, "JoinCellName A")
+			procErr = errors.Wrap(err, "JoinCellName A")
 			return
 		}
 		if err := excelInMemoryStructure.SetCellValue(metaExcel, addr, col1); err != nil {
-			processError = true
-			processErrorStr = errors.Wrap(err, "SetCellValue A")
+			procErr = errors.Wrap(err, "SetCellValue A")
 			return
 		}
 		addr, err = excelize.JoinCellName("B", rowNumber)
 		if err != nil {
-			processError = true
-			processErrorStr = errors.Wrap(err, "JoinCellName B")
+			procErr = errors.Wrap(err, "JoinCellName B")
 			return
 		}
 		if err := excelInMemoryStructure.SetCellValue(metaExcel, addr, col2); err != nil {
-			processError = true
-			processErrorStr = errors.Wrap(err, "SetCellValue B")
+			procErr = errors.Wrap(err, "SetCellValue B")
 			return
 		}
 
@@ -161,113 +221,78 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	processMetaElement("", areaTypeStaticRowTwo, true)
 	processMetaElement("", areaTypeStaticRowThree, true)
 
-	if event.FilterOutputID != "" {
-		filterModel, err := h.filterClient.GetOutput(ctx, "", h.cfg.ServiceAuthToken, "", "", event.FilterOutputID)
+	var dims []dataset.VersionDimension
+
+	if isFilterJob {
+		dims, err = h.GetFilterDimensions(ctx, filterOutput)
 		if err != nil {
 			return &Error{
-				err:     errors.Wrap(err, "failed to get filter output"),
+				err:     errors.Wrap(err, "failed to get filter dimensions"),
 				logData: logData,
 			}
 		}
-
-		populationType := filterModel.PopulationType
-
-		areaTypesInput := population.GetAreaTypesInput{
-			AuthTokens: population.AuthTokens{
-				ServiceAuthToken: h.cfg.ServiceAuthToken,
-			},
-			PopulationType: populationType,
-		}
-
-		areaType, err := h.populationTypesClient.GetAreaTypes(ctx, areaTypesInput)
-		if err != nil {
-			return &Error{
-				err:     errors.Wrap(err, "failed to get area types"),
-				logData: logData,
-			}
-		}
-		areaTypeFound := false
-		for _, fd := range filterModel.Dimensions {
-			if fd.IsAreaType != nil {
-				if *fd.IsAreaType {
-					processMetaElement("Area Type Name", fd.Label, true)
-				}
-				for _, area := range areaType.AreaTypes {
-					if area.Label == fd.Label {
-						processMetaElement("Area Type Description", area.Description, true)
-						areaTypeFound = true
-						break
-					}
-				}
-			}
-			if areaTypeFound {
-				break
-			}
-		}
+	} else {
+		dims = meta.Version.Dimensions
 	}
 
-	for _, dimensions := range meta.Version.Dimensions {
-		if dimensions.IsAreaType != nil {
-			if *dimensions.IsAreaType {
-				processMetaElement("Area Type Name", dimensions.Label, true)
-				processMetaElement("Area Type Description", dimensions.Description, true)
-				processMetaElement("Quality Statement", dimensions.QualityStatementText, true)
-				processMetaElement("Quality Statement URL", dimensions.QualityStatementURL, true)
-			}
-
-			if !*dimensions.IsAreaType {
-				processMetaElement("Variable Name", dimensions.Label, true)
-				processMetaElement("Quality Statement", dimensions.QualityStatementText, true)
-				processMetaElement("Quality Statement URL", dimensions.QualityStatementURL, true)
-			}
+	for _, dim := range dims {
+		if dim.IsAreaType != nil && *dim.IsAreaType {
+			processMetaElement("Area Type Name", dim.Label, true)
+			processMetaElement("Area Type Description", dim.Description, true)
+		} else {
+			processMetaElement("Variable Name", dim.Label, true)
 		}
+		processMetaElement("Quality Statement", dim.QualityStatementText, true)
+		processMetaElement("Quality Statement URL", dim.QualityStatementURL, true)
 	}
 
 	processMetaElement("Coverage", coverageStatic, true)
 	processMetaElement("", coverageStaticRowTwo, true)
 
-	datasetVersions, err := h.datasets.GetVersions(ctx, req.UserAuthToken, req.ServiceAuthToken, "", req.CollectionID, req.DatasetID, req.Edition, &dataset.QueryParams{Offset: 0, Limit: 100})
-	if err != nil {
-		return &Error{
-			err:     errors.Wrap(err, "failed to get versions"),
-			logData: logData,
-		}
-	}
-
-	if len(datasetVersions.Items) > 0 {
-		rowNumber++
-		processMetaElement("Version History", "", false)
-		for _, versions := range datasetVersions.Items {
-			rowNumber++
-			processMetaElement("Version Number", strconv.Itoa(versions.Version), true)
-			date, err := time.Parse(formatToParse, versions.ReleaseDate)
-			if err != nil {
-				return errors.Wrap(err, "unable to parse time")
+	if !isFilterJob {
+		versions, err := h.datasets.GetVersions(ctx, req.UserAuthToken, req.ServiceAuthToken, "", req.CollectionID, req.DatasetID, req.Edition, &dataset.QueryParams{Offset: 0, Limit: 100})
+		if err != nil {
+			return &Error{
+				err:     errors.Wrap(err, "failed to get versions"),
+				logData: logData,
 			}
-			processMetaElement("Release Date", date.Format(time.RFC822), true)
+		}
 
-			if *versions.Alerts != nil {
-				for _, alerts := range *versions.Alerts {
-					processMetaElement("Reason for New Version", alerts.Description, true)
+		if len(versions.Items) > 0 {
+			rowNumber++
+			processMetaElement("Version History", "", false)
+			for _, v := range versions.Items {
+				rowNumber++
+				processMetaElement("Version Number", strconv.Itoa(v.Version), true)
+				date, err := time.Parse(formatToParse, v.ReleaseDate)
+				if err != nil {
+					return errors.Wrap(err, "unable to parse time")
+				}
+				processMetaElement("Release Date", date.Format(time.RFC822), true)
+
+				if *v.Alerts != nil {
+					for _, alerts := range *v.Alerts {
+						processMetaElement("Reason for New Version", alerts.Description, true)
+					}
 				}
 			}
 		}
-	}
 
-	if meta.DatasetDetails.RelatedContent != nil {
-		for _, relatedContent := range *meta.DatasetDetails.RelatedContent {
-			rowNumber++
-			processMetaElement("Related Content", "", false)
-			rowNumber++
-			processMetaElement("Title", relatedContent.Title, true)
-			processMetaElement("Description", relatedContent.Description, true)
-			processMetaElement("HRef", relatedContent.HRef, true)
+		if meta.DatasetDetails.RelatedContent != nil {
+			for _, rc := range *meta.DatasetDetails.RelatedContent {
+				rowNumber++
+				processMetaElement("Related Content", "", false)
+				rowNumber++
+				processMetaElement("Title", rc.Title, true)
+				processMetaElement("Description", rc.Description, true)
+				processMetaElement("HRef", rc.HRef, true)
 
+			}
 		}
 	}
 
-	if processError {
-		return errors.Wrap(processErrorStr, "error in processing metadata")
+	if procErr != nil {
+		return errors.Wrap(procErr, "error in processing metadata")
 	}
 
 	if columnAwidth > maxExcelizeColumnWidth {

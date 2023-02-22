@@ -41,6 +41,7 @@ const (
 // XlsxCreate is the handle for the CsvHandler event
 type XlsxCreate struct {
 	cfg                   config.Config
+	ctblr                 CantabularClient
 	datasets              DatasetAPIClient
 	s3Private             S3Client
 	s3Public              S3Client
@@ -53,7 +54,7 @@ type XlsxCreate struct {
 
 // NewXlsxCreate a new CsvHandler
 func NewXlsxCreate(cfg config.Config, d DatasetAPIClient, sPrivate S3Client, sPublic S3Client,
-	v VaultClient, f FilterAPIClient, g Generator, p PopulationTypesAPIClient) *XlsxCreate {
+	v VaultClient, f FilterAPIClient, g Generator, p PopulationTypesAPIClient, cc CantabularClient) *XlsxCreate {
 	return &XlsxCreate{
 		cfg:                   cfg,
 		datasets:              d,
@@ -63,6 +64,7 @@ func NewXlsxCreate(cfg config.Config, d DatasetAPIClient, sPrivate S3Client, sPu
 		filterClient:          f,
 		generator:             g,
 		populationTypesClient: p,
+		ctblr:                 cc,
 	}
 }
 
@@ -511,7 +513,8 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 			Key:    &filename,
 		})
 		if err != nil {
-			return "", NewError(errors.Wrap(err, "UploadWithContext failed to upload published file to S3"),
+			return "", NewError(
+				errors.Wrap(err, "UploadWithContext failed to upload published file to S3"),
 				logData,
 			)
 		}

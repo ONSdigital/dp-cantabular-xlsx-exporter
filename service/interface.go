@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/ONSdigital/dp-api-clients-go/v2/cantabular"
 	"github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/filter"
 	"github.com/ONSdigital/dp-api-clients-go/v2/population"
@@ -43,6 +44,10 @@ type HealthChecker interface {
 	Stop()
 	AddCheck(name string, checker healthcheck.Checker) (err error)
 	SubscribeAll(s healthcheck.Subscriber)
+}
+
+type CantabularClient interface {
+	GetDimensionsByName(context.Context, cantabular.GetDimensionsByNameRequest) (*cantabular.GetDimensionsResponse, error)
 }
 
 type DatasetAPIClient interface {

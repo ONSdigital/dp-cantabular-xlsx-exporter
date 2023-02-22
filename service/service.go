@@ -22,6 +22,7 @@ type Service struct {
 	HealthCheck              HealthChecker
 	Consumer                 kafka.IConsumerGroup
 	DatasetAPIClient         DatasetAPIClient
+	CantabularClient         CantabularClient
 	S3Private                S3Client
 	S3Public                 S3Client
 	VaultClient              VaultClient
@@ -57,6 +58,7 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 	svc.DatasetAPIClient = GetDatasetAPIClient(cfg)
 	svc.FilterAPIClient = GetFilterAPIClient(cfg)
 	svc.PopulationTypesAPIClient, _ = GetPopulationTypesAPIClient(cfg)
+	svc.CantabularClient = GetCantabularClient(cfg)
 
 	svc.generator = GetGenerator()
 
@@ -70,6 +72,7 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 		svc.FilterAPIClient,
 		svc.generator,
 		svc.PopulationTypesAPIClient,
+		svc.CantabularClient,
 	)
 	if err := svc.Consumer.RegisterHandler(ctx, h.Handle); err != nil {
 		return fmt.Errorf("could not register kafka handler: %w", err)
