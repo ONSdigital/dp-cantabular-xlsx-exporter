@@ -21,6 +21,7 @@ type Config struct {
 	DatasetAPIURL              string        `envconfig:"DATASET_API_URL"`
 	FilterAPIURL               string        `envconfig:"FILTER_API_URL"`
 	PopulationTypesAPIURL      string        `envconfig:"POPULATION_TYPES_API_URL"`
+	ExternalPrefixURL          string        `envconfig:"EXTERNAL_PREFIX_URL"`
 	FiltersCollection          string        `envconfig:"FILTERS_COLLECTION"`
 	FilterOutputsCollection    string        `envconfig:"FILTER_OUTPUTS_COLLECTION"`
 	DownloadServiceURL         string        `envconfig:"DOWNLOAD_SERVICE_URL"` // needed to create url for file downloads
@@ -76,6 +77,7 @@ func Get() (*Config, error) {
 		DatasetAPIURL:              "http://localhost:22000",
 		FilterAPIURL:               "http://localhost:22100",
 		PopulationTypesAPIURL:      "http://localhost:27300",
+		ExternalPrefixURL:          "http://localhost:22000",
 		FiltersCollection:          "filters",
 		FilterOutputsCollection:    "filterOutputs",
 		DownloadServiceURL:         "http://localhost:23600",

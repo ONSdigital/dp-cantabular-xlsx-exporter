@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -150,7 +151,9 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	rowNumber++
 
 	processMetaElement("Version", strconv.Itoa(meta.Version.Version), true)
-	processMetaElement("Dataset Version URL", meta.DatasetLinks.LatestVersion.URL, true)
+
+	re := regexp.MustCompile("https?://([^/]+)")
+	processMetaElement("Dataset Version URL", re.ReplaceAllString(meta.DatasetLinks.LatestVersion.URL, h.cfg.ExternalPrefixURL), true)
 	processMetaElement("Statistical Disclosure Control Statement", sdcStatement, true)
 	processMetaElement("", sdcStatementRowTwo, true)
 	processMetaElement("", sdcStatementRowThree, true)
