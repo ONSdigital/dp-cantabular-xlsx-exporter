@@ -32,8 +32,8 @@ type Config struct {
 	PublicBucketName           string        `envconfig:"UPLOAD_BUCKET_NAME"`
 	PrivateBucketName          string        `envconfig:"PRIVATE_UPLOAD_BUCKET_NAME"`
 	LocalObjectStore           string        `envconfig:"LOCAL_OBJECT_STORE"`
-	MinioAccessKey             string        `envconfig:"MINIO_ACCESS_KEY"`
-	MinioSecretKey             string        `envconfig:"MINIO_SECRET_KEY"`
+	MinioAccessKey             string        `envconfig:"MINIO_ACCESS_KEY" json:"-"`
+	MinioSecretKey             string        `envconfig:"MINIO_SECRET_KEY" json:"-"`
 	VaultToken                 string        `envconfig:"VAULT_TOKEN"                   json:"-"`
 	VaultAddress               string        `envconfig:"VAULT_ADDR"`
 	VaultPath                  string        `envconfig:"VAULT_PATH"`
