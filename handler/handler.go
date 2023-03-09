@@ -600,7 +600,7 @@ func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID stri
 	log.Info(ctx, "Updating filter output with download link")
 
 	download := filter.Download{
-		URL:     fmt.Sprintf("%s/downloads/filter-outputs/%s.xlsx", h.cfg.DownloadServiceURL, filterOutputID),
+		URL:     fmt.Sprintf("%s/downloads/filter-outputs/census-%s.xlsx", h.cfg.DownloadServiceURL, filterOutputID),
 		Size:    fmt.Sprintf("%d", size),
 		Skipped: false,
 	}
