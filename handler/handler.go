@@ -600,7 +600,7 @@ func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID stri
 	log.Info(ctx, "Updating filter output with download link")
 
 	download := filter.Download{
-		URL:     fmt.Sprintf("%s/downloads/filter-outputs/census-%s.xlsx", h.cfg.DownloadServiceURL, filterOutputID),
+		URL:     fmt.Sprintf("%s/downloads/filter-outputs/%s.xlsx", h.cfg.DownloadServiceURL, filterOutputID),
 		Size:    fmt.Sprintf("%d", size),
 		Skipped: false,
 	}
@@ -616,7 +616,7 @@ func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID stri
 
 	m := filter.Model{
 		Downloads: map[string]filter.Download{
-			"XLSX": download,
+			"XLS": download,
 		},
 		IsPublished: isPublished,
 	}
@@ -658,7 +658,7 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 
 	versionUpdate := dataset.Version{
 		Downloads: map[string]dataset.Download{
-			"XLSX": *xlsxDownload,
+			"XLS": *xlsxDownload,
 		},
 	}
 
