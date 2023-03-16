@@ -384,7 +384,7 @@ func (c *Component) Reset() error {
 func GetWorkingMongo(ctx context.Context, cfg *config.Config, g filterApiServices.Generator) (filterApiServices.Datastore, error) {
 	mongoClient, err := mongodb.NewClient(ctx, g, mongodb.Config{
 		MongoDriverConfig:       cfg.Mongo,
-		FilterFlexAPIURL:        cfg.BindAddr,
+		FilterAPIURL:            cfg.FilterAPIURL,
 		FiltersCollection:       cfg.FiltersCollection,
 		FilterOutputsCollection: cfg.FilterOutputsCollection,
 	})

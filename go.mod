@@ -19,11 +19,11 @@ replace github.com/prometheus/client_golang => github.com/prometheus/client_gola
 
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.43.0
-	github.com/ONSdigital/dp-api-clients-go/v2 v2.230.0
-	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.15.0
+	github.com/ONSdigital/dp-api-clients-go/v2 v2.241.0
+	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.19.0
 	github.com/ONSdigital/dp-component-test v0.9.0
 	github.com/ONSdigital/dp-healthcheck v1.5.0
-	github.com/ONSdigital/dp-kafka/v3 v3.8.0
+	github.com/ONSdigital/dp-kafka/v3 v3.9.0
 	github.com/ONSdigital/dp-mongodb/v3 v3.5.0
 	github.com/ONSdigital/dp-net v1.5.0
 	github.com/ONSdigital/dp-s3/v2 v2.1.0-beta.1
@@ -119,7 +119,7 @@ require (
 	github.com/xuri/efp v0.0.0-20220603152613-6918739fd470 // indirect
 	github.com/xuri/nfp v0.0.0-20220409054826-5e722a1d9e22 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
-	golang.org/x/crypto v0.5.0 // indirect
+	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.5.0 // indirect

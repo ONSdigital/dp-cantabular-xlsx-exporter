@@ -20,17 +20,6 @@ const (
 	multivariate = "multivariate"
 )
 
-func (h *XlsxCreate) GetPlaceholderMetadata() *dataset.Metadata {
-	return &dataset.Metadata{
-		Version: dataset.Version{
-			ReleaseDate: "2006-01-02T15:04:05.000Z",
-		},
-		DatasetDetails: dataset.DatasetDetails{
-			Title: "Custom Dataset",
-		},
-	}
-}
-
 func (h *XlsxCreate) GetFilterDimensions(ctx context.Context, filterOutput filter.Model) ([]dataset.VersionDimension, error) {
 	var areaType string
 	for _, d := range filterOutput.Dimensions {
@@ -54,9 +43,12 @@ func (h *XlsxCreate) GetFilterDimensions(ctx context.Context, filterOutput filte
 	for _, e := range resp.Dataset.Variables.Edges {
 		isAreaType := e.Node.Name == areaType
 		dim := dataset.VersionDimension{
-			Label:       e.Node.Label,
-			Description: e.Node.Description,
-			IsAreaType:  &isAreaType,
+			ID:                   e.Node.Name,
+			Name:                 e.Node.Name,
+			Description:          e.Node.Description,
+			Label:                e.Node.Label,
+			IsAreaType:           &isAreaType,
+			QualityStatementText: e.Node.Meta.ONSVariable.QualityStatementText,
 		}
 		dims = append(dims, dim)
 	}
@@ -93,16 +85,17 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 			return errors.Wrap(err, "failed to get filter output")
 		}
 	}
-	if filterOutput.Type == multivariate {
-		meta = h.GetPlaceholderMetadata()
-	} else {
-		meta, err = h.datasets.GetVersionMetadataSelection(ctx, req)
-		if err != nil {
-			return &Error{
-				err:     errors.Wrap(err, "failed to get version metadata"),
-				logData: logData,
-			}
+
+	meta, err = h.datasets.GetVersionMetadataSelection(ctx, req)
+	if err != nil {
+		return &Error{
+			err:     errors.Wrap(err, "failed to get version metadata"),
+			logData: logData,
 		}
+	}
+
+	if filterOutput.Type == multivariate {
+		meta.Title = meta.Title + " - customised"
 	}
 	metaExcel := "Metadata"
 
@@ -249,45 +242,43 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	processMetaElement("Coverage", coverageStatic, true)
 	processMetaElement("", coverageStaticRowTwo, true)
 
-	if !isFilterJob {
-		versions, err := h.datasets.GetVersions(ctx, req.UserAuthToken, req.ServiceAuthToken, "", req.CollectionID, req.DatasetID, req.Edition, &dataset.QueryParams{Offset: 0, Limit: 100})
-		if err != nil {
-			return &Error{
-				err:     errors.Wrap(err, "failed to get versions"),
-				logData: logData,
-			}
+	versions, err := h.datasets.GetVersions(ctx, req.UserAuthToken, req.ServiceAuthToken, "", req.CollectionID, req.DatasetID, req.Edition, &dataset.QueryParams{Offset: 0, Limit: 100})
+	if err != nil {
+		return &Error{
+			err:     errors.Wrap(err, "failed to get versions"),
+			logData: logData,
 		}
+	}
 
-		if len(versions.Items) > 0 {
+	if len(versions.Items) > 0 {
+		rowNumber++
+		processMetaElement("Version History", "", false)
+		for _, v := range versions.Items {
 			rowNumber++
-			processMetaElement("Version History", "", false)
-			for _, v := range versions.Items {
-				rowNumber++
-				processMetaElement("Version Number", strconv.Itoa(v.Version), true)
-				date, err := time.Parse(formatToParse, v.ReleaseDate)
-				if err != nil {
-					return errors.Wrap(err, "unable to parse time")
-				}
-				processMetaElement("Release Date", date.Format(time.RFC822), true)
+			processMetaElement("Version Number", strconv.Itoa(v.Version), true)
+			date, err := time.Parse(formatToParse, v.ReleaseDate)
+			if err != nil {
+				return errors.Wrap(err, "unable to parse time")
+			}
+			processMetaElement("Release Date", date.Format(time.RFC822), true)
 
-				if *v.Alerts != nil {
-					for _, alerts := range *v.Alerts {
-						processMetaElement("Reason for New Version", alerts.Description, true)
-					}
+			if *v.Alerts != nil {
+				for _, alerts := range *v.Alerts {
+					processMetaElement("Reason for New Version", alerts.Description, true)
 				}
 			}
 		}
+	}
 
-		if meta.DatasetDetails.RelatedContent != nil {
-			for _, rc := range *meta.DatasetDetails.RelatedContent {
-				rowNumber++
-				processMetaElement("Related Content", "", false)
-				rowNumber++
-				processMetaElement("Title", rc.Title, true)
-				processMetaElement("Description", rc.Description, true)
-				processMetaElement("HRef", rc.HRef, true)
+	if meta.DatasetDetails.RelatedContent != nil {
+		for _, rc := range *meta.DatasetDetails.RelatedContent {
+			rowNumber++
+			processMetaElement("Related Content", "", false)
+			rowNumber++
+			processMetaElement("Title", rc.Title, true)
+			processMetaElement("Description", rc.Description, true)
+			processMetaElement("HRef", rc.HRef, true)
 
-			}
 		}
 	}
 
