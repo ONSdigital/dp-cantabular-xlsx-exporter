@@ -234,6 +234,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 			processMetaElement("Area Type Description", dim.Description, true)
 		} else {
 			processMetaElement("Variable Name", dim.Label, true)
+			processMetaElement("Variable Description", dim.Description, true)
 		}
 		processMetaElement("Quality Statement", dim.QualityStatementText, true)
 		processMetaElement("Quality Statement URL", dim.QualityStatementURL, true)
