@@ -87,7 +87,7 @@ func TestAddMetaDataToExcelStructure(t *testing.T) {
 
 				So(filterAPIMock.GetOutputCalls(), ShouldHaveLength, 1)
 				So(datasetAPIMock.GetVersionMetadataSelectionCalls(), ShouldHaveLength, 1)
-				So(datasetAPIMock.GetVersionsCalls(), ShouldHaveLength, 0)
+				So(datasetAPIMock.GetVersionsCalls(), ShouldHaveLength, 1)
 				So(ctblrClientMock.GetDimensionsByNameCalls(), ShouldHaveLength, 1)
 			})
 
@@ -103,8 +103,8 @@ func TestAddMetaDataToExcelStructure(t *testing.T) {
 				So(err, ShouldBeNil)
 
 				So(filterAPIMock.GetOutputCalls(), ShouldHaveLength, 1)
-				So(datasetAPIMock.GetVersionMetadataSelectionCalls(), ShouldHaveLength, 0)
-				So(datasetAPIMock.GetVersionsCalls(), ShouldHaveLength, 0)
+				So(datasetAPIMock.GetVersionMetadataSelectionCalls(), ShouldHaveLength, 1)
+				So(datasetAPIMock.GetVersionsCalls(), ShouldHaveLength, 1)
 				So(ctblrClientMock.GetDimensionsByNameCalls(), ShouldHaveLength, 1)
 			})
 		})
