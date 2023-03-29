@@ -173,7 +173,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	if isCustom {
 		processMetaElement("Created Date", date.Format(time.RFC822), true)
 	} else {
-		processMetaElement("Release Date", date.Format(time.RFC822), true)
+		processMetaElement("Release Date", time.Now().Format(time.RFC822), true)
 	}
 	processMetaElement("Dataset URL", meta.DatasetDetails.URI, true)
 	processMetaElement("Unit of Measure", meta.DatasetDetails.UnitOfMeasure, true)
