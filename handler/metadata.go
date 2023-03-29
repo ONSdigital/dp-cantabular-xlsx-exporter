@@ -78,12 +78,14 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	isFilterJob := event.FilterOutputID != ""
 	var meta *dataset.Metadata
 	var filterOutput filter.Model
+	var isCustom bool
 
 	if isFilterJob {
 		filterOutput, err = h.filterClient.GetOutput(ctx, "", h.cfg.ServiceAuthToken, "", "", event.FilterOutputID)
 		if err != nil {
 			return errors.Wrap(err, "failed to get filter output")
 		}
+		isCustom = filterOutput.Custom != nil && *filterOutput.Custom
 	}
 
 	meta, err = h.datasets.GetVersionMetadataSelection(ctx, req)
@@ -96,6 +98,9 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 
 	if filterOutput.Type == multivariate {
 		meta.Title = meta.Title + " - customised"
+	}
+	if isCustom {
+		meta.Title = h.GenerateCustomTitle(filterOutput.Dimensions)
 	}
 	metaExcel := "Metadata"
 
@@ -165,7 +170,11 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	if err != nil {
 		return errors.Wrap(err, "unable to parse time")
 	}
-	processMetaElement("Release Date", date.Format(time.RFC822), true)
+	if isCustom {
+		processMetaElement("Created Date", date.Format(time.RFC822), true)
+	} else {
+		processMetaElement("Release Date", date.Format(time.RFC822), true)
+	}
 	processMetaElement("Dataset URL", meta.DatasetDetails.URI, true)
 	processMetaElement("Unit of Measure", meta.DatasetDetails.UnitOfMeasure, true)
 
@@ -203,10 +212,16 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 
 	rowNumber++
 
-	processMetaElement("Version", strconv.Itoa(meta.Version.Version), true)
+	if !isCustom {
+		processMetaElement("Version", strconv.Itoa(meta.Version.Version), true)
+	}
 
 	re := regexp.MustCompile("https?://([^/]+)")
-	processMetaElement("Dataset Version URL", re.ReplaceAllString(meta.DatasetLinks.LatestVersion.URL, h.cfg.ExternalPrefixURL), true)
+	if isCustom {
+		processMetaElement("Custom Dataset URL", h.cfg.ExternalPrefixURL+"/datasets/create/filter-outputs/"+event.FilterOutputID, true)
+	} else {
+		processMetaElement("Dataset Version URL", re.ReplaceAllString(meta.DatasetLinks.LatestVersion.URL, h.cfg.ExternalPrefixURL), true)
+	}
 	processMetaElement("Statistical Disclosure Control Statement", sdcStatement, true)
 	processMetaElement("", sdcStatementRowTwo, true)
 	processMetaElement("", sdcStatementRowThree, true)
@@ -243,43 +258,45 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	processMetaElement("Coverage", coverageStatic, true)
 	processMetaElement("", coverageStaticRowTwo, true)
 
-	versions, err := h.datasets.GetVersions(ctx, req.UserAuthToken, req.ServiceAuthToken, "", req.CollectionID, req.DatasetID, req.Edition, &dataset.QueryParams{Offset: 0, Limit: 100})
-	if err != nil {
-		return &Error{
-			err:     errors.Wrap(err, "failed to get versions"),
-			logData: logData,
-		}
-	}
-
-	if len(versions.Items) > 0 {
-		rowNumber++
-		processMetaElement("Version History", "", false)
-		for _, v := range versions.Items {
-			rowNumber++
-			processMetaElement("Version Number", strconv.Itoa(v.Version), true)
-			date, err := time.Parse(formatToParse, v.ReleaseDate)
-			if err != nil {
-				return errors.Wrap(err, "unable to parse time")
+	if !isCustom {
+		versions, err := h.datasets.GetVersions(ctx, req.UserAuthToken, req.ServiceAuthToken, "", req.CollectionID, req.DatasetID, req.Edition, &dataset.QueryParams{Offset: 0, Limit: 100})
+		if err != nil {
+			return &Error{
+				err:     errors.Wrap(err, "failed to get versions"),
+				logData: logData,
 			}
-			processMetaElement("Release Date", date.Format(time.RFC822), true)
+		}
 
-			if *v.Alerts != nil {
-				for _, alerts := range *v.Alerts {
-					processMetaElement("Reason for New Version", alerts.Description, true)
+		if len(versions.Items) > 0 {
+			rowNumber++
+			processMetaElement("Version History", "", false)
+			for _, v := range versions.Items {
+				rowNumber++
+				processMetaElement("Version Number", strconv.Itoa(v.Version), true)
+				date, err := time.Parse(formatToParse, v.ReleaseDate)
+				if err != nil {
+					return errors.Wrap(err, "unable to parse time")
+				}
+				processMetaElement("Release Date", date.Format(time.RFC822), true)
+
+				if *v.Alerts != nil {
+					for _, alerts := range *v.Alerts {
+						processMetaElement("Reason for New Version", alerts.Description, true)
+					}
 				}
 			}
 		}
-	}
 
-	if meta.DatasetDetails.RelatedContent != nil {
-		for _, rc := range *meta.DatasetDetails.RelatedContent {
-			rowNumber++
-			processMetaElement("Related Content", "", false)
-			rowNumber++
-			processMetaElement("Title", rc.Title, true)
-			processMetaElement("Description", rc.Description, true)
-			processMetaElement("HRef", rc.HRef, true)
+		if meta.DatasetDetails.RelatedContent != nil {
+			for _, rc := range *meta.DatasetDetails.RelatedContent {
+				rowNumber++
+				processMetaElement("Related Content", "", false)
+				rowNumber++
+				processMetaElement("Title", rc.Title, true)
+				processMetaElement("Description", rc.Description, true)
+				processMetaElement("HRef", rc.HRef, true)
 
+			}
 		}
 	}
 
@@ -306,4 +323,19 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	}
 
 	return nil
+}
+
+func (h *XlsxCreate) GenerateCustomTitle(dims []filter.ModelDimension) string {
+	var title string
+	l := len(dims)
+	for i, d := range dims {
+		if i == 0 {
+			title += d.Label
+		} else if i == (l - 1) {
+			title += " and " + d.Label
+		} else {
+			title += ", " + d.Label
+		}
+	}
+	return title
 }

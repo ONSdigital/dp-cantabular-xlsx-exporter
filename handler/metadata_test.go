@@ -18,6 +18,11 @@ import (
 const (
 	testFilterOutputIDMultivariate = "test-mv"
 	testFilterOutputIDFlexible     = "test-fl"
+	testFilterOutputIDCustom       = "test-cu"
+)
+
+var (
+	trueVal = true
 )
 
 func TestAddMetaDataToExcelStructure(t *testing.T) {
@@ -44,6 +49,10 @@ func TestAddMetaDataToExcelStructure(t *testing.T) {
 				}
 				if id == testFilterOutputIDMultivariate {
 					resp.Type = "multivariate"
+				}
+				if id == testFilterOutputIDCustom {
+					resp.Type = "multivariate"
+					resp.Custom = &trueVal
 				}
 				return resp, nil
 			},
@@ -106,6 +115,80 @@ func TestAddMetaDataToExcelStructure(t *testing.T) {
 				So(datasetAPIMock.GetVersionMetadataSelectionCalls(), ShouldHaveLength, 1)
 				So(datasetAPIMock.GetVersionsCalls(), ShouldHaveLength, 1)
 				So(ctblrClientMock.GetDimensionsByNameCalls(), ShouldHaveLength, 1)
+			})
+
+			Convey("When AddMetaDataToExcelStructure is called with an event with a filter output ID for a custom filter", func() {
+				e := event.CantabularCsvCreated{
+					InstanceID:     testInstanceID,
+					DatasetID:      testDatasetID,
+					Edition:        testEdition,
+					Version:        testVersion,
+					FilterOutputID: testFilterOutputIDCustom,
+				}
+				err := h.AddMetaDataToExcelStructure(ctx, xlsx, &e)
+				So(err, ShouldBeNil)
+
+				So(filterAPIMock.GetOutputCalls(), ShouldHaveLength, 1)
+				So(datasetAPIMock.GetVersionMetadataSelectionCalls(), ShouldHaveLength, 1)
+				So(datasetAPIMock.GetVersionsCalls(), ShouldHaveLength, 0)
+				So(ctblrClientMock.GetDimensionsByNameCalls(), ShouldHaveLength, 1)
+			})
+		})
+	})
+}
+
+func TestGenerateCustomTitle(t *testing.T) {
+	Convey("Given a handler", t, func() {
+		h := &handler.XlsxCreate{}
+
+		Convey("given a set of 3 filter dimensions", func() {
+			dims := []filter.ModelDimension{
+				{
+					Label: "Label 1",
+				},
+				{
+					Label: "Label 2",
+				},
+				{
+					Label: "Label 3",
+				},
+			}
+
+			Convey("when GenerateCustomTitle is called", func() {
+				title := h.GenerateCustomTitle(dims)
+				expected := "Label 1, Label 2 and Label 3"
+				So(title, ShouldResemble, expected)
+			})
+		})
+
+		Convey("given a set of 2 filter dimensions", func() {
+			dims := []filter.ModelDimension{
+				{
+					Label: "Label 1",
+				},
+				{
+					Label: "Label 2",
+				},
+			}
+
+			Convey("when GenerateCustomTitle is called", func() {
+				title := h.GenerateCustomTitle(dims)
+				expected := "Label 1 and Label 2"
+				So(title, ShouldResemble, expected)
+			})
+		})
+
+		Convey("given a set of 1 filter dimensions", func() {
+			dims := []filter.ModelDimension{
+				{
+					Label: "Label 1",
+				},
+			}
+
+			Convey("when GenerateCustomTitle is called", func() {
+				title := h.GenerateCustomTitle(dims)
+				expected := "Label 1"
+				So(title, ShouldResemble, expected)
 			})
 		})
 	})
