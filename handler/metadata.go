@@ -165,7 +165,9 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 
 	// TODO the below fields are only an initial prototype, further adjustments will be needed we get the full metadata structure definition
 	processMetaElement("Title", meta.DatasetDetails.Title, true)
-	processMetaElement("Description", meta.DatasetDetails.Description, true)
+	if !isCustom {
+		processMetaElement("Description", meta.DatasetDetails.Description, true)
+	}
 	date, err := time.Parse(formatToParse, meta.Version.ReleaseDate)
 	if err != nil {
 		return errors.Wrap(err, "unable to parse time")
