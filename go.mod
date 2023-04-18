@@ -2,8 +2,6 @@ module github.com/ONSdigital/dp-cantabular-xlsx-exporter
 
 go 1.19
 
-// replace github.com/coreos/etcd => github.com/coreos/etcd v3.3.24+incompatible
-
 // to avoid 'sonatype-2021-4899' non-CVE Vulnerability
 exclude github.com/gorilla/sessions v1.2.1
 
