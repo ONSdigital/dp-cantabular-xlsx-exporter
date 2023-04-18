@@ -220,13 +220,13 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 	sheetDataset := "Dataset"
 	excelInMemoryStructure.SetSheetName(sheet1, sheetDataset)
 
-	getSheet, err := excelInMemoryStructure.GetSheetIndex(sheetDataset)
+	sheetIndex, err := excelInMemoryStructure.GetSheetIndex(sheetDataset)
 	if err != nil {
 		return "", "", errors.Wrap(err, "failed to get sheet index")
 	}
 
 	// Set active sheet of the workbook.
-	excelInMemoryStructure.SetActiveSheet(getSheet)
+	excelInMemoryStructure.SetActiveSheet(sheetIndex)
 
 	s3Path, fileName, err := h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, kafkaEvent, isPublished)
 	if err != nil {
