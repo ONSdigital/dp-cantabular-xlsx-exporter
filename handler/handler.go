@@ -222,9 +222,7 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 
 	getSheet, err := excelInMemoryStructure.GetSheetIndex(sheetDataset)
 	if err != nil {
-		if err != nil {
-			return "", "", errors.Wrap(err, "failed to get sheet index")
-		}
+		return "", "", errors.Wrap(err, "failed to get sheet index")
 	}
 
 	// Set active sheet of the workbook.
