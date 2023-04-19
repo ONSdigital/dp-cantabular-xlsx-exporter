@@ -105,7 +105,13 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	metaExcel := "Metadata"
 
 	// we don't need to save the newly created sheet number, because the caller of this function will set the active page to a different sheet
-	_ = excelInMemoryStructure.NewSheet(metaExcel)
+	_, err = excelInMemoryStructure.NewSheet(metaExcel)
+	if err != nil {
+		return &Error{
+			err:     errors.Wrap(err, "failed to create new sheet"),
+			logData: logData,
+		}
+	}
 
 	rowNumber := 1
 

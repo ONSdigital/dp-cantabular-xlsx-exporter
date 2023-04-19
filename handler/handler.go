@@ -220,8 +220,13 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 	sheetDataset := "Dataset"
 	excelInMemoryStructure.SetSheetName(sheet1, sheetDataset)
 
+	sheetIndex, err := excelInMemoryStructure.GetSheetIndex(sheetDataset)
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to get sheet index")
+	}
+
 	// Set active sheet of the workbook.
-	excelInMemoryStructure.SetActiveSheet(excelInMemoryStructure.GetSheetIndex(sheetDataset))
+	excelInMemoryStructure.SetActiveSheet(sheetIndex)
 
 	s3Path, fileName, err := h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, kafkaEvent, isPublished)
 	if err != nil {
@@ -284,7 +289,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 
 	var outputRow = 1
 
-	styleID14, err := excelInMemoryStructure.NewStyle(`{"font":{"size":14}}`)
+	styleID14, err := excelInMemoryStructure.NewStyle(&excelize.Style{Font: &excelize.Font{Size: 14}})
 	if err != nil {
 		return errors.Wrap(err, "NewStyle size 14")
 	}
