@@ -1,22 +1,22 @@
 module github.com/ONSdigital/dp-cantabular-xlsx-exporter
 
-go 1.19
+go 1.20
 
 // to avoid 'sonatype-2021-4899' non-CVE Vulnerability
 exclude github.com/gorilla/sessions v1.2.1
 
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.43.0
-	github.com/ONSdigital/dp-api-clients-go/v2 v2.251.0
+	github.com/ONSdigital/dp-api-clients-go/v2 v2.252.1
 	github.com/ONSdigital/dp-cantabular-filter-flex-api v1.21.0
 	github.com/ONSdigital/dp-component-test v0.9.0
-	github.com/ONSdigital/dp-healthcheck v1.5.0
-	github.com/ONSdigital/dp-kafka/v3 v3.9.0
+	github.com/ONSdigital/dp-healthcheck v1.6.1
+	github.com/ONSdigital/dp-kafka/v3 v3.10.0
 	github.com/ONSdigital/dp-mongodb/v3 v3.5.0
 	github.com/ONSdigital/dp-net v1.5.0
 	github.com/ONSdigital/dp-s3/v2 v2.1.0-beta.1
 	github.com/ONSdigital/dp-vault v1.3.0
-	github.com/ONSdigital/log.go/v2 v2.3.0
+	github.com/ONSdigital/log.go/v2 v2.4.1
 	github.com/aws/aws-sdk-go v1.44.245
 	github.com/cucumber/godog v0.12.6
 	github.com/google/go-cmp v0.5.9
@@ -32,7 +32,7 @@ require (
 require (
 	github.com/ONSdigital/dp-authorisation v0.2.0 // indirect
 	github.com/ONSdigital/dp-mongodb-in-memory v1.5.0 // indirect
-	github.com/ONSdigital/dp-net/v2 v2.8.1 // indirect
+	github.com/ONSdigital/dp-net/v2 v2.9.1 // indirect
 	github.com/ONSdigital/dp-rchttp v1.0.0 // indirect
 	github.com/ONSdigital/go-ns v0.0.0-20210916104633-ac1c1c52327e // indirect
 	github.com/Shopify/sarama v1.38.1 // indirect
@@ -75,13 +75,13 @@ require (
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
 	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
 	github.com/jcmturner/gofork v1.7.6 // indirect
-	github.com/jcmturner/gokrb5/v8 v8.4.3 // indirect
+	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
 	github.com/justinas/alice v1.2.0 // indirect
-	github.com/klauspost/compress v1.15.15 // indirect
+	github.com/klauspost/compress v1.16.5 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.18 // indirect
