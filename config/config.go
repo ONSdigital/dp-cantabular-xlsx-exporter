@@ -40,6 +40,8 @@ type Config struct {
 	ComponentTestUseLogFile    bool          `envconfig:"COMPONENT_TEST_USE_LOG_FILE"`
 	StopConsumingOnUnhealthy   bool          `envconfig:"STOP_CONSUMING_ON_UNHEALTHY"`
 	S3PublicURL                string        `envconfig:"S3_PUBLIC_URL"`
+	OTExporterOTLPEndpoint     string        `envconfig:"OTEL_EXPORTER_OTLP_ENDPOINT"`
+	OTServiceName              string        `envconfig:"OTEL_SERVICE_NAME"`
 	KafkaConfig                KafkaConfig
 	Mongo                      mongo.MongoDriverConfig
 }
@@ -96,6 +98,8 @@ func Get() (*Config, error) {
 		ComponentTestUseLogFile:    false,
 		StopConsumingOnUnhealthy:   true,
 		S3PublicURL:                "http://public-bucket",
+		OTExporterOTLPEndpoint:     "localhost:4317",
+		OTServiceName:              "dp-cantabular-xlsx-exporter",
 		KafkaConfig: KafkaConfig{
 			Addr:                         []string{"localhost:9092", "localhost:9093", "localhost:9094"},
 			ConsumerMinBrokersHealthy:    1,
