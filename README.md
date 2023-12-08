@@ -47,6 +47,8 @@ An example event can be created using the helper script, `make produce`.
 | KAFKA_SEC_SKIP_VERIFY               | false                                | ignores server certificate issues if `true` [[1]](#notes_1)
 | CSV_CREATED_GROUP                   | dp-cantabular-xlsx-exporter          | The consumer group for this application to consume CantabularCsvCreated messages
 | CSV_CREATED_TOPIC                   | cantabular-csv-created               | The name of the topic to consume messages from
+| OTEL_EXPORTER_OTLP_ENDPOINT         | localhost:4317                       | Endpoint for OpenTelemetry service
+| OTEL_SERVICE_NAME                   | dp-cantabular-xlsx-exporter          | Label of service for OpenTelemetry service
 
 **Notes:**
 
