@@ -9,7 +9,7 @@ import (
 
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/config"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/handler"
-	kafka "github.com/ONSdigital/dp-kafka/v3"
+	kafka "github.com/ONSdigital/dp-kafka/v4"
 	"github.com/ONSdigital/log.go/v2/log"
 
 	"github.com/gorilla/mux"

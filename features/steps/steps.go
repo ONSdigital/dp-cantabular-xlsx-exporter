@@ -179,7 +179,7 @@ func (c *Component) thisCantabularCsvCreatedEventIsQueued(input *godog.DocString
 		"event": testEvent,
 	})
 
-	if err := c.producer.Send(schema.CantabularCsvCreated, testEvent); err != nil {
+	if err := c.producer.Send(c.ctx, schema.CantabularCsvCreated, testEvent); err != nil {
 		return fmt.Errorf("failed to send event for testing: %w", err)
 	}
 	return nil
