@@ -22,7 +22,7 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
 
-	kafka "github.com/ONSdigital/dp-kafka/v3"
+	kafka "github.com/ONSdigital/dp-kafka/v4"
 
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/xuri/excelize/v2"
