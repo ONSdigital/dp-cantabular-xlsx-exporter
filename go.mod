@@ -5,13 +5,7 @@ go 1.22
 // to avoid 'sonatype-2021-4899' non-CVE Vulnerability
 exclude github.com/gorilla/sessions v1.2.1
 
-// [CVE-2023-48795] CWE-354: Improper Validation of Integrity Check Value
-replace golang.org/x/crypto => golang.org/x/crypto v0.24.0
-
-// [CVE-2024-24786] CWE-835: Loop with Unreachable Exit Condition ('Infinite Loop')
-replace google.golang.org/protobuf => google.golang.org/protobuf v1.34.2
-
-// [CVE-2024-6104] CWE-532: Information Exposure Through Log Files
+//[CVE-2024-6104] CWE-532: Information Exposure Through Log Files
 replace github.com/hashicorp/go-retryablehttp => github.com/hashicorp/go-retryablehttp v0.7.7
 
 require (
