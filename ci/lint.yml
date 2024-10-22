@@ -3,11 +3,16 @@
 platform: linux
 
 image_resource:
-  type: docker-image
+  type: registry-image
   source:
     repository: golang
     tag: 1.22.6-bullseye
-
+    registry_mirror:
+      host: ((ecr_repository_uri))
+    aws_access_key_id: ((generator_pipelines_aws_access_key_id))
+    aws_secret_access_key: ((generator_pipelines_aws_access_key))
+    aws_region: ((aws_region))
+    
 inputs:
   - name: dp-cantabular-xlsx-exporter
 
