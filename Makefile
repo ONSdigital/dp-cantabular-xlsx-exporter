@@ -54,7 +54,7 @@ test-component:
 
 .PHONY: lint
 lint:
-	exit
+	golangci-lint run ./...
 
 .PHONY: vault
 vault:
