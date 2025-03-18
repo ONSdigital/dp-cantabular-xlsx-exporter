@@ -54,7 +54,6 @@ func testCfg() config.Config {
 var ctx = context.Background()
 
 func TestIsInstancePublished(t *testing.T) {
-
 	Convey("Given a dataset api that fails to get the instance", t, func() {
 		datasetAPIMock := mock.DatasetAPIClientMock{
 			GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error) {

@@ -153,7 +153,7 @@ func (c *Component) theFollowingVersionWillBeUpdated(datasetID, edition, version
 // theFollowingVersionsWillBeUpdated generates a mockedsresponse for dataset API
 // PUT /datasets/{dataset_id}/editions/{edition}/versions/{version} with the provided update in the request body
 func (c *Component) theFollowingVersionsWillBeReturned(datasetID, edition string, v *godog.DocString) error {
-	//datasets/dataset-happy-01/editions/edition-happy-01/versions?offset=0\u0026limit=100
+	// datasets/dataset-happy-01/editions/edition-happy-01/versions?offset=0\u0026limit=100
 	url := fmt.Sprintf(
 		"/datasets/%s/editions/%s/versions?offset=0&limit=100",
 		datasetID,
@@ -211,10 +211,10 @@ func (c *Component) theFollowingPrivateFileCannotBeSeenInMinio(fileName string) 
 
 // theFollowingPrivateFileInfoIsSeenInFilterOutput checks if there is a file of given type in the given mongo collection
 // for filter output with a specific ID in the given key collection.
-func (c *Component) theFollowingPrivateFileInfoIsSeenInFilterOutput(fileType, col, key, fId, fileName string) error {
+func (c *Component) theFollowingPrivateFileInfoIsSeenInFilterOutput(fileType, col, key, fID, fileName string) error {
 	ctx := context.Background()
 	var bdoc primitive.D
-	if err := c.store.Conn().Collection(col).FindOne(ctx, bson.M{key: fId}, &bdoc); err != nil {
+	if err := c.store.Conn().Collection(col).FindOne(ctx, bson.M{key: fID}, &bdoc); err != nil {
 		return errors.Wrap(err, "failed to retrieve document")
 	}
 
@@ -223,11 +223,14 @@ func (c *Component) theFollowingPrivateFileInfoIsSeenInFilterOutput(fileType, co
 		return errors.Wrap(err, "failed to marshal bson document")
 	}
 
-	var anyJson map[string]interface{}
-	json.Unmarshal(b, &anyJson)
+	var anyJSON map[string]interface{}
+	err = json.Unmarshal(b, &anyJSON)
+	if err != nil {
+		return errors.Wrap(err, "failed to unmarshal bson document")
+	}
 
 	// find downloads
-	var collection = anyJson["downloads"].(map[string]interface{})
+	var collection = anyJSON["downloads"].(map[string]interface{})
 	for k, v := range collection {
 		if k == fileType {
 			s := reflect.ValueOf(v)
@@ -336,7 +339,6 @@ func (c *Component) thisFileIsPutInPrivateS3Bucket(fileName, datasetID, edition,
 }
 
 func (c *Component) putFileInBucket(filename, datasetID, edition, version string, file *godog.DocString, isPublished bool, bucketName string) error {
-
 	// create mechanism to present 'S3Uploader.Upload' with a 'reader'
 	fileReader, fileWriter := io.Pipe()
 
@@ -398,7 +400,6 @@ func (c *Component) uploadFile(fileReader io.Reader, isPublished bool, bucketNam
 	}
 
 	if isPublished {
-
 		// Perform an upload.
 		_, err = c.s3Public.UploadWithContext(c.ctx, upParams)
 		if err != nil {
@@ -406,7 +407,6 @@ func (c *Component) uploadFile(fileReader io.Reader, isPublished bool, bucketNam
 				logData,
 			)
 		}
-
 	} else {
 		psk, err := c.generator.NewPSK()
 		if err != nil {
@@ -453,7 +453,8 @@ func (c *Component) iHaveTheseFilterOutputs(docs *godog.DocString) error {
 	store := c.store
 	col := c.cfg.FilterOutputsCollection
 
-	for _, f := range filterOutputs {
+	for i := range filterOutputs {
+		f := &filterOutputs[i]
 		if _, err = store.Conn().Collection(col).UpsertById(ctx, f.ID, bson.M{"$set": f}); err != nil {
 			return errors.Wrap(err, "failed to upsert filter output")
 		}

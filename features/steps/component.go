@@ -43,7 +43,6 @@ var (
 
 type Component struct {
 	comptest.ErrorFeature
-	apiFeature       *comptest.APIFeature
 	DatasetAPI       *httpfake.HTTPFake
 	CantabularSrv    *httpfake.HTTPFake
 	CantabularAPIExt *httpfake.HTTPFake

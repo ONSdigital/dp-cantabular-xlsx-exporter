@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -14,14 +13,9 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-type stubWriter struct {
-	data []byte
-}
-
-func (w *stubWriter) Write(p []byte) (n int, err error) {
-	w.data = p
-	return len(w.data), nil
-}
+const (
+	readKeyFuncPath = "0123456789ABCDEF"
+)
 
 type ioReadCloserMock struct {
 	returnedBytes []byte
@@ -29,7 +23,6 @@ type ioReadCloserMock struct {
 }
 
 func (r *ioReadCloserMock) Read(p []byte) (n int, err error) {
-	// p = r.returnedBytes
 	n = len(r.returnedBytes)
 	return n, r.returnedError
 }
@@ -50,7 +43,6 @@ func (w *ioWriterMock) Write(p []byte) (n int, err error) {
 }
 
 func TestStreamWriter_WriteContent(t *testing.T) {
-
 	var csvCreatedEvent = &event.CantabularCsvCreated{
 		InstanceID: "",
 		DatasetID:  "",
@@ -99,7 +91,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 
 		vaultMock := &mock.VaultClientMock{
 			ReadKeyFunc: func(path, key string) (string, error) {
-				return "0123456789ABCDEF", nil
+				return readKeyFuncPath, nil
 			},
 		}
 
@@ -134,7 +126,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 	Convey("should return expected error if writer.write in io.Copy returns an error for published path", t, func() {
 		s3Mock := &mock.S3ClientMock{
 			GetFunc: func(filename string) (io.ReadCloser, *int64, error) {
-				return ioutil.NopCloser(strings.NewReader("Test")), nil, nil
+				return io.NopCloser(strings.NewReader("Test")), nil, nil
 			},
 		}
 
@@ -154,7 +146,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 		var testLen int64 = 10
 		s3Mock := &mock.S3ClientMock{
 			GetFunc: func(filename string) (io.ReadCloser, *int64, error) {
-				return ioutil.NopCloser(strings.NewReader("1, 2, 3, 4")), &testLen, nil
+				return io.NopCloser(strings.NewReader("1, 2, 3, 4")), &testLen, nil
 			},
 		}
 
@@ -175,13 +167,13 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 		var testLen int64 = 10
 		s3Mock := &mock.S3ClientMock{
 			GetWithPSKFunc: func(filename string, psk []byte) (io.ReadCloser, *int64, error) {
-				return ioutil.NopCloser(strings.NewReader("1, 2, 3, 4")), &testLen, nil
+				return io.NopCloser(strings.NewReader("1, 2, 3, 4")), &testLen, nil
 			},
 		}
 
 		vaultMock := &mock.VaultClientMock{
 			ReadKeyFunc: func(path, key string) (string, error) {
-				return "0123456789ABCDEF", nil
+				return readKeyFuncPath, nil
 			},
 		}
 
@@ -202,7 +194,6 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 }
 
 func Test_GetVaultKeyForFile(t *testing.T) {
-
 	var csvCreatedEvent = &event.CantabularCsvCreated{
 		InstanceID: "",
 		DatasetID:  "",
@@ -251,7 +242,7 @@ func Test_GetVaultKeyForFile(t *testing.T) {
 	Convey("should return expected vault key for successful requests", t, func() {
 		vaultMock := &mock.VaultClientMock{
 			ReadKeyFunc: func(path, key string) (string, error) {
-				return "0123456789ABCDEF", nil
+				return readKeyFuncPath, nil
 			},
 		}
 
@@ -262,5 +253,4 @@ func Test_GetVaultKeyForFile(t *testing.T) {
 		So(psk, ShouldResemble, []byte{0x01, 0x023, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF})
 		So(err, ShouldBeNil)
 	})
-
 }

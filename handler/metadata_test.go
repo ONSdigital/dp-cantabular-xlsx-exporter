@@ -19,6 +19,7 @@ const (
 	testFilterOutputIDMultivariate = "test-mv"
 	testFilterOutputIDFlexible     = "test-fl"
 	testFilterOutputIDCustom       = "test-cu"
+	multivariateString             = "multivariate"
 )
 
 var (
@@ -48,10 +49,10 @@ func TestAddMetaDataToExcelStructure(t *testing.T) {
 					resp.Type = "flexible"
 				}
 				if id == testFilterOutputIDMultivariate {
-					resp.Type = "multivariate"
+					resp.Type = multivariateString
 				}
 				if id == testFilterOutputIDCustom {
-					resp.Type = "multivariate"
+					resp.Type = multivariateString
 					resp.Custom = &trueVal
 				}
 				return resp, nil

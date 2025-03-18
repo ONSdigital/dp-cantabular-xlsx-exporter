@@ -36,7 +36,6 @@ var (
 
 func TestInit(t *testing.T) {
 	Convey("Having a set of mocked dependencies", t, func() {
-
 		cfg, err := config.Get()
 		So(err, ShouldBeNil)
 
@@ -62,7 +61,7 @@ func TestInit(t *testing.T) {
 			return serverMock
 		}
 
-		datasetApiMock := &serviceMock.DatasetAPIClientMock{
+		datasetAPIMock := &serviceMock.DatasetAPIClientMock{
 			CheckerFunc: func(context.Context, *healthcheck.CheckState) error {
 				return nil
 			},
@@ -70,7 +69,7 @@ func TestInit(t *testing.T) {
 
 		// replace global function
 		service.GetDatasetAPIClient = func(cfg *config.Config) service.DatasetAPIClient {
-			return datasetApiMock
+			return datasetAPIMock
 		}
 
 		s3PrivateClientMock := &serviceMock.S3ClientMock{
@@ -148,7 +147,6 @@ func TestInit(t *testing.T) {
 		})
 
 		Convey("Given that all dependencies are successfully initialised with encryption enabled", func() {
-
 			Convey("Then service Init succeeds, all dependencies are initialised", func() {
 				err := svc.Init(ctx, cfg, testBuildTime, testGitCommit, testVersion)
 				So(err, ShouldBeNil)
@@ -156,7 +154,7 @@ func TestInit(t *testing.T) {
 				So(svc.Server, ShouldEqual, serverMock)
 				So(svc.HealthCheck, ShouldResemble, hcMock)
 				So(svc.Consumer, ShouldResemble, consumerMock)
-				So(svc.DatasetAPIClient, ShouldResemble, datasetApiMock)
+				So(svc.DatasetAPIClient, ShouldResemble, datasetAPIMock)
 				So(svc.S3Private, ShouldResemble, s3PrivateClientMock)
 				So(svc.S3Public, ShouldResemble, s3PublicClientMock)
 				So(svc.VaultClient, ShouldResemble, vaultMock)
@@ -197,7 +195,6 @@ func TestInit(t *testing.T) {
 }
 
 func TestStart(t *testing.T) {
-
 	Convey("Having a correctly initialised Service with mocked dependencies", t, func() {
 		cfg, err := config.Get()
 		So(err, ShouldBeNil)
@@ -276,7 +273,6 @@ func TestStart(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-
 	Convey("Having a correctly initialised service", t, func() {
 		cfg, err := config.Get()
 		So(err, ShouldBeNil)

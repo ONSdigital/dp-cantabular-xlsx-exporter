@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 )
 
@@ -43,5 +41,5 @@ func (e *Error) Unwrap() error {
 
 // ErrorStack wraps the message with a stack trace
 func ErrorStack(message string) error {
-	return errors.Wrap(fmt.Errorf(message), "")
+	return errors.Wrap(errors.New(message), "")
 }

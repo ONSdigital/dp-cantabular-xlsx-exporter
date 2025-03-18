@@ -48,7 +48,6 @@ type XlsxCreate struct {
 	vaultClient           VaultClient
 	filterClient          FilterAPIClient
 	populationTypesClient PopulationTypesAPIClient
-	producer              kafka.IProducer
 	generator             Generator
 }
 
@@ -190,12 +189,11 @@ func (h *XlsxCreate) IsInstancePublished(ctx context.Context, instanceID string)
 
 // processEventIntoXlsxFileOnS3 runs through the steps to stream in a csv file into an in memory representation of an xlsx file.
 // This is then streamed out to an xlsx file on S3.
-func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEvent *event.CantabularCsvCreated, doLargeSheet bool, isPublished bool) (string, string, error) {
+func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEvent *event.CantabularCsvCreated, doLargeSheet, isPublished bool) (s3Path, fileName string, err error) {
 	// start creating the Excel file in its "in memory structure"
 	excelInMemoryStructure := excelize.NewFile()
 	sheet1 := "Sheet1"
 	var efficientExcelAPIWriter *excelize.StreamWriter
-	var err error
 
 	if doLargeSheet {
 		efficientExcelAPIWriter, err = excelInMemoryStructure.NewStreamWriter(sheet1) // have to start with the one and only default 'Sheet1'
@@ -204,12 +202,13 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 		}
 	}
 
-	excelInMemoryStructure.SetDefaultFont("Aerial")
+	err = excelInMemoryStructure.SetDefaultFont("Aerial")
+	if err != nil {
+		return "", "", errors.Wrap(err, "SetDefaultFont failed")
+	}
 
 	if err = h.GetCSVtoExcelStructure(ctx, excelInMemoryStructure, kafkaEvent, doLargeSheet, efficientExcelAPIWriter, sheet1, isPublished); err != nil {
-		if err != nil {
-			return "", "", errors.Wrap(err, "GetCSVtoExcelStructure failed")
-		}
+		return "", "", errors.Wrap(err, "GetCSVtoExcelStructure failed")
 	}
 
 	if err = h.AddMetaDataToExcelStructure(ctx, excelInMemoryStructure, kafkaEvent); err != nil {
@@ -218,7 +217,10 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 
 	// Rename the main sheet to 'Dataset'
 	sheetDataset := "Dataset"
-	excelInMemoryStructure.SetSheetName(sheet1, sheetDataset)
+	err = excelInMemoryStructure.SetSheetName(sheet1, sheetDataset)
+	if err != nil {
+		return "", "", errors.Wrap(err, "failed to rename sheet")
+	}
 
 	sheetIndex, err := excelInMemoryStructure.GetSheetIndex(sheetDataset)
 	if err != nil {
@@ -228,7 +230,7 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 	// Set active sheet of the workbook.
 	excelInMemoryStructure.SetActiveSheet(sheetIndex)
 
-	s3Path, fileName, err := h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, kafkaEvent, isPublished)
+	s3Path, fileName, err = h.SaveExcelStructureToExcelFile(ctx, excelInMemoryStructure, kafkaEvent, isPublished)
 	if err != nil {
 		return "", "", errors.Wrap(err, "SaveExcelStructureToExcelFile failed")
 	}
@@ -238,6 +240,8 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 
 // GetCSVtoExcelStructure streams in a line at a time from csv file from S3 bucket and
 // inserts it into the Excel "in memory structure"
+//
+//nolint:gocognit,gocyclo // cognitive and cyclomatic complexity too high // acceptable for now
 func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string, isPublished bool) error {
 	var bucketName string
 	var columnWidths [maxSettableColumnWidths]int
@@ -408,19 +412,20 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 	} else {
 		// Process and apply column widths
 		for i := 0; i < maxSettableColumnWidths; i++ {
-			if columnWidths[i] != columNotSet {
-				width := columnWidths[i] + 1 // add 1 to achieve slight visual space between columns and/or the vertical column lines
-				if width > maxExcelizeColumnWidth {
-					width = maxExcelizeColumnWidth
-				}
-				columnName, err := excelize.ColumnNumberToName(i + 1) // add 1, as column numbers start at 1 in excelize library
-				if err != nil {
-					return errors.Wrap(err, "ColumnNumberToName")
-				}
-				err = excelInMemoryStructure.SetColWidth(sheet1, columnName, columnName, float64(width))
-				if err != nil {
-					return errors.Wrap(err, "SetColWidth failed for Dataset sheet")
-				}
+			if columnWidths[i] == columNotSet {
+				continue
+			}
+			width := columnWidths[i] + 1 // add 1 to achieve slight visual space between columns and/or the vertical column lines
+			if width > maxExcelizeColumnWidth {
+				width = maxExcelizeColumnWidth
+			}
+			columnName, err := excelize.ColumnNumberToName(i + 1) // add 1, as column numbers start at 1 in excelize library
+			if err != nil {
+				return errors.Wrap(err, "ColumnNumberToName")
+			}
+			err = excelInMemoryStructure.SetColWidth(sheet1, columnName, columnName, float64(width))
+			if err != nil {
+				return errors.Wrap(err, "SetColWidth failed for Dataset sheet")
 			}
 		}
 	}
@@ -431,7 +436,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 // SaveExcelStructureToExcelFile uses the excelize library Write function to effectively write out the Excel
 // "in memory structure" to a stream that is then streamed directly into a file in S3 bucket.
 // returns s3Location (path) or Error
-func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated, isPublished bool) (string, string, error) {
+func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated, isPublished bool) (s3Path, filenameXlsx string, err error) {
 	var bucketName string
 	if isPublished {
 		bucketName = h.s3Public.BucketName()
@@ -439,7 +444,7 @@ func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInM
 		bucketName = h.s3Private.BucketName()
 	}
 
-	filenameXlsx := generateS3FilenameXLSX(event)
+	filenameXlsx = generateS3FilenameXLSX(event)
 	xlsxReader, xlsxWriter := io.Pipe()
 
 	wgUpload := sync.WaitGroup{}
@@ -466,7 +471,7 @@ func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInM
 	}()
 
 	// Use the Upload function to read from the io.Pipe() Writer:
-	s3Path, err := h.UploadXLSXFile(ctx, event, xlsxReader, isPublished, bucketName, filenameXlsx)
+	s3Path, err = h.UploadXLSXFile(ctx, event, xlsxReader, isPublished, bucketName, filenameXlsx)
 	if err != nil {
 		if closeErr := xlsxWriter.Close(); closeErr != nil {
 			log.Error(ctx, "error closing upload writer", closeErr)
@@ -490,7 +495,7 @@ func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInM
 
 // UploadXLSXFile uploads the provided file content to AWS S3
 // returns s3Location (path) or Error
-func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.CantabularCsvCreated, file io.Reader, isPublished bool, bucketName string, filename string) (string, error) {
+func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.CantabularCsvCreated, file io.Reader, isPublished bool, bucketName, filename string) (string, error) {
 	if event.InstanceID == "" {
 		return "", errors.New("empty instance id not allowed")
 	}

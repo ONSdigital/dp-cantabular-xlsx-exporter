@@ -22,7 +22,8 @@ const (
 
 func (h *XlsxCreate) GetFilterDimensions(ctx context.Context, filterOutput filter.Model) ([]dataset.VersionDimension, error) {
 	var areaType string
-	for _, d := range filterOutput.Dimensions {
+	for i := range filterOutput.Dimensions {
+		d := &filterOutput.Dimensions[i]
 		if d.IsAreaType != nil && *d.IsAreaType {
 			areaType = d.ID
 		}
@@ -31,7 +32,8 @@ func (h *XlsxCreate) GetFilterDimensions(ctx context.Context, filterOutput filte
 	cReq := cantabular.GetDimensionsByNameRequest{
 		Dataset: filterOutput.PopulationType,
 	}
-	for _, d := range filterOutput.Dimensions {
+	for i := range filterOutput.Dimensions {
+		d := &filterOutput.Dimensions[i]
 		cReq.DimensionNames = append(cReq.DimensionNames, d.ID)
 	}
 	resp, err := h.ctblr.GetDimensionsByName(ctx, cReq)
@@ -39,8 +41,9 @@ func (h *XlsxCreate) GetFilterDimensions(ctx context.Context, filterOutput filte
 		return nil, errors.Wrap(err, "failed to query dimensions")
 	}
 
-	var dims []dataset.VersionDimension
-	for _, e := range resp.Dataset.Variables.Edges {
+	dims := make([]dataset.VersionDimension, 0, len(resp.Dataset.Variables.Edges))
+	for i := range resp.Dataset.Variables.Edges {
+		e := &resp.Dataset.Variables.Edges[i]
 		isAreaType := e.Node.Name == areaType
 		dim := dataset.VersionDimension{
 			ID:                   e.Node.Name,
@@ -58,6 +61,8 @@ func (h *XlsxCreate) GetFilterDimensions(ctx context.Context, filterOutput filte
 
 // AddMetaDataToExcelStructure reads in the metadata structure and extracts the desired items in the desired order
 // and places them into the metadata sheet of the in-memory excelize library structure
+//
+//nolint:gocognit,gocyclo // cognitive and cyclomatic complexity too high // acceptable for now
 func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated) error {
 	var err error
 
@@ -97,7 +102,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 	}
 
 	if filterOutput.Type == multivariate {
-		meta.Title = meta.Title + " - customised"
+		meta.Title += " - customised"
 	}
 	if isCustom {
 		meta.Title = h.GenerateCustomTitle(filterOutput.Dimensions)
@@ -251,7 +256,8 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		dims = meta.Version.Dimensions
 	}
 
-	for _, dim := range dims {
+	for i := range dims {
+		dim := &dims[i]
 		if dim.IsAreaType != nil && *dim.IsAreaType {
 			processMetaElement("Area Type Name", dim.Label, true)
 			processMetaElement("Area Type Description", dim.Description, true)
@@ -278,7 +284,8 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 		if len(versions.Items) > 0 {
 			rowNumber++
 			processMetaElement("Version History", "", false)
-			for _, v := range versions.Items {
+			for i := range versions.Items {
+				v := &versions.Items[i]
 				rowNumber++
 				processMetaElement("Version Number", strconv.Itoa(v.Version), true)
 				date, err := time.Parse(formatToParse, v.ReleaseDate)
@@ -287,7 +294,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 				}
 				processMetaElement("Release Date", date.Format(time.RFC822), true)
 
-				if *v.Alerts != nil {
+				if v.Alerts != nil {
 					for _, alerts := range *v.Alerts {
 						processMetaElement("Reason for New Version", alerts.Description, true)
 					}
@@ -303,7 +310,6 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 				processMetaElement("Title", rc.Title, true)
 				processMetaElement("Description", rc.Description, true)
 				processMetaElement("HRef", rc.HRef, true)
-
 			}
 		}
 	}
@@ -336,7 +342,8 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 func (h *XlsxCreate) GenerateCustomTitle(dims []filter.ModelDimension) string {
 	var title string
 	l := len(dims)
-	for i, d := range dims {
+	for i := range dims {
+		d := &dims[i]
 		if i == 0 {
 			title += d.Label
 		} else if i == (l - 1) {

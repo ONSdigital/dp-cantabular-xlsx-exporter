@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"io"
 	"log"
@@ -27,29 +28,26 @@ type ComponentTest struct {
 	MongoFeature *cmponenttest.MongoFeature
 }
 
-func init() {
-	dplogs.Namespace = "dp-cantabular-xlsx-exporter"
-}
-
 func (f *ComponentTest) InitializeScenario(ctx *godog.ScenarioContext) {
 	mongoAddr := f.MongoFeature.Server.URI()
 	component := steps.NewComponent(mongoAddr)
 
-	ctx.BeforeScenario(func(*godog.Scenario) {
+	ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
 		if err := component.Reset(); err != nil {
 			log.Panicf("unable to initialise scenario: %s", err)
 		}
+		return ctx, nil
 	})
 
-	ctx.AfterScenario(func(*godog.Scenario, error) {
+	ctx.After(func(ctx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
 		component.Close()
+		return ctx, nil
 	})
 
 	component.RegisterSteps(ctx)
 }
 
 func (f *ComponentTest) InitializeTestSuite(ctx *godog.TestSuiteContext) {
-	//_ = ctx // shut linter up
 	ctx.BeforeSuite(func() {
 		f.MongoFeature = cmponenttest.NewMongoFeature(cmponenttest.MongoOptions{
 			MongoVersion: mongoVersion,
