@@ -13,7 +13,7 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/event"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/handler"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/handler/mock"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -146,12 +146,12 @@ func TestValidateEvent(t *testing.T) {
 
 func TestGetS3ContentLength(t *testing.T) {
 	var ContentLength int64 = testNumBytes
-	headOk := func(key string) (*s3.HeadObjectOutput, error) {
+	headOk := func(ctx context.Context, key string) (*s3.HeadObjectOutput, error) {
 		return &s3.HeadObjectOutput{
 			ContentLength: &ContentLength,
 		}, nil
 	}
-	headErr := func(key string) (*s3.HeadObjectOutput, error) {
+	headErr := func(ctx context.Context, key string) (*s3.HeadObjectOutput, error) {
 		return nil, errS3
 	}
 
@@ -159,7 +159,7 @@ func TestGetS3ContentLength(t *testing.T) {
 		sPrivate := mock.S3ClientMock{HeadFunc: headOk}
 		eventHandler := handler.NewXlsxCreate(testCfg(), nil, &sPrivate, nil, nil, nil, nil, nil, nil)
 		Convey("Then GetS3ContentLength returns the expected size with no error", func() {
-			numBytes, err := eventHandler.GetS3ContentLength(testExportStartEvent, false)
+			numBytes, err := eventHandler.GetS3ContentLength(ctx, testExportStartEvent, false)
 			So(err, ShouldBeNil)
 			So(numBytes, ShouldEqual, testNumBytes)
 		})
@@ -170,7 +170,7 @@ func TestGetS3ContentLength(t *testing.T) {
 		eventHandler := handler.NewXlsxCreate(testCfg(), nil, &sPrivate, nil, nil, nil, nil, nil, nil)
 
 		Convey("Then GetS3ContentLength returns the expected error", func() {
-			_, err := eventHandler.GetS3ContentLength(testExportStartEvent, false)
+			_, err := eventHandler.GetS3ContentLength(ctx, testExportStartEvent, false)
 			So(err.Error(), ShouldContainSubstring, "test S3Upload error")
 		})
 	})
@@ -180,7 +180,7 @@ func TestGetS3ContentLength(t *testing.T) {
 		eventHandler := handler.NewXlsxCreate(testCfg(), nil, nil, &sPublic, nil, nil, nil, nil, nil)
 
 		Convey("Then GetS3ContentLength returns the expected size with no error", func() {
-			numBytes, err := eventHandler.GetS3ContentLength(testExportStartEvent, true)
+			numBytes, err := eventHandler.GetS3ContentLength(ctx, testExportStartEvent, true)
 			So(err, ShouldBeNil)
 			So(numBytes, ShouldEqual, testNumBytes)
 		})
@@ -191,7 +191,7 @@ func TestGetS3ContentLength(t *testing.T) {
 		eventHandler := handler.NewXlsxCreate(testCfg(), nil, nil, &sPublic, nil, nil, nil, nil, nil)
 
 		Convey("Then GetS3ContentLength returns the expected error", func() {
-			_, err := eventHandler.GetS3ContentLength(testExportStartEvent, true)
+			_, err := eventHandler.GetS3ContentLength(ctx, testExportStartEvent, true)
 			So(err.Error(), ShouldContainSubstring, "test S3Upload error")
 		})
 	})

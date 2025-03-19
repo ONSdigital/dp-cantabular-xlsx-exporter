@@ -82,7 +82,7 @@ func TestInit(t *testing.T) {
 				return nil
 			},
 		}
-		service.GetS3Clients = func(cfg *config.Config) (service.S3Client, service.S3Client, error) {
+		service.GetS3Clients = func(ctx context.Context, cfg *config.Config) (service.S3Client, service.S3Client, error) {
 			return s3PrivateClientMock, s3PublicClientMock, nil
 		}
 

@@ -54,7 +54,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 
 	Convey("should return expected error if s3 Get fails for published path", t, func() {
 		s3Mock := &mock.S3ClientMock{
-			GetFunc: func(filename string) (io.ReadCloser, *int64, error) {
+			GetFunc: func(ctx context.Context, filename string) (io.ReadCloser, *int64, error) {
 				return nil, nil, errors.New("error with S3")
 			},
 		}
@@ -84,7 +84,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 
 	Convey("should return expected error if s3 client GetWithPSK returns an error for non published path", t, func() {
 		s3Mock := &mock.S3ClientMock{
-			GetWithPSKFunc: func(filename string, psk []byte) (io.ReadCloser, *int64, error) {
+			GetWithPSKFunc: func(ctx context.Context, filename string, psk []byte) (io.ReadCloser, *int64, error) {
 				return nil, nil, errors.New("PSK error")
 			},
 		}
@@ -105,7 +105,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 
 	Convey("should return expected error if s3reader returns an error for published path", t, func() {
 		s3Mock := &mock.S3ClientMock{
-			GetFunc: func(filename string) (io.ReadCloser, *int64, error) {
+			GetFunc: func(ctx context.Context, filename string) (io.ReadCloser, *int64, error) {
 				return &ioReadCloserMock{
 						[]byte{},
 						errors.New("ioReadClose Read mock fail"),
@@ -125,7 +125,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 
 	Convey("should return expected error if writer.write in io.Copy returns an error for published path", t, func() {
 		s3Mock := &mock.S3ClientMock{
-			GetFunc: func(filename string) (io.ReadCloser, *int64, error) {
+			GetFunc: func(ctx context.Context, filename string) (io.ReadCloser, *int64, error) {
 				return io.NopCloser(strings.NewReader("Test")), nil, nil
 			},
 		}
@@ -145,7 +145,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 	Convey("should successfully write bytes from s3Reader to the provided writer for published path", t, func() {
 		var testLen int64 = 10
 		s3Mock := &mock.S3ClientMock{
-			GetFunc: func(filename string) (io.ReadCloser, *int64, error) {
+			GetFunc: func(ctx context.Context, filename string) (io.ReadCloser, *int64, error) {
 				return io.NopCloser(strings.NewReader("1, 2, 3, 4")), &testLen, nil
 			},
 		}
@@ -166,7 +166,7 @@ func TestStreamWriter_WriteContent(t *testing.T) {
 	Convey("should successfully write bytes from s3Reader to the provided writer for non published path", t, func() {
 		var testLen int64 = 10
 		s3Mock := &mock.S3ClientMock{
-			GetWithPSKFunc: func(filename string, psk []byte) (io.ReadCloser, *int64, error) {
+			GetWithPSKFunc: func(ctx context.Context, filename string, psk []byte) (io.ReadCloser, *int64, error) {
 				return io.NopCloser(strings.NewReader("1, 2, 3, 4")), &testLen, nil
 			},
 		}
