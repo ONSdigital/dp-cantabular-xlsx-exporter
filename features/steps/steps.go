@@ -17,9 +17,9 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/handler"
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/schema"
 	"github.com/ONSdigital/log.go/v2/log"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/cucumber/godog"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
@@ -251,7 +251,7 @@ func (c *Component) theFollowingPrivateFileInfoIsSeenInFilterOutput(fileType, co
 // If it is not available it keeps checking following an exponential backoff up to MinioCheckRetries times.
 func (c *Component) expectMinioFile(filename string, expected bool, bucketName string) error {
 	var b = make([]byte, 10000) // limit the number of bytes read in
-	f := aws.NewWriteAtBuffer(b)
+	f := manager.NewWriteAtBuffer(b)
 
 	// probe bucket with backoff to give time for event to be processed
 	retries := MinioCheckRetries
@@ -261,10 +261,10 @@ func (c *Component) expectMinioFile(filename string, expected bool, bucketName s
 
 	for {
 		if bucketName == c.cfg.PublicBucketName {
-			s3ReadCloser, _, err = c.s3Public.Get(filename)
+			s3ReadCloser, _, err = c.s3Public.Get(c.ctx, filename)
 		} else {
 			// As we are only interested in knowing that the file exists, we don't need to do GetWithPSK
-			s3ReadCloser, _, err = c.s3Private.Get(filename)
+			s3ReadCloser, _, err = c.s3Private.Get(c.ctx, filename)
 		}
 
 		if err == nil || retries <= 0 {
@@ -284,7 +284,8 @@ func (c *Component) expectMinioFile(filename string, expected bool, bucketName s
 	if err != nil {
 		if !expected {
 			// file was not expected - expected error is 'NoSuchKey'
-			if strings.Contains(err.Error(), s3.ErrCodeNoSuchKey) {
+			var noSuchKeyErr *types.NoSuchKey
+			if errors.As(err, &noSuchKeyErr) {
 				log.Info(c.ctx, "successfully checked that file not found in minio")
 				return nil
 			}
@@ -386,7 +387,7 @@ func (c *Component) putFileInBucket(filename, datasetID, edition, version string
 func (c *Component) uploadFile(fileReader io.Reader, isPublished bool, bucketName, filename, datasetID, edition, version string) error {
 	f := fmt.Sprintf("datasets/%s", filename)
 	// Upload input parameters
-	upParams := &s3manager.UploadInput{
+	upParams := &s3.PutObjectInput{
 		Bucket: &bucketName,
 		Key:    &f,
 		Body:   fileReader,
@@ -401,9 +402,9 @@ func (c *Component) uploadFile(fileReader io.Reader, isPublished bool, bucketNam
 
 	if isPublished {
 		// Perform an upload.
-		_, err = c.s3Public.UploadWithContext(c.ctx, upParams)
+		_, err = c.s3Public.Upload(c.ctx, upParams)
 		if err != nil {
-			return handler.NewError(fmt.Errorf("UploadWithContext failed to write file: %w", err),
+			return handler.NewError(fmt.Errorf("upload failed to write file: %w", err),
 				logData,
 			)
 		}
@@ -430,7 +431,7 @@ func (c *Component) uploadFile(fileReader io.Reader, isPublished bool, bucketNam
 		// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 		// to shut down gracefully before installing a new version of this app, then without using context this
 		// could cause problems.
-		_, err = c.s3Private.UploadWithPSKAndContext(c.ctx, upParams, psk)
+		_, err = c.s3Private.UploadWithPSK(c.ctx, upParams, psk)
 		if err != nil {
 			return handler.NewError(fmt.Errorf("UploadWithPSKAndContext failed to upload encrypted file to S3: %w", err),
 				logData,

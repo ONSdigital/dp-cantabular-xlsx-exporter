@@ -17,7 +17,7 @@ func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, eve
 	var lengthPtr *int64
 
 	if isPublished {
-		s3ReadCloser, lengthPtr, err = h.s3Public.Get(filenameCsv)
+		s3ReadCloser, lengthPtr, err = h.s3Public.Get(ctx, filenameCsv)
 		if err != nil {
 			return 0, errors.Wrap(err, "failed in Published Get")
 		}
@@ -27,7 +27,7 @@ func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, eve
 			return 0, errors.Wrap(err, "failed in getVaultKeyForCSVFile")
 		}
 
-		s3ReadCloser, lengthPtr, err = h.s3Private.GetWithPSK(filenameCsv, psk)
+		s3ReadCloser, lengthPtr, err = h.s3Private.GetWithPSK(ctx, filenameCsv, psk)
 		if err != nil {
 			return 0, errors.Wrap(err, "failed in GetWithPSK")
 		}

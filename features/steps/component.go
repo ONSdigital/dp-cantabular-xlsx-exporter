@@ -17,14 +17,15 @@ import (
 	"github.com/ONSdigital/dp-cantabular-xlsx-exporter/service"
 	comptest "github.com/ONSdigital/dp-component-test"
 	kafka "github.com/ONSdigital/dp-kafka/v4"
-	dps3 "github.com/ONSdigital/dp-s3/v2"
+	dps3 "github.com/ONSdigital/dp-s3/v3"
 	vault "github.com/ONSdigital/dp-vault"
 	"github.com/ONSdigital/log.go/v2/log"
 
 	"github.com/ONSdigital/dp-component-test/utils"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/maxcnunes/httpfake"
 )
 
@@ -108,22 +109,23 @@ func (c *Component) initService(ctx context.Context) error {
 
 	log.Info(ctx, "config used by component tests", log.Data{"cfg": cfg})
 
-	s3Config := &aws.Config{
-		Credentials:      credentials.NewStaticCredentials(cfg.MinioAccessKey, cfg.MinioSecretKey, ""),
-		Endpoint:         aws.String(cfg.LocalObjectStore),
-		Region:           aws.String(cfg.AWSRegion),
-		DisableSSL:       aws.Bool(true),
-		S3ForcePathStyle: aws.Bool(true),
-	}
-
-	// S3 downloader to check minio files
-	s, err := session.NewSession(s3Config)
+	awsConfig, err := awsConfig.LoadDefaultConfig(ctx,
+		awsConfig.WithRegion(cfg.AWSRegion),
+		awsConfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cfg.MinioAccessKey, cfg.MinioSecretKey, "")),
+	)
 	if err != nil {
-		return fmt.Errorf("error creating aws session: %w", err)
+		return fmt.Errorf("failed to create aws config: %w", err)
 	}
 
-	c.s3Private = dps3.NewClientWithSession(cfg.PrivateBucketName, s)
-	c.s3Public = dps3.NewClientWithSession(cfg.PublicBucketName, s)
+	c.s3Private = dps3.NewClientWithConfig(cfg.PrivateBucketName, awsConfig, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(cfg.LocalObjectStore)
+		o.UsePathStyle = true
+	})
+
+	c.s3Public = dps3.NewClientWithConfig(cfg.PublicBucketName, awsConfig, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(cfg.LocalObjectStore)
+		o.UsePathStyle = true
+	})
 
 	// producer for triggering test events that will be consumed by the service
 	if c.producer, err = kafka.NewProducer(

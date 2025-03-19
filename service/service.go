@@ -48,7 +48,7 @@ func (svc *Service) Init(ctx context.Context, cfg *config.Config, buildTime, git
 	if svc.Consumer, err = GetKafkaConsumer(ctx, cfg); err != nil {
 		return fmt.Errorf("failed to create kafka consumer: %w", err)
 	}
-	if svc.S3Private, svc.S3Public, err = GetS3Clients(cfg); err != nil {
+	if svc.S3Private, svc.S3Public, err = GetS3Clients(ctx, cfg); err != nil {
 		return fmt.Errorf("failed to initialise s3 client: %w", err)
 	}
 	if svc.VaultClient, err = GetVault(cfg); err != nil {

@@ -24,7 +24,7 @@ import (
 
 	kafka "github.com/ONSdigital/dp-kafka/v4"
 
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/xuri/excelize/v2"
 
 	"github.com/ONSdigital/log.go/v2/log"
@@ -137,7 +137,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 		}
 	}
 
-	numBytes, err := h.GetS3ContentLength(kafkaEvent, isPublished)
+	numBytes, err := h.GetS3ContentLength(ctx, kafkaEvent, isPublished)
 	if err != nil {
 		return &Error{
 			err:     errors.Wrap(err, "failed to get S3 content length"),
@@ -517,7 +517,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 		// We use UploadWithContext because when processing an Excel file that is
 		// nearly 1million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 		// to shut down gracefully before installing a new version of this app, then this could cause problems.
-		result, err := h.s3Public.UploadWithContext(ctx, &s3manager.UploadInput{
+		result, err := h.s3Public.Upload(ctx, &s3.PutObjectInput{
 			Body:   file,
 			Bucket: &bucketName,
 			Key:    &filename,
@@ -554,7 +554,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 		// nearly 1 million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 		// to shut down gracefully before installing a new version of this app, then without using context this
 		// could cause problems.
-		result, err := h.s3Private.UploadWithPSKAndContext(ctx, &s3manager.UploadInput{
+		result, err := h.s3Private.UploadWithPSK(ctx, &s3.PutObjectInput{
 			Body:   file,
 			Bucket: &bucketName,
 			Key:    &filename,
@@ -578,16 +578,16 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 }
 
 // GetS3ContentLength obtains an S3 file size (in number of bytes) by calling Head Object
-func (h *XlsxCreate) GetS3ContentLength(event *event.CantabularCsvCreated, isPublished bool) (int, error) {
+func (h *XlsxCreate) GetS3ContentLength(ctx context.Context, event *event.CantabularCsvCreated, isPublished bool) (int, error) {
 	filename := generateS3FilenameXLSX(event)
 	if isPublished {
-		headOutput, err := h.s3Public.Head(filename)
+		headOutput, err := h.s3Public.Head(ctx, filename)
 		if err != nil {
 			return 0, errors.Wrap(err, "public s3 head object error")
 		}
 		return int(*headOutput.ContentLength), nil
 	}
-	headOutput, err := h.s3Private.Head(filename)
+	headOutput, err := h.s3Private.Head(ctx, filename)
 	if err != nil {
 		return 0, errors.Wrap(err, "private s3 head object error")
 	}
