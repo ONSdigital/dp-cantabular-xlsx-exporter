@@ -16,22 +16,22 @@ var _ handler.FilterAPIClient = &FilterAPIClientMock{}
 
 // FilterAPIClientMock is a mock implementation of handler.FilterAPIClient.
 //
-// 	func TestSomethingThatUsesFilterAPIClient(t *testing.T) {
+//	func TestSomethingThatUsesFilterAPIClient(t *testing.T) {
 //
-// 		// make and configure a mocked handler.FilterAPIClient
-// 		mockedFilterAPIClient := &FilterAPIClientMock{
-// 			GetOutputFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, downloadServiceToken string, collectionID string, filterOutput string) (filter.Model, error) {
-// 				panic("mock out the GetOutput method")
-// 			},
-// 			UpdateFilterOutputFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, downloadServiceToken string, filterOutputID string, m *filter.Model) error {
-// 				panic("mock out the UpdateFilterOutput method")
-// 			},
-// 		}
+//		// make and configure a mocked handler.FilterAPIClient
+//		mockedFilterAPIClient := &FilterAPIClientMock{
+//			GetOutputFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, downloadServiceToken string, collectionID string, filterOutput string) (filter.Model, error) {
+//				panic("mock out the GetOutput method")
+//			},
+//			UpdateFilterOutputFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, downloadServiceToken string, filterOutputID string, m *filter.Model) error {
+//				panic("mock out the UpdateFilterOutput method")
+//			},
+//		}
 //
-// 		// use mockedFilterAPIClient in code that requires handler.FilterAPIClient
-// 		// and then make assertions.
+//		// use mockedFilterAPIClient in code that requires handler.FilterAPIClient
+//		// and then make assertions.
 //
-// 	}
+//	}
 type FilterAPIClientMock struct {
 	// GetOutputFunc mocks the GetOutput method.
 	GetOutputFunc func(ctx context.Context, userAuthToken string, serviceAuthToken string, downloadServiceToken string, collectionID string, filterOutput string) (filter.Model, error)
@@ -104,7 +104,8 @@ func (mock *FilterAPIClientMock) GetOutput(ctx context.Context, userAuthToken st
 
 // GetOutputCalls gets all the calls that were made to GetOutput.
 // Check the length with:
-//     len(mockedFilterAPIClient.GetOutputCalls())
+//
+//	len(mockedFilterAPIClient.GetOutputCalls())
 func (mock *FilterAPIClientMock) GetOutputCalls() []struct {
 	Ctx                  context.Context
 	UserAuthToken        string
@@ -155,7 +156,8 @@ func (mock *FilterAPIClientMock) UpdateFilterOutput(ctx context.Context, userAut
 
 // UpdateFilterOutputCalls gets all the calls that were made to UpdateFilterOutput.
 // Check the length with:
-//     len(mockedFilterAPIClient.UpdateFilterOutputCalls())
+//
+//	len(mockedFilterAPIClient.UpdateFilterOutputCalls())
 func (mock *FilterAPIClientMock) UpdateFilterOutputCalls() []struct {
 	Ctx                  context.Context
 	UserAuthToken        string

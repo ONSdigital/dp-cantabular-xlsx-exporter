@@ -16,19 +16,19 @@ var _ handler.CantabularClient = &CantabularClientMock{}
 
 // CantabularClientMock is a mock implementation of handler.CantabularClient.
 //
-// 	func TestSomethingThatUsesCantabularClient(t *testing.T) {
+//	func TestSomethingThatUsesCantabularClient(t *testing.T) {
 //
-// 		// make and configure a mocked handler.CantabularClient
-// 		mockedCantabularClient := &CantabularClientMock{
-// 			GetDimensionsByNameFunc: func(contextMoqParam context.Context, getDimensionsByNameRequest cantabular.GetDimensionsByNameRequest) (*cantabular.GetDimensionsResponse, error) {
-// 				panic("mock out the GetDimensionsByName method")
-// 			},
-// 		}
+//		// make and configure a mocked handler.CantabularClient
+//		mockedCantabularClient := &CantabularClientMock{
+//			GetDimensionsByNameFunc: func(contextMoqParam context.Context, getDimensionsByNameRequest cantabular.GetDimensionsByNameRequest) (*cantabular.GetDimensionsResponse, error) {
+//				panic("mock out the GetDimensionsByName method")
+//			},
+//		}
 //
-// 		// use mockedCantabularClient in code that requires handler.CantabularClient
-// 		// and then make assertions.
+//		// use mockedCantabularClient in code that requires handler.CantabularClient
+//		// and then make assertions.
 //
-// 	}
+//	}
 type CantabularClientMock struct {
 	// GetDimensionsByNameFunc mocks the GetDimensionsByName method.
 	GetDimensionsByNameFunc func(contextMoqParam context.Context, getDimensionsByNameRequest cantabular.GetDimensionsByNameRequest) (*cantabular.GetDimensionsResponse, error)
@@ -66,7 +66,8 @@ func (mock *CantabularClientMock) GetDimensionsByName(contextMoqParam context.Co
 
 // GetDimensionsByNameCalls gets all the calls that were made to GetDimensionsByName.
 // Check the length with:
-//     len(mockedCantabularClient.GetDimensionsByNameCalls())
+//
+//	len(mockedCantabularClient.GetDimensionsByNameCalls())
 func (mock *CantabularClientMock) GetDimensionsByNameCalls() []struct {
 	ContextMoqParam            context.Context
 	GetDimensionsByNameRequest cantabular.GetDimensionsByNameRequest

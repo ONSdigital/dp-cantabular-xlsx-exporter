@@ -16,28 +16,28 @@ var _ handler.DatasetAPIClient = &DatasetAPIClientMock{}
 
 // DatasetAPIClientMock is a mock implementation of handler.DatasetAPIClient.
 //
-// 	func TestSomethingThatUsesDatasetAPIClient(t *testing.T) {
+//	func TestSomethingThatUsesDatasetAPIClient(t *testing.T) {
 //
-// 		// make and configure a mocked handler.DatasetAPIClient
-// 		mockedDatasetAPIClient := &DatasetAPIClientMock{
-// 			GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error) {
-// 				panic("mock out the GetInstance method")
-// 			},
-// 			GetVersionMetadataSelectionFunc: func(contextMoqParam context.Context, getVersionMetadataSelectionInput dataset.GetVersionMetadataSelectionInput) (*dataset.Metadata, error) {
-// 				panic("mock out the GetVersionMetadataSelection method")
-// 			},
-// 			GetVersionsFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, downloadServiceAuthToken string, collectionID string, datasetID string, edition string, q *dataset.QueryParams) (dataset.VersionsList, error) {
-// 				panic("mock out the GetVersions method")
-// 			},
-// 			PutVersionFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, datasetID string, edition string, version string, m dataset.Version) error {
-// 				panic("mock out the PutVersion method")
-// 			},
-// 		}
+//		// make and configure a mocked handler.DatasetAPIClient
+//		mockedDatasetAPIClient := &DatasetAPIClientMock{
+//			GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error) {
+//				panic("mock out the GetInstance method")
+//			},
+//			GetVersionMetadataSelectionFunc: func(contextMoqParam context.Context, getVersionMetadataSelectionInput dataset.GetVersionMetadataSelectionInput) (*dataset.Metadata, error) {
+//				panic("mock out the GetVersionMetadataSelection method")
+//			},
+//			GetVersionsFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, downloadServiceAuthToken string, collectionID string, datasetID string, edition string, q *dataset.QueryParams) (dataset.VersionsList, error) {
+//				panic("mock out the GetVersions method")
+//			},
+//			PutVersionFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, datasetID string, edition string, version string, m dataset.Version) error {
+//				panic("mock out the PutVersion method")
+//			},
+//		}
 //
-// 		// use mockedDatasetAPIClient in code that requires handler.DatasetAPIClient
-// 		// and then make assertions.
+//		// use mockedDatasetAPIClient in code that requires handler.DatasetAPIClient
+//		// and then make assertions.
 //
-// 	}
+//	}
 type DatasetAPIClientMock struct {
 	// GetInstanceFunc mocks the GetInstance method.
 	GetInstanceFunc func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error)
@@ -148,7 +148,8 @@ func (mock *DatasetAPIClientMock) GetInstance(ctx context.Context, userAuthToken
 
 // GetInstanceCalls gets all the calls that were made to GetInstance.
 // Check the length with:
-//     len(mockedDatasetAPIClient.GetInstanceCalls())
+//
+//	len(mockedDatasetAPIClient.GetInstanceCalls())
 func (mock *DatasetAPIClientMock) GetInstanceCalls() []struct {
 	Ctx              context.Context
 	UserAuthToken    string
@@ -191,7 +192,8 @@ func (mock *DatasetAPIClientMock) GetVersionMetadataSelection(contextMoqParam co
 
 // GetVersionMetadataSelectionCalls gets all the calls that were made to GetVersionMetadataSelection.
 // Check the length with:
-//     len(mockedDatasetAPIClient.GetVersionMetadataSelectionCalls())
+//
+//	len(mockedDatasetAPIClient.GetVersionMetadataSelectionCalls())
 func (mock *DatasetAPIClientMock) GetVersionMetadataSelectionCalls() []struct {
 	ContextMoqParam                  context.Context
 	GetVersionMetadataSelectionInput dataset.GetVersionMetadataSelectionInput
@@ -238,7 +240,8 @@ func (mock *DatasetAPIClientMock) GetVersions(ctx context.Context, userAuthToken
 
 // GetVersionsCalls gets all the calls that were made to GetVersions.
 // Check the length with:
-//     len(mockedDatasetAPIClient.GetVersionsCalls())
+//
+//	len(mockedDatasetAPIClient.GetVersionsCalls())
 func (mock *DatasetAPIClientMock) GetVersionsCalls() []struct {
 	Ctx                      context.Context
 	UserAuthToken            string
@@ -297,7 +300,8 @@ func (mock *DatasetAPIClientMock) PutVersion(ctx context.Context, userAuthToken 
 
 // PutVersionCalls gets all the calls that were made to PutVersion.
 // Check the length with:
-//     len(mockedDatasetAPIClient.PutVersionCalls())
+//
+//	len(mockedDatasetAPIClient.PutVersionCalls())
 func (mock *DatasetAPIClientMock) PutVersionCalls() []struct {
 	Ctx              context.Context
 	UserAuthToken    string

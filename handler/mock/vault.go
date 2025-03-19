@@ -14,22 +14,22 @@ var _ handler.VaultClient = &VaultClientMock{}
 
 // VaultClientMock is a mock implementation of handler.VaultClient.
 //
-// 	func TestSomethingThatUsesVaultClient(t *testing.T) {
+//	func TestSomethingThatUsesVaultClient(t *testing.T) {
 //
-// 		// make and configure a mocked handler.VaultClient
-// 		mockedVaultClient := &VaultClientMock{
-// 			ReadKeyFunc: func(path string, key string) (string, error) {
-// 				panic("mock out the ReadKey method")
-// 			},
-// 			WriteKeyFunc: func(path string, key string, value string) error {
-// 				panic("mock out the WriteKey method")
-// 			},
-// 		}
+//		// make and configure a mocked handler.VaultClient
+//		mockedVaultClient := &VaultClientMock{
+//			ReadKeyFunc: func(path string, key string) (string, error) {
+//				panic("mock out the ReadKey method")
+//			},
+//			WriteKeyFunc: func(path string, key string, value string) error {
+//				panic("mock out the WriteKey method")
+//			},
+//		}
 //
-// 		// use mockedVaultClient in code that requires handler.VaultClient
-// 		// and then make assertions.
+//		// use mockedVaultClient in code that requires handler.VaultClient
+//		// and then make assertions.
 //
-// 	}
+//	}
 type VaultClientMock struct {
 	// ReadKeyFunc mocks the ReadKey method.
 	ReadKeyFunc func(path string, key string) (string, error)
@@ -80,7 +80,8 @@ func (mock *VaultClientMock) ReadKey(path string, key string) (string, error) {
 
 // ReadKeyCalls gets all the calls that were made to ReadKey.
 // Check the length with:
-//     len(mockedVaultClient.ReadKeyCalls())
+//
+//	len(mockedVaultClient.ReadKeyCalls())
 func (mock *VaultClientMock) ReadKeyCalls() []struct {
 	Path string
 	Key  string
@@ -117,7 +118,8 @@ func (mock *VaultClientMock) WriteKey(path string, key string, value string) err
 
 // WriteKeyCalls gets all the calls that were made to WriteKey.
 // Check the length with:
-//     len(mockedVaultClient.WriteKeyCalls())
+//
+//	len(mockedVaultClient.WriteKeyCalls())
 func (mock *VaultClientMock) WriteKeyCalls() []struct {
 	Path  string
 	Key   string
