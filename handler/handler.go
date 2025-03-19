@@ -514,7 +514,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 	if isPublished {
 		log.Info(ctx, "uploading published file to S3", logData)
 
-		// We use UploadWithContext because when processing an Excel file that is
+		// We use Upload because when processing an Excel file that is
 		// nearly 1million lines it has been seen to take over 45 seconds and if nomad has instructed a service
 		// to shut down gracefully before installing a new version of this app, then this could cause problems.
 		result, err := h.s3Public.Upload(ctx, &s3.PutObjectInput{
@@ -524,7 +524,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 		})
 		if err != nil {
 			return "", NewError(
-				errors.Wrap(err, "UploadWithContext failed to upload published file to S3"),
+				errors.Wrap(err, "Upload failed to upload published file to S3"),
 				logData,
 			)
 		}
