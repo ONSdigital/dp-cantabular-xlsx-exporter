@@ -108,7 +108,7 @@ var GetS3Clients = func(ctx context.Context, cfg *config.Config) (privateClient,
 			o.UsePathStyle = true
 		})
 
-		publicClient = dps3.NewClientWithConfig(cfg.PrivateBucketName, awsConfig, func(o *s3.Options) {
+		publicClient = dps3.NewClientWithConfig(cfg.PublicBucketName, awsConfig, func(o *s3.Options) {
 			o.BaseEndpoint = aws.String(cfg.LocalObjectStore)
 			o.UsePathStyle = true
 		})
