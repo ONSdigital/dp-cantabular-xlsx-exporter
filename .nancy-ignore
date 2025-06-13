@@ -1,1 +1,2 @@
 CVE-2024-2660 # No upgrade path for github.com/hashicorp/vault/api  - https://ossindex.sonatype.org/vulnerability/CVE-2024-2660
+CVE-2025-4673 # Ignored due to golang.org/x/net v0.41.0 being the latest release
