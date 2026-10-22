@@ -63,30 +63,30 @@ func (h *XlsxCreate) GetFilterDimensions(ctx context.Context, filterOutput filte
 // and places them into the metadata sheet of the in-memory excelize library structure
 //
 //nolint:gocognit,gocyclo // cognitive and cyclomatic complexity too high // acceptable for now
-func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated) error {
+func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, csvEvent *event.CantabularCsvCreated) error {
 	var err error
 
 	logData := log.Data{
-		"event": event,
+		logKeyEvent: csvEvent,
 	}
 
 	req := dataset.GetVersionMetadataSelectionInput{
 		UserAuthToken:    "",
 		ServiceAuthToken: h.cfg.ServiceAuthToken,
 		CollectionID:     "",
-		DatasetID:        event.DatasetID,
-		Edition:          event.Edition,
-		Version:          event.Version,
-		Dimensions:       event.Dimensions,
+		DatasetID:        csvEvent.DatasetID,
+		Edition:          csvEvent.Edition,
+		Version:          csvEvent.Version,
+		Dimensions:       csvEvent.Dimensions,
 	}
 
-	isFilterJob := event.FilterOutputID != ""
+	isFilterJob := csvEvent.FilterOutputID != ""
 	var meta *dataset.Metadata
 	var filterOutput filter.Model
 	var isCustom bool
 
 	if isFilterJob {
-		filterOutput, err = h.filterClient.GetOutput(ctx, "", h.cfg.ServiceAuthToken, "", "", event.FilterOutputID)
+		filterOutput, err = h.filterClient.GetOutput(ctx, "", h.cfg.ServiceAuthToken, "", "", csvEvent.FilterOutputID)
 		if err != nil {
 			return errors.Wrap(err, "failed to get filter output")
 		}
@@ -231,7 +231,7 @@ func (h *XlsxCreate) AddMetaDataToExcelStructure(ctx context.Context, excelInMem
 
 	re := regexp.MustCompile("https?://([^/]+)")
 	if isCustom {
-		processMetaElement("Custom Dataset URL", h.cfg.ExternalPrefixURL+"/datasets/create/filter-outputs/"+event.FilterOutputID, true)
+		processMetaElement("Custom Dataset URL", h.cfg.ExternalPrefixURL+"/datasets/create/filter-outputs/"+csvEvent.FilterOutputID, true)
 	} else {
 		processMetaElement("Dataset Version URL", re.ReplaceAllString(meta.DatasetLinks.LatestVersion.URL, h.cfg.ExternalPrefixURL), true)
 	}
