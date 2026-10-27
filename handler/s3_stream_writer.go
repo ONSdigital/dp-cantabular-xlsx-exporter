@@ -12,7 +12,7 @@ import (
 )
 
 // StreamAndWrite decrypt and stream the request file writing the content to the provided io.Writer.
-func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, event *event.CantabularCsvCreated, w io.Writer, isPublished bool) (length int64, err error) {
+func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, csvEvent *event.CantabularCsvCreated, w io.Writer, isPublished bool) (length int64, err error) {
 	var s3ReadCloser io.ReadCloser
 	var lengthPtr *int64
 
@@ -22,7 +22,7 @@ func (h *XlsxCreate) StreamAndWrite(ctx context.Context, filenameCsv string, eve
 			return 0, errors.Wrap(err, "failed in Published Get")
 		}
 	} else {
-		psk, err := h.GetVaultKeyForCSVFile(event)
+		psk, err := h.GetVaultKeyForCSVFile(csvEvent)
 		if err != nil {
 			return 0, errors.Wrap(err, "failed in getVaultKeyForCSVFile")
 		}
@@ -53,11 +53,11 @@ func closeAndLogError(ctx context.Context, closer io.Closer) {
 	}
 }
 
-func (h *XlsxCreate) GetVaultKeyForCSVFile(event *event.CantabularCsvCreated) ([]byte, error) {
-	if event == nil {
+func (h *XlsxCreate) GetVaultKeyForCSVFile(csvEvent *event.CantabularCsvCreated) ([]byte, error) {
+	if csvEvent == nil {
 		return nil, ErrorStack("nil event not allowed")
 	}
-	vaultPath := fmt.Sprintf("%s/%s", h.cfg.VaultPath, event.FileName)
+	vaultPath := fmt.Sprintf("%s/%s", h.cfg.VaultPath, csvEvent.FileName)
 
 	pskStr, err := h.vaultClient.ReadKey(vaultPath, "key")
 	if err != nil {

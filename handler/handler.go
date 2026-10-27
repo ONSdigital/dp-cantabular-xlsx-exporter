@@ -36,6 +36,10 @@ const (
 	maxSettableColumnWidths  = 500   // The maximum number of columns whose widths will be determined and set in Excel files whose source csv file has <= 'smallEnoughForFullFormat' lines. Apparently the max in the real dataset is 400, so we have a larger number just in case.
 	columNotSet              = -1    // Magic number indicating column width has no determined value
 	maxExcelizeColumnWidth   = 255   // Max column width that the excelize library will work with
+	logKeyEvent              = "event"
+	logKeyBucketName         = "bucketName"
+	logKeyIncomingCsvRow     = "incomingCsvRow"
+	logKeyFilenameCsv        = "filenameCsv"
 )
 
 // XlsxCreate is the handle for the CsvHandler event
@@ -82,7 +86,7 @@ func (h *XlsxCreate) Handle(ctx context.Context, workerID int, msg kafka.Message
 		}
 	}
 
-	logData := log.Data{"event": kafkaEvent}
+	logData := log.Data{logKeyEvent: kafkaEvent}
 	log.Info(ctx, "event received", logData)
 
 	if err := ValidateEvent(kafkaEvent); err != nil {
@@ -242,7 +246,7 @@ func (h *XlsxCreate) processEventIntoXlsxFileOnS3(ctx context.Context, kafkaEven
 // inserts it into the Excel "in memory structure"
 //
 //nolint:gocognit,gocyclo // cognitive and cyclomatic complexity too high // acceptable for now
-func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string, isPublished bool) error {
+func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemoryStructure *excelize.File, csvEvent *event.CantabularCsvCreated, doLargeSheet bool, efficientExcelAPIWriter *excelize.StreamWriter, sheet1 string, isPublished bool) error {
 	var bucketName string
 	var columnWidths [maxSettableColumnWidths]int
 
@@ -259,7 +263,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 		bucketName = h.s3Private.BucketName()
 	}
 
-	filenameCsv := generateS3FilenameCSV(event)
+	filenameCsv := generateS3FilenameCSV(csvEvent)
 
 	// Create an io.Pipe to have the ability to read what is written to a writer
 	csvReader, csvWriter := io.Pipe()
@@ -272,11 +276,11 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 	go func(ctx context.Context) {
 		defer wgDownload.Done()
 
-		numberOfBytesRead, err := h.StreamAndWrite(ctx, filenameCsv, event, csvWriter, isPublished)
+		numberOfBytesRead, err := h.StreamAndWrite(ctx, filenameCsv, csvEvent, csvWriter, isPublished)
 
 		if err != nil {
 			report := &Error{err: errors.Wrap(err, "StreamAndWrite failed"),
-				logData: log.Data{"err": err, "bucketName": bucketName, "filenameCsv": filenameCsv},
+				logData: log.Data{"err": err, logKeyBucketName: bucketName, logKeyFilenameCsv: filenameCsv},
 			}
 
 			if closeErr := csvWriter.CloseWithError(report); closeErr != nil {
@@ -322,14 +326,14 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 		columns, err := cr.Read()
 		if err != nil {
 			return &Error{err: errors.Wrapf(err, "error parsing csv row records/cells at row %d", incomingCsvRow),
-				logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv},
+				logData: log.Data{logKeyEvent: csvEvent, logKeyBucketName: bucketName, logKeyFilenameCsv: filenameCsv},
 			}
 		}
 
 		nofColumns := len(columns)
 		if nofColumns == 0 {
 			return &Error{err: errors.Wrapf(err, "downloaded .csv file has no columns at row %d", incomingCsvRow),
-				logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv},
+				logData: log.Data{logKeyEvent: csvEvent, logKeyBucketName: bucketName, logKeyFilenameCsv: filenameCsv},
 			}
 		}
 
@@ -368,24 +372,24 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 			cell, err := excelize.CoordinatesToCellName(1, outputRow)
 			if err != nil {
 				return &Error{err: err,
-					logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
+					logData: log.Data{logKeyEvent: csvEvent, logKeyBucketName: bucketName, logKeyFilenameCsv: filenameCsv, logKeyIncomingCsvRow: incomingCsvRow},
 				}
 			}
 			if err := efficientExcelAPIWriter.SetRow(cell, rowItemsWithStyle); err != nil {
 				return &Error{err: err,
-					logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
+					logData: log.Data{logKeyEvent: csvEvent, logKeyBucketName: bucketName, logKeyFilenameCsv: filenameCsv, logKeyIncomingCsvRow: incomingCsvRow},
 				}
 			}
 		} else {
 			addr, err := excelize.JoinCellName("A", outputRow)
 			if err != nil {
 				return &Error{err: errors.Wrap(err, "JoinCellName"),
-					logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
+					logData: log.Data{logKeyEvent: csvEvent, logKeyBucketName: bucketName, logKeyFilenameCsv: filenameCsv, logKeyIncomingCsvRow: incomingCsvRow},
 				}
 			}
 			if err := excelInMemoryStructure.SetSheetRow(sheet1, addr, &rowItemsWithStyle); err != nil {
 				return &Error{err: errors.Wrap(err, "SetSheetRow 2"),
-					logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
+					logData: log.Data{logKeyEvent: csvEvent, logKeyBucketName: bucketName, logKeyFilenameCsv: filenameCsv, logKeyIncomingCsvRow: incomingCsvRow},
 				}
 			}
 		}
@@ -393,7 +397,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 	}
 	if err := scanner.Err(); err != nil {
 		return &Error{err: errors.Wrap(err, "error whilst getting CSV row"),
-			logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv, "incomingCsvRow": incomingCsvRow},
+			logData: log.Data{logKeyEvent: csvEvent, logKeyBucketName: bucketName, logKeyFilenameCsv: filenameCsv, logKeyIncomingCsvRow: incomingCsvRow},
 		}
 	}
 
@@ -406,7 +410,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 		// Must now finish up the CSV excelize streamWriter calls before doing excelize API calls in building up metadata sheet:
 		if err := efficientExcelAPIWriter.Flush(); err != nil {
 			return &Error{err: err,
-				logData: log.Data{"event": event, "bucketName": bucketName, "filenameCsv": filenameCsv},
+				logData: log.Data{logKeyEvent: csvEvent, logKeyBucketName: bucketName, logKeyFilenameCsv: filenameCsv},
 			}
 		}
 	} else {
@@ -436,7 +440,7 @@ func (h *XlsxCreate) GetCSVtoExcelStructure(ctx context.Context, excelInMemorySt
 // SaveExcelStructureToExcelFile uses the excelize library Write function to effectively write out the Excel
 // "in memory structure" to a stream that is then streamed directly into a file in S3 bucket.
 // returns s3Location (path) or Error
-func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, event *event.CantabularCsvCreated, isPublished bool) (s3Path, filenameXlsx string, err error) {
+func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInMemoryStructure *excelize.File, csvEvent *event.CantabularCsvCreated, isPublished bool) (s3Path, filenameXlsx string, err error) {
 	var bucketName string
 	if isPublished {
 		bucketName = h.s3Public.BucketName()
@@ -444,7 +448,7 @@ func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInM
 		bucketName = h.s3Private.BucketName()
 	}
 
-	filenameXlsx = generateS3FilenameXLSX(event)
+	filenameXlsx = generateS3FilenameXLSX(csvEvent)
 	xlsxReader, xlsxWriter := io.Pipe()
 
 	wgUpload := sync.WaitGroup{}
@@ -455,7 +459,7 @@ func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInM
 		// Write the 'in memory' spreadsheet to the given io.writer
 		if err := excelInMemoryStructure.Write(xlsxWriter); err != nil {
 			report := &Error{err: err,
-				logData: log.Data{"err": err, "bucketName": bucketName, "filenameXlsx": filenameXlsx},
+				logData: log.Data{"err": err, logKeyBucketName: bucketName, "filenameXlsx": filenameXlsx},
 			}
 
 			if closeErr := xlsxWriter.CloseWithError(report); closeErr != nil {
@@ -471,7 +475,7 @@ func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInM
 	}()
 
 	// Use the Upload function to read from the io.Pipe() Writer:
-	s3Path, err = h.UploadXLSXFile(ctx, event, xlsxReader, isPublished, bucketName, filenameXlsx)
+	s3Path, err = h.UploadXLSXFile(ctx, csvEvent, xlsxReader, isPublished, bucketName, filenameXlsx)
 	if err != nil {
 		if closeErr := xlsxWriter.Close(); closeErr != nil {
 			log.Error(ctx, "error closing upload writer", closeErr)
@@ -480,7 +484,7 @@ func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInM
 		return "", "", &Error{err: errors.Wrap(err, "failed to upload .xlsx file to S3 bucket"),
 			logData: log.Data{
 				"bucket":      bucketName,
-				"instance_id": event.InstanceID,
+				"instance_id": csvEvent.InstanceID,
 			},
 		}
 	}
@@ -495,8 +499,8 @@ func (h *XlsxCreate) SaveExcelStructureToExcelFile(ctx context.Context, excelInM
 
 // UploadXLSXFile uploads the provided file content to AWS S3
 // returns s3Location (path) or Error
-func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.CantabularCsvCreated, file io.Reader, isPublished bool, bucketName, filename string) (string, error) {
-	if event.InstanceID == "" {
+func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, csvEvent *event.CantabularCsvCreated, file io.Reader, isPublished bool, bucketName, filename string) (string, error) {
+	if csvEvent.InstanceID == "" {
 		return "", errors.New("empty instance id not allowed")
 	}
 	if file == nil {
@@ -539,7 +543,7 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 			)
 		}
 
-		vaultPath := fmt.Sprintf("%s/%s-%s-%s.xlsx", h.cfg.VaultPath, event.DatasetID, event.Edition, event.Version)
+		vaultPath := fmt.Sprintf("%s/%s-%s-%s.xlsx", h.cfg.VaultPath, csvEvent.DatasetID, csvEvent.Edition, csvEvent.Version)
 		vaultKey := "key"
 
 		log.Info(ctx, "writing key to vault", log.Data{"vault_path": vaultPath})
@@ -578,8 +582,8 @@ func (h *XlsxCreate) UploadXLSXFile(ctx context.Context, event *event.Cantabular
 }
 
 // GetS3ContentLength obtains an S3 file size (in number of bytes) by calling Head Object
-func (h *XlsxCreate) GetS3ContentLength(ctx context.Context, event *event.CantabularCsvCreated, isPublished bool) (int, error) {
-	filename := generateS3FilenameXLSX(event)
+func (h *XlsxCreate) GetS3ContentLength(ctx context.Context, csvEvent *event.CantabularCsvCreated, isPublished bool) (int, error) {
+	filename := generateS3FilenameXLSX(csvEvent)
 	if isPublished {
 		headOutput, err := h.s3Public.Head(ctx, filename)
 		if err != nil {
@@ -641,14 +645,14 @@ func (h *XlsxCreate) UpdateFilterOutput(ctx context.Context, filterOutputID stri
 // UpdateInstance updates the instance download CSV link using dataset API PUT /instances/{id} endpoint
 // if the instance is published, then the s3Url will be set as public link and the instance state will be set to published
 // otherwise, a private url will be generated and the state will not be changed
-func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.CantabularCsvCreated, size int, isPublished bool, s3Url, filename string) error {
+func (h *XlsxCreate) UpdateInstance(ctx context.Context, csvEvent *event.CantabularCsvCreated, size int, isPublished bool, s3Url, filename string) error {
 	xlsxDownload := &dataset.Download{
 		Size: strconv.Itoa(size),
 		URL: fmt.Sprintf("%s/downloads/datasets/%s/editions/%s/versions/%s.xlsx",
 			h.cfg.DownloadServiceURL,
-			event.DatasetID,
-			event.Edition,
-			event.Version,
+			csvEvent.DatasetID,
+			csvEvent.Edition,
+			csvEvent.Version,
 		),
 	}
 
@@ -677,9 +681,9 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 		"",
 		h.cfg.ServiceAuthToken,
 		"",
-		event.DatasetID,
-		event.Edition,
-		event.Version,
+		csvEvent.DatasetID,
+		csvEvent.Edition,
+		csvEvent.Version,
 		versionUpdate,
 	)
 	if err != nil {
@@ -689,10 +693,10 @@ func (h *XlsxCreate) UpdateInstance(ctx context.Context, event *event.Cantabular
 	return nil
 }
 
-func generateS3FilenameCSV(event *event.CantabularCsvCreated) string {
-	return fmt.Sprintf("datasets/%s", event.FileName)
+func generateS3FilenameCSV(csvEvent *event.CantabularCsvCreated) string {
+	return fmt.Sprintf("datasets/%s", csvEvent.FileName)
 }
 
-func generateS3FilenameXLSX(event *event.CantabularCsvCreated) string {
-	return fmt.Sprintf("datasets/%s", strings.Replace(event.FileName, ".csv", ".xlsx", 1))
+func generateS3FilenameXLSX(csvEvent *event.CantabularCsvCreated) string {
+	return fmt.Sprintf("datasets/%s", strings.Replace(csvEvent.FileName, ".csv", ".xlsx", 1))
 }

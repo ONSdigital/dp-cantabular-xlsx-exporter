@@ -5,11 +5,14 @@ platform: linux
 image_resource:
   type: docker-image
   source:
-    repository: golang
-    tag: 1.24.6-bullseye
+    repository: onsdigital/dp-concourse-tools-lint-go
+    tag: 1.27.3-bookworm-golangci-lint-2
 
 inputs:
   - name: dp-cantabular-xlsx-exporter
+
+caches:
+  - path: go/
 
 run:
   path: dp-cantabular-xlsx-exporter/ci/scripts/lint.sh

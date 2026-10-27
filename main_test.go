@@ -5,6 +5,7 @@ import (
 	"flag"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"testing"
 
@@ -29,8 +30,15 @@ type ComponentTest struct {
 }
 
 func (f *ComponentTest) InitializeScenario(ctx *godog.ScenarioContext) {
-	mongoAddr := f.MongoFeature.Server.URI()
-	component := steps.NewComponent(mongoAddr)
+	mongoURI, err := f.MongoFeature.Server.ConnectionString(context.Background())
+	if err != nil {
+		log.Panicf("unable to get mongo connection string: %s", err)
+	}
+	u, err := url.Parse(mongoURI)
+	if err != nil {
+		log.Panicf("unable to parse mongo connection string %q: %s", mongoURI, err)
+	}
+	component := steps.NewComponent(u.Host)
 
 	ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
 		if err := component.Reset(); err != nil {

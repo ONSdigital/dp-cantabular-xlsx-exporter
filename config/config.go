@@ -8,7 +8,11 @@ import (
 )
 
 // KafkaTLSProtocolFlag informs service to use TLS protocol for kafka
-const KafkaTLSProtocolFlag = "TLS"
+const (
+	KafkaTLSProtocolFlag = "TLS"
+	filtersCollection    = "filters"
+	filtersDatabase      = "filters"
+)
 
 // Config represents service configuration for dp-cantabular-xlsx-exporter
 type Config struct {
@@ -84,7 +88,7 @@ func Get() (*Config, error) {
 		FilterAPIURL:               "http://localhost:22100",
 		PopulationTypesAPIURL:      "http://localhost:27300",
 		ExternalPrefixURL:          "http://localhost:22000",
-		FiltersCollection:          "filters",
+		FiltersCollection:          filtersCollection,
 		FilterOutputsCollection:    "filterOutputs",
 		DownloadServiceURL:         "http://localhost:23600",
 		AWSRegion:                  "eu-west-1",
@@ -123,9 +127,9 @@ func Get() (*Config, error) {
 			ClusterEndpoint: "localhost:27017",
 			Username:        "",
 			Password:        "",
-			Database:        "filters",
+			Database:        filtersDatabase,
 			Collections: map[string]string{
-				"filters":       "filters",
+				"filters":       filtersCollection,
 				"filterOutputs": "filterOutputs",
 			},
 			ReplicaSet:                    "",
